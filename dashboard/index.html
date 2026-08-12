@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReadyExpress &mdash; Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v8">
+</head>
+<body>
+
+<div class="barra-superior">
+  <div class="logo-barra">Ready<span>Express</span></div>
+  <div class="acciones-barra">
+    <button class="boton-sesion" id="boton-cerrar-sesion" type="button" hidden>Salir</button>
+    <div class="estado-api">
+      <span class="punto-estado" id="punto-estado"></span>
+      <span id="texto-estado">conectando...</span>
+    </div>
+  </div>
+</div>
+
+<nav class="navegacion">
+  <button class="pestana-nav activa" id="pestana-pagos" data-pestana="pagos">
+    Pagos <span class="contador" id="contador-pagos">0</span>
+  </button>
+  <button class="pestana-nav" id="pestana-ordenes" data-pestana="ordenes">
+    Ordenes <span class="contador" id="contador-ordenes">0</span>
+  </button>
+  <button class="pestana-nav" id="pestana-productos" data-pestana="productos">
+    Productos
+  </button>
+  <button class="pestana-nav" id="pestana-configuracion" data-pestana="configuracion">
+    Config
+  </button>
+</nav>
+
+<main class="contenido-principal">
+
+  <!-- Estadisticas -->
+  <div class="grilla-estadisticas" id="grilla-estadisticas">
+    <div class="tarjeta-estadistica">
+      <div class="etiqueta-estadistica">Pendientes</div>
+      <div class="valor-estadistica destacado" id="estadistica-pendientes">&mdash;</div>
+      <div class="detalle-estadistica">por revisar</div>
+    </div>
+    <div class="tarjeta-estadistica">
+      <div class="etiqueta-estadistica">Aprobados</div>
+      <div class="valor-estadistica" id="estadistica-aprobados">&mdash;</div>
+      <div class="detalle-estadistica">pagos</div>
+    </div>
+    <div class="tarjeta-estadistica">
+      <div class="etiqueta-estadistica">Ordenes</div>
+      <div class="valor-estadistica" id="estadistica-ordenes">&mdash;</div>
+      <div class="detalle-estadistica">total</div>
+    </div>
+    <div class="tarjeta-estadistica">
+      <div class="etiqueta-estadistica">Recaudado</div>
+      <div class="valor-estadistica" id="estadistica-recaudado">&mdash;</div>
+      <div class="detalle-estadistica">USD aprobado</div>
+    </div>
+  </div>
+
+  <!-- Pestana pagos -->
+  <div class="contenido-pestana activa" id="contenido-pagos">
+    <div class="encabezado-seccion">
+      <div class="titulo-seccion">Comprobantes pendientes</div>
+      <button class="boton-actualizar" id="boton-actualizar-pagos">Actualizar</button>
+    </div>
+    <div class="lista-tarjetas" id="lista-pagos">
+      <div class="cargando">Cargando pagos...</div>
+    </div>
+  </div>
+
+  <!-- Pestana ordenes -->
+  <div class="contenido-pestana" id="contenido-ordenes">
+    <div class="encabezado-seccion">
+      <div class="titulo-seccion">Todas las ordenes</div>
+      <button class="boton-actualizar" id="boton-actualizar-ordenes">Actualizar</button>
+    </div>
+    <div class="lista-tarjetas" id="lista-ordenes">
+      <div class="cargando">Cargando ordenes...</div>
+    </div>
+  </div>
+
+  <!-- Pestana productos -->
+  <div class="contenido-pestana" id="contenido-productos">
+    <div class="encabezado-seccion">
+      <div class="titulo-seccion">Catalogo</div>
+      <button class="boton-actualizar" id="boton-actualizar-productos">Actualizar</button>
+    </div>
+
+    <div class="subtabs-productos">
+      <button class="subtab-prod activa" data-subtab-prod="combos">Food Combos</button>
+      <button class="subtab-prod" data-subtab-prod="productos">Productos</button>
+      <button class="subtab-prod" data-subtab-prod="electro">Electrodomésticos</button>
+    </div>
+
+    <div id="subtab-prod-combos" class="subtab-prod-content">
+      <div class="barra-productos">
+        <button class="boton-anadir" type="button" data-section="combos">+ Añadir combo</button>
+      </div>
+      <div class="lista-tarjetas" id="lista-combos-comida"><div class="cargando">Cargando...</div></div>
+    </div>
+    <div id="subtab-prod-productos" class="subtab-prod-content subtab-prod-oculto">
+      <div class="barra-productos">
+        <button class="boton-anadir" type="button" data-section="productos">+ Añadir producto</button>
+      </div>
+      <div class="lista-tarjetas" id="lista-productos"><div class="cargando">Cargando...</div></div>
+    </div>
+    <div id="subtab-prod-electro" class="subtab-prod-content subtab-prod-oculto">
+      <div class="barra-productos">
+        <button class="boton-anadir" type="button" data-section="electro">+ Añadir electrodomestico</button>
+      </div>
+      <div class="lista-tarjetas" id="lista-electro"><div class="cargando">Cargando...</div></div>
+    </div>
+  </div>
+
+  <!-- Pestana configuracion -->
+  <div class="contenido-pestana" id="contenido-configuracion">
+    <div class="tarjeta-configuracion">
+      <div class="etiqueta-configuracion">URL del Backend</div>
+      <input class="entrada-configuracion" type="text" id="entrada-url-api" placeholder="https://readyexpressnowbackend.versabold.com">
+    </div>
+    <button class="boton-guardar" id="boton-guardar-configuracion">Guardar configuracion</button>
+
+    <div class="divisor"></div>
+
+    <div class="encabezado-seccion">
+      <div class="titulo-seccion">Categorias disponibles de productos</div>
+    </div>
+    <div class="tarjeta-configuracion">
+      <div class="categorias-config" id="config-categorias-productos">
+        <span class="etiqueta categoria-vacia">Sin categorias cargadas</span>
+      </div>
+    </div>
+
+    <div class="divisor"></div>
+
+    <div class="encabezado-seccion">
+      <div class="titulo-seccion">Diagnostico API</div>
+      <button class="boton-actualizar" id="boton-probar-api">Probar conexion</button>
+    </div>
+    <div class="tarjeta-configuracion">
+      <div class="api-log" id="api-log">
+        <div class="fila-log-api">Sin eventos todavia</div>
+      </div>
+    </div>
+
+    <div class="divisor"></div>
+
+    <div class="encabezado-seccion">
+      <div class="titulo-seccion">Métodos de Pago</div>
+      <button class="boton-actualizar" id="boton-actualizar-metodos">Actualizar</button>
+    </div>
+    <div class="tarjeta-configuracion">
+      <div class="lista-tarjetas" id="lista-metodos-pago">
+        <div class="cargando">Cargando métodos de pago...</div>
+      </div>
+    </div>
+    <button class="boton-anadir" id="boton-anadir-metodo" style="margin-top: 12px;">+ Añadir método de pago</button>
+
+    <div class="divisor"></div>
+
+    <!-- Modal para crear/editar método de pago -->
+    <div class="modal-formulario" id="modal-metodo-pago" hidden>
+      <div class="contenido-modal">
+        <div class="encabezado-modal">
+          <h3 id="titulo-modal-metodo">Nuevo método de pago</h3>
+          <button class="boton-cerrar-modal" id="cerrar-modal-metodo">&times;</button>
+        </div>
+        <form id="formulario-metodo-pago" class="formulario-config">
+          <input type="hidden" id="metodo-id">
+
+          <label>
+            Nombre del método (Zelle, TocoPay, etc)
+            <input type="text" id="metodo-nombre" placeholder="Ej: TocoPay" required>
+          </label>
+
+          <label>
+            Número de cuenta / Email / Teléfono
+            <input type="text" id="metodo-cuenta" placeholder="Ej: 9760 0390 0050 7532 o usuario@email.com">
+          </label>
+
+          <label>
+            Instrucciones
+            <textarea id="metodo-instrucciones" placeholder="Instrucciones de pago..." rows="4" required></textarea>
+          </label>
+
+          <label>
+            URL de imagen
+            <input type="url" id="metodo-imagen" placeholder="Ej: https://...">
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="metodo-activo" checked>
+            Activo
+          </label>
+
+          <div style="display: flex; gap: 12px;">
+            <button type="submit" class="boton-guardar">Guardar</button>
+            <button type="button" class="boton-cancelar" id="cancelar-modal-metodo">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="divisor"></div>
+
+    <div class="encabezado-seccion">
+      <div class="titulo-seccion">Estado del servidor</div>
+    </div>
+    <div class="tarjeta-configuracion">
+      <div class="fila-info">
+        <span class="clave-info">URL activa</span>
+        <span class="valor-info" id="config-url-activa">&mdash;</span>
+      </div>
+      <div class="fila-info">
+        <span class="clave-info">Ultima sync</span>
+        <span class="valor-info" id="config-ultima-sync">&mdash;</span>
+      </div>
+      <div class="fila-info">
+        <span class="clave-info">Estado</span>
+        <span class="valor-info" id="config-estado">&mdash;</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<section class="pantalla-login" id="pantalla-login" hidden>
+  <form class="panel-login" id="formulario-login">
+    <div>
+      <p class="etiqueta-login">ReadyExpress Admin</p>
+      <h1>Acceso seguro</h1>
+    </div>
+    <label>
+      Email
+      <input class="entrada-configuracion" name="email" type="email" autocomplete="username" required>
+    </label>
+    <label>
+      Contraseña
+      <input class="entrada-configuracion" name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <p class="error-login" id="error-login"></p>
+    <button class="boton-guardar" type="submit">Entrar</button>
+  </form>
+</section>
+
+<div class="aviso" id="aviso"></div>
+
+<script type="module" src="dashboard.js?v10"></script>
+</body>
+</html>

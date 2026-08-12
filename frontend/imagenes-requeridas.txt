@@ -1,0 +1,106 @@
+============================================================
+  READY EXPRESS NOW — GUÍA DE IMÁGENES REQUERIDAS
+============================================================
+
+Todas las imágenes deben guardarse en la carpeta: frontend/images/
+
+------------------------------------------------------------
+1. LOGO
+------------------------------------------------------------
+Archivo    : logo.png
+Uso        : Navbar, footer, favicon
+Formato    : PNG con fondo transparente (recomendado)
+Tamaño     : Entre 200x200 px y 500x500 px
+Descripción: El logo oficial de Ready Express Now
+             (el que me mostraste con el camión naranja).
+             Exportar en alta resolución con fondo transparente.
+
+------------------------------------------------------------
+2. IMAGEN PRINCIPAL DEL HERO
+------------------------------------------------------------
+Archivo    : hero-main.jpg
+Uso        : Sección principal (lado derecho del hero)
+Formato    : JPG o WebP
+Tamaño     : 800x600 px mínimo (ratio 4:3 o 16:9)
+Descripción: Foto atractiva que represente el negocio.
+             Ideas:
+             - Foto de los productos más populares bien presentados
+             - Foto del equipo de entrega con el vehículo
+             - Collage de combos de comida y electrodomésticos
+             - Imagen de un pedido siendo entregado
+             Estilo: Colores cálidos, bien iluminada, profesional.
+
+------------------------------------------------------------
+3. IMAGEN DE FONDO DEL HERO (opcional, sutil)
+------------------------------------------------------------
+Archivo    : hero-bg.jpg
+Uso        : Fondo del hero (opacidad 18%, solo textura)
+Formato    : JPG
+Tamaño     : 1920x1080 px (full HD)
+Descripción: Imagen de fondo que se verá muy sutil detrás
+             del texto del hero. Puede ser:
+             - Textura de madera o superficie neutra
+             - Patrón geométrico
+             - Foto de ciudad/barrio difuminada
+             - Fondo oscuro con patrón sutil
+             No debe distraer del texto.
+
+------------------------------------------------------------
+4. IMÁGENES DE PRODUCTOS (por cada producto en Supabase)
+------------------------------------------------------------
+Ubicación  : Sube la URL directamente en la columna
+             'imagen', 'imagen_url' o 'image_url'
+             de cada tabla en Supabase (no van en esta carpeta).
+
+Formato    : JPG o WebP
+Tamaño     : 600x600 px (cuadrada, ratio 1:1)
+Descripción: Una foto clara de cada producto sobre fondo
+             blanco o neutro.
+
+  • food_combos   : Foto del combo de comida completo
+                    (platos, empaques, presentación)
+  • Productos     : Foto del producto sobre fondo blanco
+  • Electrodomesticos: Foto del electrodoméstico completo,
+                    ángulo frontal, bien iluminado
+
+Recomendación: Fondo blanco o gris claro, sin sombras duras.
+Si no tienes foto propia, el sistema mostrará un ícono 📦
+con el texto "Imagen próximamente".
+
+------------------------------------------------------------
+5. FAVICONS (opcionales pero recomendados)
+------------------------------------------------------------
+Archivo    : favicon.ico (o usar logo.png)
+Uso        : Icono en la pestaña del navegador
+Tamaño     : 32x32 px o 16x16 px
+Descripción: Versión pequeña del logo. Puede ser solo el
+             camión o las iniciales "REN".
+
+============================================================
+RESUMEN RÁPIDO — ARCHIVOS A COLOCAR EN /images/
+============================================================
+
+  images/
+  ├── logo.png          ← OBLIGATORIO (logo con fondo transparente)
+  ├── hero-main.jpg     ← OBLIGATORIO (foto del negocio/productos)
+  └── hero-bg.jpg       ← OPCIONAL  (textura de fondo del hero)
+
+Las fotos de productos individuales van en Supabase Storage
+o en la columna de URL de imagen de cada tabla.
+
+============================================================
+CONSEJOS DE OPTIMIZACIÓN
+============================================================
+
+• Comprimir imágenes antes de subir:
+  - Usa https://squoosh.app (gratis, en el navegador)
+  - logo.png       → máx. 100 KB
+  - hero-main.jpg  → máx. 300 KB
+  - hero-bg.jpg    → máx. 200 KB
+  - Productos      → máx. 150 KB cada una
+
+• Formato WebP es más liviano que JPG (mismo visual).
+• Las imágenes de productos en Supabase las sirve el CDN
+  de Supabase, así que no afectan la velocidad del frontend.
+
+============================================================

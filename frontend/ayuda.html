@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Guía de ayuda para pagar pedidos de Ready Express Now con Zelle o Tocopay y enviar correctamente la captura del comprobante de pago." />
+  <title>Ayuda de pago - Ready Express Now</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="./css/styles.css?v9" />
+  <link rel="icon" type="image/png" href="./images/logo.png" />
+</head>
+<body class="help-page">
+
+  <!-- Skip Link -->
+  <a href="#main" class="skip-link">Ir al contenido principal</a>
+
+  <nav class="navbar">
+    <a class="navbar-logo" href="./index.html" aria-label="Ready Express Now">
+      <img src="./images/logo.png" alt="Ready Express Now" onerror="this.style.display='none'">
+      <span class="navbar-logo-text">Ready Express Now</span>
+    </a>
+    <div class="navbar-links">
+      <a href="./index.html#combos">Combos</a>
+      <a href="./index.html#alimentos">Arma tu pedido</a>
+      <a href="./index.html#como-funciona">¿Cómo funciona?</a>
+      <a href="./ayuda.html">Ayuda de pago</a>
+      <a href="./index.html#contacto">Contacto</a>
+    </div>
+    <div class="navbar-actions">
+      <a href="./index.html#combos" class="cart-btn">Volver a la tienda</a>
+      <button class="menu-btn" id="menu-btn" aria-label="Menú">☰</button>
+    </div>
+  </nav>
+
+  <nav class="mobile-nav" id="mobile-nav">
+    <a href="./index.html#combos">Combos</a>
+    <a href="./index.html#alimentos">Arma tu pedido</a>
+    <a href="./index.html#como-funciona">¿Cómo funciona?</a>
+    <a href="./ayuda.html">Ayuda de pago</a>
+    <a href="./index.html#contacto">Contacto</a>
+  </nav>
+
+  <!-- Breadcrumbs -->
+  <div class="breadcrumb-nav">
+    <a href="./index.html">Inicio</a>
+    <span>/</span>
+    <span>Ayuda de pago</span>
+  </div>
+
+  <main id="main">
+    <section class="help-hero">
+      <div class="help-hero-inner">
+        <span class="section-tag">Guía sencilla</span>
+        <h1>¿Cómo pagar tu pedido y enviar el comprobante?</h1>
+        <p>
+          Esta página explica el flujo completo de la tienda: eliges los productos, confirmas los datos,
+          pagas por Zelle o Tocopay y subes una captura de pantalla para que podamos validar tu orden.
+        </p>
+        <div class="help-actions">
+          <a href="./index.html#combos" class="btn-primary">Empezar pedido</a>
+          <a href="#captura-comprobante" class="btn-secondary">Ver captura de comprobante</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="help-section">
+      <div class="help-grid">
+        <article class="help-panel help-panel-highlight">
+          <span class="help-kicker">Flujo de la tienda</span>
+          <h2>Antes de pagar</h2>
+          <ol class="help-steps">
+            <li>Elige combos o alimentos y agrégaros al carrito.</li>
+            <li>Abre el carrito y toca <strong>Proceder al Pago</strong>.</li>
+            <li>Completa los datos del remitente y de la persona que recibe en Cuba.</li>
+            <li>Confirma el pedido. La tienda te mostrará la pantalla para enviar el comprobante.</li>
+            <li>Selecciona el método de pago: <strong>Zelle</strong> o <strong>Tocopay</strong>.</li>
+          </ol>
+        </article>
+
+        <article class="help-panel" id="captura-comprobante">
+          <span class="help-kicker">Muy importante</span>
+          <h2>¿Por qué debes enviar una captura de pantalla?</h2>
+          <p>
+            La captura de pantalla es el comprobante que usamos para confirmar que el pago fue realizado.
+            Si no subes la captura, la orden puede quedar pendiente y tardar más en procesarse.
+          </p>
+          <ul class="help-checklist">
+            <li>Debe verse el monto pagado.</li>
+            <li>Debe verse la fecha o hora del pago.</li>
+            <li>Debe verse el nombre, correo, teléfono o referencia del destinatario.</li>
+            <li>La imagen debe estar clara, sin cortes y sin partes borrosas.</li>
+          </ul>
+          <p class="help-note">
+            En el modal de pago, toca el recuadro de comprobante y selecciona la captura desde tu teléfono o computadora.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Métodos de Pago Dinámicos -->
+    <section class="help-section">
+      <div class="help-section-header">
+        <span class="section-tag">Métodos de pago</span>
+        <h2>Opciones de pago disponibles</h2>
+      </div>
+      <div id="metodos-pago-ayuda" class="metodos-pago-grid">
+        <div class="cargando">Cargando métodos de pago...</div>
+      </div>
+    </section>
+
+    <section class="help-section help-section-muted">
+      <div class="help-section-header">
+        <span class="section-tag">Opción 1</span>
+        <h2>Pago con tarjeta en Tocopay para Tarjeta CLÁSICA</h2>
+        <p>Esta opción sirve para clientes que desean gestionar una Tarjeta CLÁSICA para Cuba usando Visa, Mastercard o tarjeta prepago internacional.</p>
+      </div>
+
+      <div class="help-timeline">
+        <article class="help-step-card">
+          <span>1</span>
+          <h3>Entra a Tocopay</h3>
+          <p>Visita <a href="https://www.tocopay.com/" target="_blank" rel="noopener">tocopay.com</a>. Crea tu cuenta o inicia sesión. La verificación de identidad normalmente se realiza una sola vez.</p>
+        </article>
+        <article class="help-step-card">
+          <span>2</span>
+          <h3>Agrega el beneficiario en Cuba</h3>
+          <p>Escribe nombre completo, provincia, municipio, dirección y teléfono de la persona que recibirá la tarjeta.</p>
+        </article>
+        <article class="help-step-card">
+          <span>3</span>
+          <h3>Elige Tarjeta CLÁSICA</h3>
+          <p>En el tipo de envío selecciona <strong>Tarjeta CLÁSICA</strong> y luego <strong>Solicitar nueva tarjeta</strong>.</p>
+        </article>
+        <article class="help-step-card">
+          <span>4</span>
+          <h3>Pon el monto</h3>
+          <p>Indica cuánto dinero deseas enviar. Ese dinero quedará cargado en la tarjeta cuando sea creada.</p>
+        </article>
+        <article class="help-step-card">
+          <span>5</span>
+          <h3>Paga con tu tarjeta</h3>
+          <p>Puedes usar Visa, Mastercard o tarjetas prepago internacionales habilitadas para pagos online y verificación de seguridad.</p>
+        </article>
+        <article class="help-step-card">
+          <span>6</span>
+          <h3>Guarda la confirmación</h3>
+          <p>Después del pago, Tocopay procesa la solicitud, crea la tarjeta y envía confirmación por correo. Toma una captura si necesitas enviarnos evidencia.</p>
+        </article>
+        <article class="help-step-card">
+          <span>7</span>
+          <h3>Recogida en Cuba</h3>
+          <p>La Habana puede tardar alrededor de 3 días hábiles. Otras provincias pueden tardar hasta 20 días hábiles. La persona debe ir a FINCIMEX con su identificación.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="help-section">
+      <div class="help-section-header">
+        <span class="section-tag">Opción 2</span>
+        <h2>Pago por Zelle desde Estados Unidos</h2>
+        <p>Esta opción es la más directa para muchos clientes en Estados Unidos. Te guiamos por WhatsApp y validamos la orden con la captura.</p>
+      </div>
+
+      <div class="help-grid">
+        <article class="help-panel">
+          <span class="help-kicker">WhatsApp</span>
+          <h3>1. Escribenos antes de pagar</h3>
+          <p>Envía nombre del remitente, nombre de quién recibe, monto a enviar y provincia en Cuba.</p>
+        </article>
+        <article class="help-panel">
+          <span class="help-kicker">Datos de pago</span>
+          <h3>2. Recibe los datos de Zelle</h3>
+          <p>Te enviaremos el correo o número asociado a Zelle, el monto exacto a pagar y un número de referencia.</p>
+        </article>
+        <article class="help-panel">
+          <span class="help-kicker">Banco</span>
+          <h3>3. Envía el pago desde tu banco</h3>
+          <p>Abre Zelle en la app de tu banco, selecciona enviar dinero, introduce el correo o teléfono recibido, escribe el monto y confirma.</p>
+        </article>
+        <article class="help-panel help-panel-highlight">
+          <span class="help-kicker">Comprobante</span>
+          <h3>4. Haz y sube la captura</h3>
+          <p>Después de pagar, toma una captura de pantalla del envío y súbela en la tienda. También puedes enviarla por WhatsApp para acelerar la confirmación.</p>
+        </article>
+      </div>
+
+      <div class="zelle-aviso">
+        <p class="zelle-aviso-titulo">📋 Importante al agregar el contacto en Zelle</p>
+        <ul>
+          <li>✅ Agrega el contacto exactamente con el nombre <strong>"Global Market Group"</strong></li>
+          <li>✅ Asegúrate de que el nombre esté escrito tal como aparece arriba</li>
+          <li>⚠️ No uses palabras como "remesa", "dinero para Cuba" ni ninguna descripción en el concepto</li>
+          <li>⚠️ Si el nombre o el concepto son diferentes, la transferencia podría no acreditarse correctamente</li>
+        </ul>
+        <p>Cualquier duda, <a href="https://wa.me/5358324155" target="_blank" rel="noopener">escríbenos por WhatsApp</a> antes de transferir — con gusto te ayudamos.</p>
+      </div>
+    </section>
+
+    <section class="help-section help-section-muted">
+      <div class="help-section-header">
+        <span class="section-tag">Resumen</span>
+        <h2>¿Qué pasa después de enviar el comprobante?</h2>
+      </div>
+      <div class="help-summary">
+        <div>
+          <strong>1. Revisamos el pago</strong>
+          <p>Comprobamos que el monto, la fecha y la referencia coincidan con tu orden.</p>
+        </div>
+        <div>
+          <strong>2. Procesamos la solicitud</strong>
+          <p>Tu pedido queda en cola para preparación, entrega o gestión de Tarjeta CLÁSICA.</p>
+        </div>
+        <div>
+          <strong>3. Te avisamos por WhatsApp</strong>
+          <p>Recibirás confirmación cuando el pago sea verificado y cuando el pedido avance.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="./images/logo.png" alt="Ready Express Now" onerror="this.style.display='none'">
+        <p>Envío de comida y ayuda familiar a Cuba con pago seguro y confirmación por WhatsApp.</p>
+      </div>
+      <div>
+        <h4>Navegación</h4>
+        <ul>
+          <li><a href="./index.html">Inicio</a></li>
+          <li><a href="./index.html#combos">Combos</a></li>
+          <li><a href="./index.html#alimentos">Arma tu pedido</a></li>
+          <li><a href="./ayuda.html">Ayuda de pago</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Pagos</h4>
+        <ul>
+          <li>Zelle desde Estados Unidos</li>
+          <li>Tocopay con tarjeta</li>
+          <li>Captura de comprobante obligatoria</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 Ready Express Now. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { cargarMetodosPago, renderMetodosEnAyuda } from './js/payment-methods.js?v9';
+
+    function initMobileNav() {
+      const menuBtn = document.getElementById('menu-btn');
+      const mobileNav = document.getElementById('mobile-nav');
+
+      if (menuBtn && mobileNav) {
+        menuBtn.addEventListener('click', () => {
+          const isOpen = mobileNav.classList.toggle('active');
+          menuBtn.setAttribute('aria-expanded', isOpen);
+        });
+
+        mobileNav.querySelectorAll('a').forEach(link => {
+          link.addEventListener('click', () => {
+            mobileNav.classList.remove('active');
+            menuBtn.setAttribute('aria-expanded', 'false');
+          });
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      initMobileNav();
+      await cargarMetodosPago();
+      renderMetodosEnAyuda(document.getElementById('metodos-pago-ayuda'));
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+</body>
+</html>

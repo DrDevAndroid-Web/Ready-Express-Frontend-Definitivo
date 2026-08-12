@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sube la captura de pantalla del comprobante de pago de tu pedido en Ready Express Now." />
+  <title>Enviar comprobante - Ready Express Now</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link rel="stylesheet" href="./css/styles.css?v9" />
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+</head>
+<body class="payment-page">
+
+  <!-- Skip Link -->
+  <a href="#main" class="skip-link">Ir al contenido principal</a>
+
+  <nav class="navbar">
+    <a class="navbar-logo" href="./index.html" aria-label="Ready Express Now">
+      <img src="./images/logo.png" alt="Ready Express Now" onerror="this.style.display='none'">
+      <span class="navbar-logo-text">Ready Express Now</span>
+    </a>
+    <div class="navbar-links">
+      <a href="./index.html#combos">Combos</a>
+      <a href="./index.html#alimentos">Arma tu pedido</a>
+      <a href="./ayuda.html#captura-comprobante">Ayuda de pago</a>
+      <a href="./index.html#contacto">Contacto</a>
+    </div>
+    <div class="navbar-actions">
+      <a href="./ayuda.html#captura-comprobante" class="payment-help-btn" aria-label="Ayuda importante sobre pagos y comprobantes">
+        <span>!</span>
+        Ayuda de pago
+      </a>
+    </div>
+  </nav>
+
+  <!-- Breadcrumbs -->
+  <div class="breadcrumb-nav">
+    <a href="./index.html">Inicio</a>
+    <span>/</span>
+    <span>Enviar comprobante</span>
+  </div>
+
+  <main id="main">
+    <section class="payment-page-hero">
+      <div class="payment-page-inner">
+        <span class="section-tag">Último paso</span>
+        <h1>Sube la captura de pantalla del pago</h1>
+        <p>
+          Tu pedido ya fue creado. Si saliste a pagar por Zelle o Tocopay, vuelve aqui y adjunta una captura clara del comprobante para poder confirmar la orden.
+        </p>
+      </div>
+    </section>
+
+    <section class="payment-page-section">
+      <div id="payment-empty-state" class="payment-empty-state" style="display:none">
+        <h2>No hay un pago pendiente en este navegador</h2>
+        <p>Si ya hiciste un pedido desde otro dispositivo, escribenos por WhatsApp y envia la captura del comprobante.</p>
+        <a href="./index.html#combos" class="btn-primary">Volver a la tienda</a>
+      </div>
+
+      <div id="payment-content" class="payment-page-card" style="display:none">
+        <div class="payment-info">
+          <div>
+            <span>Orden <strong id="payment-order-id" style="color:#000;font-size:1.3rem">#-</strong></span>
+            <br>
+            <span style="font-size:0.8rem;color:var(--gray)">Envia el monto exacto</span>
+          </div>
+          <strong id="payment-total" style="color:#000;font-size:2rem">$0.00</strong>
+        </div>
+
+        <div style="margin:20px 0;padding:16px;background:#f8f9fa;border-radius:8px;border-left:4px solid var(--primary)">
+          <small style="color:#666">Método de pago seleccionado</small>
+          <div style="font-weight:600;font-size:1.1rem;color:#000;margin-top:4px" id="selected-payment-method">-</div>
+        </div>
+
+        <form id="payment-form" novalidate>
+          <div class="payment-proof-note">
+            <strong>Importante:</strong> sube una captura de pantalla clara del comprobante.
+            Debe verse el monto, la fecha y la referencia del pago. Sin esa captura no podemos confirmar tu orden rapidamente.
+            <button type="button" class="btn-link" id="btn-ver-ejemplo" style="padding:0;border:none;background:none;color:#0066cc;text-decoration:underline;cursor:pointer;font-size:inherit;font-weight:500">Ver ejemplo de comprobante</button>
+          </div>
+
+          <!-- Accordion de ejemplo -->
+          <div id="accordion-ejemplo" class="accordion-ejemplo" style="display:none;margin:16px 0;padding:12px;background:#f0f7ff;border:1px solid #0066cc;border-radius:8px">
+            <img id="img-ejemplo-comprobante" src="" alt="Ejemplo de comprobante" style="max-width:100%;height:auto;border-radius:4px">
+          </div>
+          <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Subir comprobante">
+            <span>📎</span>
+            <p>Arrastra tu comprobante aqui</p>
+            <small>o haz clic para seleccionar JPG o PNG</small>
+          </div>
+          <img id="file-preview" src="" alt="Vista previa del comprobante">
+          <input type="file" id="payment-file" accept="image/*" style="display:none">
+          <p class="form-error" id="payment-error"></p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button type="submit" class="form-submit">Enviar Comprobante</button>
+            <button type="button" class="form-submit" id="btn-cancelar-pago" style="background-color:#dc3545">Cancelar</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="success-screen payment-success" id="success-screen">
+        <div class="success-inner">
+          <span class="success-icon">✓</span>
+          <h2>Comprobante enviado</h2>
+          <p>Recibimos tu captura de pantalla correctamente.</p>
+          <p class="order-ref">Orden <span id="success-order-ref">#-</span></p>
+          <div class="success-note">
+            Te avisaremos por WhatsApp cuando el pago sea verificado. El proceso normalmente toma entre <strong>15 – 30 minutos</strong>.
+          </div>
+          <button class="btn-primary" id="success-close" style="display:inline-block">Volver a la tienda</button>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="receipt-modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;visibility:hidden">
+        <div class="modal-content" style="background:white;padding:32px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 4px 12px rgba(0,0,0,0.15)">
+          <h2 style="margin:0 0 12px 0;font-size:1.5rem">¿Descargar recibo?</h2>
+          <p style="margin:0 0 24px 0;color:#666;font-size:0.95rem">Puedes descargar un PDF con los detalles de tu pedido y comprobante de pago.</p>
+          <div style="display:flex;gap:12px">
+            <button id="btn-descargar-recibo" class="btn-primary" style="flex:1">Descargar</button>
+            <button id="btn-omitir-recibo" class="btn-secondary" style="flex:1;background-color:#e9ecef;color:#333;border:1px solid #dee2e6">Omitir</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Ejemplo de Comprobante -->
+      <div class="modal-overlay" id="example-proof-modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1001;visibility:hidden;overflow-y:auto;padding:20px">
+        <div class="modal-content" style="background:white;padding:20px;border-radius:12px;max-width:400px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,0.25)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+            <h2 style="margin:0;font-size:1.3rem">Ejemplo de Comprobante</h2>
+            <button type="button" id="close-example-modal" style="background:none;border:none;font-size:1.8rem;cursor:pointer;color:#666">✕</button>
+          </div>
+          <p style="margin:0 0 16px 0;color:#666;font-size:0.9rem">Así debe verse tu comprobante de pago:</p>
+          <div style="text-align:center">
+            <img id="proof-example-1" src="" alt="Ejemplo de comprobante" style="width:100%;max-width:280px;height:auto;border:1px solid #e0e0e0;border-radius:6px">
+          </div>
+          <p style="margin:16px 0 0 0;padding:12px;background:#fff3cd;border-radius:6px;font-size:0.85rem;color:#856404">
+            <strong>Importante:</strong> Debe verse claramente el monto exacto, la fecha, y la referencia de transacción.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initPaymentPage } from "./js/payment.js?v9";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initPaymentPage();
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+﻿# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Variables de entorno
+.env
+.env.local
+
+# Archivos temporales
+*.tmp
+*.log

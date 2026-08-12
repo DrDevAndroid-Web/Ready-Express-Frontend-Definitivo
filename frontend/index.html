@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Envía comida a tu familia en Guantánamo desde el exterior. Combos de alimentos esenciales con entrega garantizada. Pagos seguros con Zelle o Tocopay." />
+  <meta name="keywords" content="envio comida Guantánamo, combos comida Cuba, envio alimentos Guantánamo, comida Cuba exterior" />
+  <title>Ready Express Now - Envío de Comida a Guantánamo</title>
+
+  <!-- Preconnect to Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Google Fonts: Lexend + Source Sans 3 -->
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="./css/styles.css?v11" />
+  <link rel="icon" type="image/png" href="./images/favicon.png" />
+</head>
+<body>
+
+  <!-- Skip Link (Accessibility) -->
+  <a href="#main" class="skip-link">Ir al contenido principal</a>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-logo">
+      <img src="./images/logo.png" alt="Ready Express Now" onerror="this.style.display='none'">
+      <span class="navbar-logo-text">Ready Express Now</span>
+    </div>
+    <div class="navbar-links">
+      <a href="#combos">Combos</a>
+      <a href="#alimentos">Arma tu pedido</a>
+      <a href="#productos-varios">Productos Varios</a>
+      <a href="#como-funciona">¿Cómo funciona?</a>
+      <a href="#faq">FAQ</a>
+      <a href="./quienes-somos.html">Quiénes somos</a>
+      <a href="#contacto">Contacto</a>
+    </div>
+    <div class="navbar-actions">
+      <a href="./ayuda.html" class="payment-help-btn" aria-label="Ayuda importante sobre pagos y comprobantes">
+        <span>!</span>
+        Ayuda de pago
+      </a>
+      <a href="https://wa.me/5358324155" class="navbar-wa-btn" aria-label="WhatsApp" target="_blank" rel="noopener">
+        <i class="fa-brands fa-whatsapp"></i>
+      </a>
+      <button class="cart-btn" id="cart-btn" aria-label="Ver carrito">
+        🛒 <span class="cart-label">Mi Carrito</span>
+        <span class="cart-badge" id="cart-badge">0</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile Nav -->
+  <nav class="mobile-nav" id="mobile-nav">
+    <form class="mobile-nav-search" id="mobile-nav-search-form" role="search">
+      <input
+        type="text"
+        id="mobile-nav-search"
+        class="mobile-nav-search-input"
+        placeholder="Buscar producto…"
+        autocomplete="off"
+        aria-label="Buscar productos"
+      >
+      <button type="submit" class="mobile-nav-search-btn" aria-label="Buscar">
+        <i class="fa fa-search"></i>
+      </button>
+    </form>
+    <a href="#combos">Combos</a>
+    <a href="#alimentos">Arma tu pedido</a>
+    <a href="#productos-varios">Productos Varios</a>
+    <a href="#como-funciona">¿Cómo funciona?</a>
+    <a href="./ayuda.html">Ayuda de pago</a>
+    <a href="#faq">FAQ</a>
+    <a href="#contacto">Contacto</a>
+    <hr style="margin:8px 0; border: none; border-top: 1px solid rgba(255,255,255,0.2);">
+    <a href="./terminos.html" style="font-size:0.9rem;">Términos y Condiciones</a>
+    <a href="./politica-privacidad.html" style="font-size:0.9rem;">Política de Privacidad</a>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" id="inicio">
+    <div class="hero-inner">
+      <div class="hero-content">
+        <h1>Envía comida a tu familia en Guantánamo<br><span>de forma rápida y segura</span></h1>
+        <p class="hero-desc">
+          Combos de alimentos esenciales con entrega garantizada.
+          Compra en minutos, sin complicaciones.
+        </p>
+        <div class="hero-actions">
+          <a href="#alimentos" class="btn-primary">Arma tu pedido ahora</a>
+          <a href="https://wa.me/5358324155?text=Hola%20ReadyExpressNow.%20Me%20interesa%20conocer%20los%20combos%20y%20productos%20disponibles.%20%C2%BFPodr%C3%ADan%20ayudarme%3F" class="btn-secondary" target="_blank" rel="noopener">
+            Hablar por WhatsApp
+          </a>
+        </div>
+        <div class="hero-stats">
+
+          <div class="hero-stat">
+            <strong>100%</strong>
+            <small>Pago seguro</small>
+          </div>
+          <div class="hero-stat">
+            <strong>Rápido</strong>
+            <small>Entrega garantizada</small>
+          </div>
+        </div>
+      </div>
+      <div class="hero-img">
+        <img src="./images/hero-main.jpg" alt="Envío de comida a Guantánamo"
+             onerror="this.parentElement.innerHTML='<div class=\"img-placeholder\"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trust Block -->
+  <section class="trust-block">
+    <div class="trust-inner">
+      <div id="carouselExampleAutoplaying" class="carousel slide trust-carousel" data-bs-ride="carousel">
+        <div class="carousel-inner">
+          <div class="carousel-item active">
+            <picture>
+              <source media="(min-width: 768px)" srcset="./images/carrusel-1-wide.png">
+              <img src="./images/carrusel-1-mobile.png" class="d-block w-100" alt="Ready Express Now - carrusel 1" loading="lazy">
+            </picture>
+            <div class="carousel-caption d-none d-md-block">
+              <h5>Combos listos para enviar</h5>
+              <p>Alimentos esenciales seleccionados para tu familia en Guantánamo</p>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <picture>
+              <source media="(min-width: 768px)" srcset="./images/carrusel-2-wide.png">
+              <img src="./images/carrusel-2-mobile.png" class="d-block w-100" alt="Ready Express Now - carrusel 2" loading="lazy">
+            </picture>
+            <div class="carousel-caption d-none d-md-block">
+              <h5>Pago 100% seguro</h5>
+              <p>Acepta Zelle y Tocopay desde cualquier parte del mundo</p>
+            </div>
+          </div>
+          <div class="carousel-item">
+            <picture>
+              <source media="(min-width: 768px)" srcset="./images/carrusel-3-wide.png">
+              <img src="./images/carrusel-3-mobile.png" class="d-block w-100" alt="Ready Express Now - carrusel 3" loading="lazy">
+            </picture>
+            <div class="carousel-caption d-none d-md-block">
+              <h5>Entrega garantizada en Guantánamo</h5>
+              <p>Confirmación por WhatsApp cuando tu pedido llegue a su destino</p>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#carouselExampleAutoplaying" data-bs-slide="prev">
+          <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Anterior</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#carouselExampleAutoplaying" data-bs-slide="next">
+          <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Siguiente</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Info Banner -->
+  <div class="info-banner" id="info-banner"></div>
+
+  <main id="main">
+
+    <!-- Combos Section -->
+    <section class="section" id="combos">
+      <div class="section-header">
+        <h2>Combos listos para enviar</h2>
+        <p>Alimentos esenciales seleccionados. Ideal para apoyo inmediato a tu familia.</p>
+      </div>
+      <p id="combos-error"></p>
+      <div class="combos-grid" id="combos-grid"></div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Alimentos Section -->
+    <section class="section" id="alimentos">
+      <div class="section-header">
+        <h2>Elige los alimentos que necesita tu familia</h2>
+        <p>Filtra por categoría y arma tu pedido a la medida</p>
+      </div>
+      <div class="products-search-wrap">
+        <div class="products-search-box">
+          <span class="products-search-icon"><i class="fa fa-search"></i></span>
+          <input
+            type="search"
+            id="products-search"
+            class="products-search-input"
+            placeholder="Buscar producto… (ej: pollo, arroz, aceite)"
+            autocomplete="off"
+            aria-label="Buscar productos"
+          >
+          <button class="products-search-clear" id="products-search-clear" aria-label="Limpiar búsqueda" style="display:none">✕</button>
+        </div>
+      </div>
+      <div class="tabs"></div>
+      <p id="products-error"></p>
+      <div class="products-grid" id="products-grid"></div>
+    </section>
+
+    <hr class="section-divider">
+
+    <!-- Productos Varios Section -->
+    <section class="section" id="productos-varios">
+      <div class="section-header">
+        <h2>⚡ Productos Varios</h2>
+        <p>Electrodomésticos y artículos del hogar disponibles para envío</p>
+      </div>
+      <p id="electro-error"></p>
+      <div class="products-grid" id="electro-grid"></div>
+    </section>
+
+  </main>
+
+  <!-- Emotional Block -->
+  <section class="emotional-block">
+    <div class="emotional-inner">
+      <div class="emotional-content">
+
+        <h2>Ayuda a tu familia sin preocuparte</h2>
+        <p>
+          Sabemos lo importante que es apoyar a los tuyos en Cuba. Por eso te ofrecemos
+          una forma segura, rápida y confiable de enviar alimentos directamente a Guantánamo.
+        </p>
+        <div class="emotional-bullets">
+          <div class="bullet-item"><span>✓</span> Entrega directa a domicilio en Guantánamo</div>
+          <div class="bullet-item"><span>✓</span> Productos de calidad garantizada</div>
+          <div class="bullet-item"><span>✓</span> Confirmación de entrega por WhatsApp</div>
+          <div class="bullet-item"><span>✓</span> Si no llega, te devolvemos tu dinero</div>
+        </div>
+        <a href="#combos" class="btn-primary" style="display:inline-block;margin-top:28px">Ver combos disponibles</a>
+      </div>
+      <div class="emotional-img">
+        <img src="./images/familia.jpg" alt="Familia cubana recibiendo alimentos"
+             onerror="this.parentElement.innerHTML='<div class=\"img-placeholder-emotion\"><span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it Works -->
+  <section class="how-it-works" id="como-funciona">
+    <div class="how-inner">
+      <div class="section-header">
+        <h2>¿Cómo funciona?</h2>
+        <p>Solo 4 pasos y tu familia recibe el combo</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-icon">1</div>
+          <h3>Elige un combo</h3>
+          <p>Explora nuestros combos de alimentos y selecciona el que mejor se adapte a tu familia.</p>
+        </div>
+        <div class="step">
+          <div class="step-icon">2</div>
+          <h3>Realiza el pago seguro</h3>
+          <p>Paga con Zelle o Tocopay desde cualquier parte del mundo. Proceso 100% seguro.</p>
+        </div>
+        <div class="step">
+          <div class="step-icon">3</div>
+          <h3>Nosotros entregamos</h3>
+          <p>Tu pedido llega directamente a la dirección de tu familia en Guantánamo.</p>
+        </div>
+        <div class="step">
+          <div class="step-icon">4</div>
+          <h3>Recibes confirmación</h3>
+          <p>Te notificamos por WhatsApp cuando tu pedido ha sido entregado exitosamente.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="testimonials-section">
+    <div class="section-header">
+      <span class="section-tag">Clientes satisfechos</span>
+      <h2>Lo que dicen nuestros clientes</h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card">
+        <div class="testimonial-stars"></div>
+        <p>Todo llegó completo y rápido. Muy confiables. Mi familia en Guantánamo quedó muy contenta.</p>
+        <div class="testimonial-author">Lisbeth Fajardo</div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars"></div>
+        <p>La atención por WhatsApp fue excelente. Me mantuvieron informado en todo momento hasta la entrega.</p>
+        <div class="testimonial-author">Cliente desde Nueva York</div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars"></div>
+        <p>Llevo meses usando este servicio. Siempre cumple. Es la forma más fácil de ayudar a mi familia.</p>
+        <div class="testimonial-author">Roberto Pérez</div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars"></div>
+        <p>Excelente servicio, confiable y rápido. Mi familia recibió todo en perfecto estado. Los recomiendo.</p>
+        <div class="testimonial-author">Darma Alcantara</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq-section" id="faq">
+    <div class="faq-inner">
+      <div class="section-header">
+        <span class="section-tag">Preguntas frecuentes</span>
+        <h2>Resolvemos tus dudas</h2>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary>¿Los envíos son seguros?</summary>
+          <p>Sí, trabajamos con procesos verificados y confirmamos cada entrega. Tu pedido llega o te devolvemos el dinero.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Cuánto demora la entrega?</summary>
+          <p>El tiempo de entrega varía entre 24 y 72 horas dependiendo de la disponibilidad y la zona en Guantánamo.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Qué métodos de pago aceptan?</summary>
+          <p>Aceptamos Zelle (Wells Fargo) y Tocopay desde cualquier parte del exterior.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Puedo contactar directamente?</summary>
+          <p>Sí, estamos disponibles vía WhatsApp en cualquier momento para atender tus preguntas y hacer seguimiento a tu pedido.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Final -->
+  <section class="cta-banner">
+    <h2>Haz tu envío hoy mismo y ayuda a tu familia sin complicaciones</h2>
+    <p>Más de 500 familias ya confían en nosotros. Tú también puedes.</p>
+    <div class="cta-actions">
+      <a href="#combos" class="btn-white">Ver combos</a>
+      <a href="https://wa.me/5358324155?text=Hola%20ReadyExpressNow.%20Vi%20su%20sitio%20web%20y%20me%20gustar%C3%ADa%20conocer%20los%20combos%20y%20productos%20disponibles.%20%C2%BFPodr%C3%ADan%20brindarme%20informaci%C3%B3n%3F" class="btn-white-outline" target="_blank" rel="noopener">
+        Hablar por WhatsApp
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer id="contacto">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img src="./images/logo.png" alt="Ready Express Now" onerror="this.style.display='none'">
+        <p>Envío de comida a Guantánamo con entrega garantizada. Pago seguro desde el exterior con Zelle o Tocopay.</p>
+      </div>
+      <div>
+        <h4>Navegación</h4>
+        <ul>
+          <li><a href="#inicio">Inicio</a></li>
+          <li><a href="#combos">Combos</a></li>
+          <li><a href="#alimentos">Arma tu pedido</a></li>
+          <li><a href="#productos-varios">Productos Varios</a></li>
+          <li><a href="#como-funciona">¿Cómo funciona?</a></li>
+          <li><a href="./ayuda.html">Ayuda de pago</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="./terminos.html">Términos y Condiciones</a></li>
+          <li><a href="./politica-privacidad.html">Política de Privacidad</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contacto</h4>
+        <ul>
+          <li><a href="https://wa.me/5358324155" class="footer-wa-link" target="_blank" rel="noopener">💬 Hablar por WhatsApp</a></li>
+          <li>💳 Zelle / Tocopay</li>
+          <li>
+            <a href="https://www.facebook.com/readyexpressnow" target="_blank" rel="noopener noreferrer">
+              <i class="fa-brands fa-facebook"></i> Facebook
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Ready Express Now. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- Cart Panel -->
+  <aside class="cart-panel" id="cart-panel" aria-label="Carrito de compras">
+    <div class="cart-header">
+      <h3>🛒 Mi Carrito</h3>
+      <button class="icon-btn" id="cart-close" aria-label="Cerrar carrito">✕</button>
+    </div>
+    <div class="cart-body">
+      <div class="cart-empty" id="cart-empty">
+        <span>🛒</span>
+        <p>Tu carrito está vacío</p>
+        <small>Agrega combos o alimentos del catálogo</small>
+      </div>
+      <div id="cart-items"></div>
+    </div>
+    <div class="cart-footer">
+      <div class="cart-total-row">
+        <span>Total:</span>
+        <strong id="cart-total">$0.00</strong>
+      </div>
+      <button id="cart-checkout-btn" disabled>Proceder al Pago →</button>
+    </div>
+  </aside>
+
+  <!-- Checkout Modal -->
+  <div class="modal" id="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
+    <div class="modal-header">
+      <h3 id="checkout-title">✓ Confirmar Pedido</h3>
+      <button class="modal-close" id="checkout-close" aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="checkout-summary" id="checkout-summary"></div>
+
+      <form id="checkout-form" novalidate>
+
+        <!-- DATOS DEL REMITENTE -->
+        <div data-checkout-step="1">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="sender_name">
+                Nombre completo del remitente
+                <span class="required">*</span>
+              </label>
+
+              <input
+                type="text"
+                id="sender_name"
+                name="sender_name"
+                placeholder="Tu nombre completo"
+                required
+                aria-describedby="checkout-error"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="sender_phone">
+                Teléfono / WhatsApp
+                <span class="required">*</span>
+              </label>
+
+              <input
+                type="tel"
+                id="sender_phone"
+                name="sender_phone"
+                placeholder="+1 (555) 000-0000"
+                required
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- DATOS DEL RECEPTOR -->
+        <div data-checkout-step="2" style="display:none">
+          <div class="form-group">
+            <label for="receiver_name">
+              Nombre del familiar o persona que recibe
+              <span class="required">*</span>
+            </label>
+
+            <input
+              type="text"
+              id="receiver_name"
+              name="receiver_name"
+              placeholder="Nombre de quien recibe"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="customer_address">
+              Dirección de entrega en Guantánamo
+              <span class="required">*</span>
+            </label>
+
+            <input
+              type="text"
+              id="customer_address"
+              name="customer_address"
+              placeholder="Calle, número, reparto, municipio"
+              required
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="receiver_phone">
+              Teléfono de la persona que recibe
+              <span class="required">*</span>
+            </label>
+
+            <input
+              type="tel"
+              id="receiver_phone"
+              name="receiver_phone"
+              placeholder="+53 5XXX-XXXX"
+              required
+            >
+          </div>
+        </div>
+
+        <!-- NOTAS -->
+        <div data-checkout-step="2" style="display:none">
+          <div class="form-group">
+            <label for="delivery_notes">
+              Notas de entrega
+            </label>
+
+            <textarea
+              id="delivery_notes"
+              name="delivery_notes"
+              rows="2"
+              placeholder="Referencias adicionales para la entrega (opcional)"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- PASO 3: MÉTODO DE PAGO -->
+        <div id="checkout-payment-step" style="display:none">
+          <div class="checkout-step-header">
+            <h4>Paso 3: Selecciona tu método de pago</h4>
+          </div>
+
+          <div class="payment-summary" style="background:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:20px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <span>Orden</span>
+              <strong id="checkout-order-display">#-</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span>Total a pagar</span>
+              <strong id="checkout-total-display" style="color:var(--primary);font-size:1.2rem">$0.00</strong>
+            </div>
+          </div>
+
+          <span class="method-label">Elige cómo deseas pagar <span class="required">*</span></span>
+          <div class="methods-grid" id="checkout-methods-container"></div>
+
+          <div id="payment-instructions" style="display:none;margin-top:20px;padding:16px;background:#e7f5ff;border-left:4px solid var(--primary);border-radius:4px;max-height:none;overflow:visible">
+            <strong style="display:block;margin-bottom:12px">Instrucciones de pago:</strong>
+            <div id="payment-instructions-text" style="font-size:0.95rem;line-height:1.8;color:#333;word-wrap:break-word;white-space:pre-wrap"></div>
+          </div>
+
+          <p class="form-error" id="checkout-error"></p>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px">
+            <button type="button" id="checkout-back-btn" class="form-submit" style="background-color:#6c757d">Atrás</button>
+            <button type="submit" id="checkout-submit-btn" class="form-submit" style="flex:1">He realizado el pago, continuar</button>
+          </div>
+        </div>
+
+        <p class="form-error" id="checkout-error-step1" style="display:none"></p>
+
+        <div id="checkout-actions-step1" style="display:flex;gap:12px;flex-wrap:wrap">
+          <button type="button" id="checkout-next-btn" class="form-submit">Siguiente paso →</button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal" id="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-title">
+    <div class="modal-header">
+      <h3 id="payment-title">🛒 Enviar Comprobante</h3>
+      <button class="modal-close" id="payment-close" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="payment-info">
+        <div>
+          <span>Orden <strong id="payment-order-id">#?</strong></span>
+          <br>
+          <span style="font-size:0.8rem;color:var(--gray)">Envía el monto exacto</span>
+        </div>
+        <strong id="payment-total">$0.00</strong>
+      </div>
+
+      <span class="method-label">Selecciona tu método de pago <span class="required">*</span></span>
+      <div class="methods-grid">
+        <div class="method-card" data-method="WellsFargoZelle">
+          <span>🏦</span>
+          <strong>Zelle</strong>
+          <small>Wells Fargo / Zelle</small>
+        </div>
+        <div class="method-card" data-method="Tocopay">
+          <span>💳</span>
+          <strong>Tocopay</strong>
+          <small>Transferencia Tocopay</small>
+        </div>
+      </div>
+      <input type="hidden" id="payment-method-input">
+
+      <form id="payment-form" novalidate>
+        <div class="payment-proof-note">
+          <strong>Importante:</strong> despues de pagar, sube aqui una captura de pantalla clara del comprobante.
+          Debe verse el monto, la fecha y la referencia del pago. Sin esa captura no podemos confirmar tu orden rapidamente.
+          <a href="./ayuda.html#captura-comprobante" target="_blank" rel="noopener">Ver como enviar el comprobante</a>
+        </div>
+        <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Subir comprobante">
+          <span>📎</span>
+          <p>Arrastra tu comprobante aquí</p>
+          <small>o haz clic para seleccionar · JPG, PNG (máx. 10MB)</small>
+        </div>
+        <img id="file-preview" src="" alt="Vista previa del comprobante">
+        <input type="file" id="payment-file" accept="image/*" style="display:none">
+        <p class="form-error" id="payment-error"></p>
+        <button type="submit" class="form-submit">Enviar Comprobante</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Success Screen -->
+  <div class="success-screen" id="success-screen">
+    <div class="success-inner">
+      <span class="success-icon">✓</span>
+      <h2>Pedido Enviado!</h2>
+      <p>Tu comprobante fue recibido exitosamente.</p>
+      <p class="order-ref">Orden <span id="success-order-ref">#?</span></p>
+      <div class="success-note">
+        ✓ Recibirás una notificación por <strong>WhatsApp</strong> y <strong>email</strong> cuando tu pago sea verificado.<br>
+        El proceso de verificación toma aproximadamente <strong>15–30 minutos</strong>.
+      </div>
+      <button class="btn-primary" id="success-close" style="display:inline-block">Seguir Comprando</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Bottom Nav (mobile) -->
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Navegación principal">
+    <a href="#alimentos" class="bottom-nav-item" aria-label="Productos">
+      <i class="fa-solid fa-basket-shopping"></i>
+      <span>Productos</span>
+    </a>
+    <button class="bottom-nav-item" id="bottom-cart-btn" aria-label="Carrito">
+      <span class="bottom-nav-badge-wrap">
+        <i class="fa-solid fa-cart-shopping"></i>
+        <span class="bottom-nav-badge" id="floating-cart-badge"></span>
+      </span>
+      <span>Carrito</span>
+    </button>
+    <button class="bottom-nav-item" id="bottom-menu-btn" aria-label="Menú">
+      <i class="fa-solid fa-bars"></i>
+      <span>Menú</span>
+    </button>
+  </nav>
+
+  <!-- WhatsApp Modal -->
+  <div class="whatsapp-modal" id="whatsapp-modal">
+    <div class="whatsapp-modal-content">
+      <button class="close-modal" id="close-modal">✕</button>
+      <h2>Únete a nuestro grupo de WhatsApp</h2>
+      <p>
+        Recibe ofertas, nuevos combos y seguimiento de pedidos directamente por WhatsApp.
+      </p>
+      <a
+        href="https://chat.whatsapp.com/LNjqfO8oiToLM5N1e2Ox51?mode=gi_t"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="whatsapp-btn"
+      >
+        Unirme al grupo
+      </a>
+    </div>
+  </div>
+
+  <script type="module" src="./js/app.js?v11"></script>
+  <script>
+    document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
+      document.getElementById('cart-btn')?.click();
+    });
+    document.getElementById('bottom-menu-btn')?.addEventListener('click', () => {
+      const mobileNav = document.getElementById('mobile-nav');
+      if (!mobileNav) return;
+      const isOpen = mobileNav.classList.toggle('active');
+      document.getElementById('bottom-menu-btn')?.setAttribute('aria-expanded', isOpen);
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+</body>
+</html>
