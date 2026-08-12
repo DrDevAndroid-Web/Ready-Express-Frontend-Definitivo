@@ -1,0 +1,1 @@
+En esta carpeta se pondrán los archivos requeridos de medios para el negocio. Ej logotipos
