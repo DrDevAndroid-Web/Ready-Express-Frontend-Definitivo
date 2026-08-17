@@ -202,7 +202,7 @@ a:focus,
 
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
   .hero::before {
-    background-image: url('../images/hero-bg@2x.jpg');
+    background-image: url('../images/hero-bg.jpg');
     background-size: cover;
   }
 }
@@ -2326,3 +2326,56 @@ button:disabled {
 .form-group select:valid:not(:placeholder-shown) {
   border-color: var(--green);
 }
+
+/* iOS Safari checkout/payment stability fixes */
+@supports (height: 100dvh) {
+  .cart-panel { height: 100dvh; }
+  .modal { max-height: 90dvh; }
+}
+
+@media (max-width: 600px) {
+  .modal.open {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    transform: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-header {
+    border-radius: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .modal-body {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .cart-panel {
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .bottom-nav {
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select,
+  .products-search-input,
+  .mobile-nav-search-input {
+    font-size: 16px;
+  }
+}
+

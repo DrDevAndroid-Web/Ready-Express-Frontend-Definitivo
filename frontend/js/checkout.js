@@ -1,4 +1,4 @@
-﻿import { createOrder } from "./api.js?v11";
+import { createOrder } from "./api.js?v11";
 import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v12";
 import { savePendingPayment } from "./payment.js?v11";
 import { cargarMetodosPago, renderMetodosEnCheckout } from "./payment-methods.js?v11";
@@ -6,7 +6,20 @@ import { cargarMetodosPago, renderMetodosEnCheckout } from "./payment-methods.js
 let currentOrderId = null;
 let currentTotal = 0;
 let currentSelectedMethod = null;
+let currentSelectedMethodId = null;
 let checkoutStep = 1;
+
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function storageSet(key, value) {
+  try { localStorage.setItem(key, value); return true; } catch { return false; }
+}
+
+function storageRemove(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
 const CHECKOUT_STEP_KEY = "ren_checkout_step";
 const CHECKOUT_FORM_KEY = "ren_checkout_form_data";
 
@@ -20,7 +33,7 @@ const FORM_FIELDS = [
 ];
 
 function saveCheckoutStep(step) {
-  localStorage.setItem(CHECKOUT_STEP_KEY, String(step));
+  storageSet(CHECKOUT_STEP_KEY, String(step));
 }
 
 function saveFormData(form) {
@@ -31,11 +44,11 @@ function saveFormData(form) {
       data[fieldName] = field.value;
     }
   });
-  localStorage.setItem(CHECKOUT_FORM_KEY, JSON.stringify(data));
+  storageSet(CHECKOUT_FORM_KEY, JSON.stringify(data));
 }
 
 function restoreFormData(form) {
-  const saved = localStorage.getItem(CHECKOUT_FORM_KEY);
+  const saved = storageGet(CHECKOUT_FORM_KEY);
   if (!saved) return;
 
   try {
@@ -52,20 +65,20 @@ function restoreFormData(form) {
 }
 
 function clearFormData() {
-  localStorage.removeItem(CHECKOUT_FORM_KEY);
+  storageRemove(CHECKOUT_FORM_KEY);
 }
 
 export function getCheckoutStep() {
-  const saved = localStorage.getItem(CHECKOUT_STEP_KEY);
+  const saved = storageGet(CHECKOUT_STEP_KEY);
   return saved ? Math.min(parseInt(saved), 3) : 1;
 }
 
 export function hasSavedCheckoutStep() {
-  return localStorage.getItem(CHECKOUT_STEP_KEY) !== null;
+  return storageGet(CHECKOUT_STEP_KEY) !== null;
 }
 
 function clearCheckoutStep() {
-  localStorage.removeItem(CHECKOUT_STEP_KEY);
+  storageRemove(CHECKOUT_STEP_KEY);
 }
 
 export function openCheckoutAtSavedStep() {
@@ -263,7 +276,8 @@ async function submitOrder(form) {
   };
 
   // Guardar método de pago seleccionado para el siguiente paso (pago.html)
-  localStorage.setItem("ren_selected_payment_method", currentSelectedMethod);
+  storageSet("ren_selected_payment_method", currentSelectedMethod);
+  if (currentSelectedMethodId) storageSet("ren_selected_payment_method_id", currentSelectedMethodId);
 
   try {
     const order = await createOrder(orderData);
@@ -328,7 +342,7 @@ async function renderPaymentMethods() {
     // Event listeners para seleccionar método
     container.querySelectorAll(".method-card").forEach(card => {
       card.addEventListener("click", () => {
-        selectPaymentMethod(card.dataset.method, card.dataset.instructions);
+        selectPaymentMethod(card.dataset.method, card.dataset.instructions, card.dataset.methodId);
       });
     });
   } catch (err) {
@@ -345,11 +359,12 @@ const ZELLE_AVISO = `Para que tu pago sea procesado correctamente, por favor sig
 
 Cualquier duda, escríbenos por WhatsApp antes de transferir — con gusto te ayudamos.`;
 
-function selectPaymentMethod(methodName, instructions) {
+function selectPaymentMethod(methodName, instructions, methodId) {
   document.querySelectorAll(".method-card").forEach(card => card.classList.remove("selected"));
   document.querySelector(`[data-method="${methodName}"]`)?.classList.add("selected");
 
   currentSelectedMethod = methodName;
+  currentSelectedMethodId = methodId || null;
 
   const instructionsDiv = document.getElementById("payment-instructions");
   const instructionsText = document.getElementById("payment-instructions-text");
@@ -404,3 +419,5 @@ export function closeModal(id) {
     document.body.style.overflow = "";
   }
 }
+
+

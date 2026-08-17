@@ -100,26 +100,29 @@ function initWhatsAppModal() {
 
   if (!modal || !closeBtn) return;
 
-  let modalShown = localStorage.getItem('whatsappModalShown') === 'true';
-
-  if (!modalShown) {
-    modal.classList.add('show');
-    modalShown = true;
-    localStorage.setItem('whatsappModalShown', 'true');
+  let modalShown = false;
+  try {
+    modalShown = localStorage.getItem('whatsappModalShown') === 'true';
+  } catch {
+    modalShown = false;
   }
 
   window.addEventListener('scroll', () => {
+    const cartOpen = document.getElementById('cart-panel')?.classList.contains('open');
+    const checkoutOpen = document.querySelector('.modal.open');
+    if (cartOpen || checkoutOpen) return;
+
     const scrollTop = window.scrollY;
     const windowHeight = window.innerHeight;
     const documentHeight = document.body.scrollHeight;
     const scrollPercent = (scrollTop + windowHeight) / documentHeight;
 
-    if (scrollPercent > 0.4 && !modalShown) {
+    if (scrollPercent > 0.55 && !modalShown) {
       modal.classList.add('show');
       modalShown = true;
-      localStorage.setItem('whatsappModalShown', 'true');
+      try { localStorage.setItem('whatsappModalShown', 'true'); } catch {}
     }
-  });
+  }, { passive: true });
 
   closeBtn.addEventListener('click', () => {
     modal.classList.remove('show');

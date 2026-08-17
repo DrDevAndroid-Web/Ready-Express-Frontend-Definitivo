@@ -2,16 +2,24 @@ const STORAGE_KEY = "ren_cart";
 
 let cart = loadCart();
 
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function storageSet(key, value) {
+  try { localStorage.setItem(key, value); return true; } catch { return false; }
+}
+
 function loadCart() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    return JSON.parse(storageGet(STORAGE_KEY)) || [];
   } catch {
     return [];
   }
 }
 
 function saveCart() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
+  storageSet(STORAGE_KEY, JSON.stringify(cart));
 }
 
 export function addItem(product, qty = 1) {
@@ -167,3 +175,4 @@ export function closeCart() {
   document.getElementById("cart-panel")?.classList.remove("open");
   document.getElementById("overlay")?.classList.remove("show");
 }
+

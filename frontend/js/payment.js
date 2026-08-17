@@ -6,9 +6,22 @@ export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
 let pendingOrderId = null;
 let pendingTotal = 0;
+let selectedPaymentFile = null;
+
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function storageSet(key, value) {
+  try { localStorage.setItem(key, value); return true; } catch { return false; }
+}
+
+function storageRemove(key) {
+  try { localStorage.removeItem(key); } catch {}
+}
 
 export function savePendingPayment(orderId, total, items = []) {
-  localStorage.setItem(
+  storageSet(
     PENDING_PAYMENT_KEY,
     JSON.stringify({
       orderId,
@@ -21,7 +34,7 @@ export function savePendingPayment(orderId, total, items = []) {
 
 export function getPendingPayment() {
   try {
-    return JSON.parse(localStorage.getItem(PENDING_PAYMENT_KEY));
+    return JSON.parse(storageGet(PENDING_PAYMENT_KEY));
   } catch {
     return null;
   }
@@ -33,7 +46,7 @@ export function hasPendingPayment() {
 }
 
 export function clearPendingPayment() {
-  localStorage.removeItem(PENDING_PAYMENT_KEY);
+  storageRemove(PENDING_PAYMENT_KEY);
 }
 
 export function redirectToPendingPayment() {
@@ -71,10 +84,11 @@ export async function initPaymentPage() {
   resetPaymentForm();
 
   // Mostrar método de pago seleccionado
-  const selectedMethodId = localStorage.getItem("ren_selected_payment_method");
-  if (selectedMethodId) {
+  const selectedMethodValue = storageGet("ren_selected_payment_method");
+  const selectedMethodId = storageGet("ren_selected_payment_method_id");
+  if (selectedMethodValue || selectedMethodId) {
     const allMethods = await cargarMetodosPago();
-    const selectedMethod = allMethods.find(m => m.id === selectedMethodId);
+    const selectedMethod = allMethods.find(m => m.id === selectedMethodId || m.method_name === selectedMethodValue);
     if (selectedMethod) {
       const methodDisplay = document.getElementById("selected-payment-method");
       if (methodDisplay) {
@@ -208,6 +222,7 @@ function bindPaymentEvents() {
 function resetPaymentForm() {
   const form = document.getElementById("payment-form");
   if (form) form.reset();
+  selectedPaymentFile = null;
 
   const preview = document.getElementById("file-preview");
   if (preview) {
@@ -230,6 +245,12 @@ function initDropzone() {
   if (!dropzone || !fileInput || !preview) return;
 
   dropzone.addEventListener("click", () => fileInput.click());
+  dropzone.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
 
   dropzone.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -261,9 +282,7 @@ function setFile(file, input, preview, dropzone) {
     return;
   }
 
-  const dt = new DataTransfer();
-  dt.items.add(file);
-  input.files = dt.files;
+  selectedPaymentFile = file;
 
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -276,8 +295,9 @@ function setFile(file, input, preview, dropzone) {
 
 async function submitPayment(form) {
   const btn = form.querySelector('button[type="submit"]');
-  const method = localStorage.getItem("ren_selected_payment_method");
+  const method = storageGet("ren_selected_payment_method");
   const fileInput = document.getElementById("payment-file");
+  const file = selectedPaymentFile || fileInput?.files?.[0];
 
   hidePaymentError();
 
@@ -291,7 +311,7 @@ async function submitPayment(form) {
     return;
   }
 
-  if (!fileInput?.files?.length) {
+  if (!file) {
     showPaymentError("📸 Por favor sube una captura clara del comprobante de pago donde se vea el monto, fecha y referencia.");
     return;
   }
@@ -303,7 +323,7 @@ async function submitPayment(form) {
   btn.innerHTML = '<span class="spinner"></span>Comprimiendo y enviando...';
 
   const formData = new FormData();
-  formData.append("image", fileInput.files[0]);
+  formData.append("image", file);
   formData.append("order_id", pendingOrderId);
   formData.append("method", method);
   formData.append("amount", pendingTotal.toString());
@@ -370,7 +390,7 @@ async function downloadReceipt() {
   try {
     await cargarLibreriasPDF();
 
-    const checkoutFormData = JSON.parse(localStorage.getItem("ren_checkout_form_data") || "{}");
+    const checkoutFormData = JSON.parse(storageGet("ren_checkout_form_data") || "{}");
     const pendingPayment = getPendingPayment();
 
     const orderData = {
@@ -388,7 +408,7 @@ async function downloadReceipt() {
       items: pendingPayment?.items || []
     };
 
-    const methodId = localStorage.getItem("ren_selected_payment_method");
+    const methodId = storageGet("ren_selected_payment_method_id") || storageGet("ren_selected_payment_method");
     const methodName = window.currentPaymentMethod?.method_name || "-";
 
     const preview = document.getElementById("file-preview");
@@ -426,3 +446,5 @@ function showSuccess() {
   screen?.classList.add("open");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
+
