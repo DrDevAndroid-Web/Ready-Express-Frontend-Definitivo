@@ -1,0 +1,20 @@
+Cuenta Gmail: 
+readyexpressnow@gmail.com
+/$Ready45#Work//*
+
+geminyKey:
+AIzaSyCgU5EVhlujPnc9hyvAfyO3IYxtwAkXLwo
+
+resend_key:
+re_63WoeRvr_9HSuPSdZFbnyr8ospFHScHYH
+
+smtp
+readyexpressnow@correoprueba.versabold.com
+/Y/:q*4fB
+
+Usuarios:
+mariano@ready.com
+Admin123
+
+API_KEY_IA:
+sk_PcfNKZYGjUFwtpRdmg58lnUHoN3i6GAr
