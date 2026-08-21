@@ -106,9 +106,9 @@ ${productosText || "No hay productos sueltos disponibles en este momento."}
 INFORMACIÓN DEL NEGOCIO:
 - Horario: ${info?.horario || "Consultar por WhatsApp"}
 - WhatsApp: ${info?.whatsapp || "No disponible"}
-- Métodos de pago aceptados: Zelle y TocoPay
-- No se aceptan tarjetas de crédito/débito (Visa, Mastercard) por restricciones bancarias hacia Cuba
 - Entregas únicamente en Guantánamo, Cuba
+- Métodos de pago (solo mencionar si el cliente pregunta): Zelle y TocoPay
+- Tarjetas (solo mencionar si el cliente pregunta por Visa/Mastercard): no se aceptan por restricciones bancarias hacia Cuba
 `.trim();
 }
 
@@ -137,25 +137,39 @@ export function extractContact(text) {
 export async function callAI(messages, productContext) {
   if (!AI_API_KEY) throw new Error("CHAT_AI_API_KEY no configurada");
 
-  const systemPrompt = `Eres el asistente virtual de ReadyExpressNow, una tienda de envíos a Guantánamo, Cuba desde el exterior.
+  const systemPrompt = `Eres el asistente de ventas de ReadyExpressNow, servicio de envíos a Guantánamo, Cuba desde el exterior.
 
 Tu personalidad:
-- Amigable, cálido y paciente
+- Cálido, directo y confiable — como alguien que ya conoce el proceso por dentro
 - Hablas en español latinoamericano informal pero respetuoso
-- Usas emojis con moderación (1-2 por mensaje)
-- Respuestas cortas y directas (máximo 4 oraciones)
+- Usas emojis con moderación (máximo 1 por mensaje)
+- Respuestas cortas (máximo 3 oraciones). Nunca hagas dos preguntas a la vez.
+
+El cliente que habla contigo sabe que existen los envíos a Cuba pero todavía no confía del todo en nosotros. Tu trabajo es generar confianza primero, venta después. No empujes — acompaña.
 
 Tus capacidades:
-- Informar sobre productos, combos y precios disponibles HOY
-- Explicar cómo funciona el proceso de pedido y pago
-- Ayudar al cliente a elegir el combo más adecuado
-- Si no puedes resolver algo, ofrecer conectar con Ernesto (gerente de ventas)
+- Ayudar al cliente a elegir qué enviar según lo que necesita su familia
+- Informar sobre combos y productos disponibles HOY con precios exactos
+- Cuando el cliente confirme su pedido, añadirlo al carrito y guiarlo al checkout
+- Si no puedes resolver algo técnico o de soporte, ofrecer conectar con Ernesto
 
 Reglas estrictas:
-- NUNCA inventes productos, precios o disponibilidad que no estén en el contexto
-- Si el cliente pregunta por Visa, Mastercard u otras formas de pago, explica que solo aceptamos Zelle y TocoPay por restricciones bancarias hacia Cuba
-- Si detectas que el cliente tiene un problema de pago o solicita hablar con alguien, di que lo vas a conectar con Ernesto nuestro gerente de ventas
-- Cuando el cliente deje su contacto (WhatsApp o email), confirma que se lo pasaste a Ernesto
+- NUNCA inventes productos, precios o disponibilidad — usa solo los datos del contexto
+- NUNCA menciones métodos de pago a menos que el cliente pregunte
+- Si preguntan cómo pagar: Zelle o TocoPay. Nada más.
+- Si preguntan por Visa/Mastercard: explica que no aplican por restricciones bancarias hacia Cuba
+- Responde solo lo que te preguntan. Sin información extra no solicitada.
+- Si el cliente duda o tiene un problema técnico: ofrece conectarlo con Ernesto
+- Cuando el cliente deje su contacto, confirma que se lo pasaste a Ernesto
+- Si el mensaje es exactamente "__assistant_start__": responde SOLO "¿Qué necesitan en casa? Cuéntame y te ayudo a armar el pedido 🛒"
+
+FLUJO DE PEDIDO — MUY IMPORTANTE:
+Paso 1 — Cuando el cliente diga qué quiere pedir: muestra el resumen con precios y pregunta SIEMPRE: "¿Confirmas que quieres añadir esto al carrito?"
+Paso 2 — Solo cuando el cliente confirme explícitamente (diga "sí", "ok", "confirmo", "adelante", "dale" o similar): responde con este formato EXACTO (sin texto adicional antes ni después):
+CART_ACTION:{"items":[{"nombre":"Nombre exacto del producto","cantidad":1,"precio":0.00},...],"mensaje":"Listo, lo agregué al carrito 🛒 Ahora completa tus datos y sube el comprobante de pago — en menos de 24h lo confirmamos."}
+- Usa los nombres exactos de los productos tal como aparecen en el contexto
+- El precio es el precio unitario
+- NUNCA emitas CART_ACTION sin que el cliente haya confirmado explícitamente
 
 DATOS ACTUALIZADOS DE LA TIENDA:
 ${productContext}`;
@@ -181,12 +195,26 @@ ${productContext}`;
   }
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "Lo siento, no pude procesar tu mensaje. Intenta de nuevo.";
+  const raw = data.choices?.[0]?.message?.content ?? "Lo siento, no pude procesar tu mensaje. Intenta de nuevo.";
+
+  // Detectar CART_ACTION en la respuesta
+  const cartMatch = raw.match(/CART_ACTION:(\{[\s\S]*\})/);
+  if (cartMatch) {
+    try {
+      const parsed = JSON.parse(cartMatch[1]);
+      return { __cart: true, items: parsed.items, reply: parsed.mensaje };
+    } catch { }
+  }
+
+  return raw;
 }
 
 // ─── SMS de alerta ───────────────────────────────────────────────────────────
 
 export async function notifyChatStarted(sessionId) {
+  // SMS pausado durante pruebas
+  if (process.env.NODE_ENV !== "production") return;
+
   const VERSABOLD_SMS_URL = process.env.VERSABOLD_SMS_URL;
   const VERSABOLD_API_KEY = process.env.VERSABOLD_API_KEY;
   const recipients = (process.env.SMS_NOTIFY_PHONES ?? "").split(",").map(p => p.trim()).filter(Boolean);
@@ -244,8 +272,14 @@ export async function processMessage(sessionId, userText) {
 
   const aiMessages = messages.map(m => ({ role: m.role === "admin" ? "assistant" : m.role, content: m.content }));
 
-  const reply = await callAI(aiMessages, productContext);
-  await saveMessage(sessionId, "assistant", reply);
+  const aiResult = await callAI(aiMessages, productContext);
 
-  return { handoff: session.status === "handoff", reply };
+  // La IA devolvió un CART_ACTION
+  if (aiResult?.__cart) {
+    await saveMessage(sessionId, "assistant", aiResult.reply);
+    return { handoff: session.status === "handoff", reply: aiResult.reply, cartItems: aiResult.items };
+  }
+
+  await saveMessage(sessionId, "assistant", aiResult);
+  return { handoff: session.status === "handoff", reply: aiResult };
 }

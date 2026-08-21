@@ -47,7 +47,7 @@ export async function clientMessageController(req, res) {
       });
     }
 
-    res.json({ reply: result.reply, handoff: result.handoff });
+    res.json({ reply: result.reply, handoff: result.handoff, cartItems: result.cartItems ?? null });
   } catch (err) {
     sendError(res, err);
   }
