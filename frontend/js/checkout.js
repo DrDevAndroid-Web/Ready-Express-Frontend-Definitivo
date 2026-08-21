@@ -1,7 +1,7 @@
-import { createOrder } from "./api.js?v11";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v12";
-import { savePendingPayment } from "./payment.js?v11";
-import { cargarMetodosPago, renderMetodosEnCheckout } from "./payment-methods.js?v11";
+import { createOrder } from "./api.js?v13";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v13";
+import { savePendingPayment } from "./payment.js?v13";
+import { cargarMetodosPago, renderMetodosEnCheckout } from "./payment-methods.js?v13";
 
 let currentOrderId = null;
 let currentTotal = 0;

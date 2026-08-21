@@ -62,6 +62,9 @@ export function clearCart() {
 }
 
 export function getCart() {
+  if (!cart.length) {
+    cart = loadCart();
+  }
   return cart;
 }
 
@@ -175,4 +178,5 @@ export function closeCart() {
   document.getElementById("cart-panel")?.classList.remove("open");
   document.getElementById("overlay")?.classList.remove("show");
 }
+
 
