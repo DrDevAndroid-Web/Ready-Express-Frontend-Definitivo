@@ -1,4 +1,4 @@
-const API_BASE = "https://readyexpressnowbackend.versabold.com/api";
+const API_BASE = "https://readyexpressnow.versabold.com/api";
 const SUPPORT_PHONE = "+53 5 8324155";
 const SUPPORT_MSG = `\n\nSi el problema persiste, contacta a nuestro equipo de soporte:\n📱 WhatsApp: ${SUPPORT_PHONE}`;
 
