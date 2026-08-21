@@ -1,0 +1,89 @@
+```
+
+---
+
+# guia-imagenes-equipo.txt
+
+```txt
+CARPETA RECOMENDADA PARA LAS IMAGENES
+
+./images/team/
+
+--------------------------------------
+IMAGENES NECESARIAS
+--------------------------------------
+
+1. Director General
+
+Nombre del archivo:
+director-general.jpg
+
+Ruta:
+./images/team/director-general.jpg
+
+Formato recomendado:
+JPG o PNG
+
+Tamaño recomendado:
+800x800 px
+
+--------------------------------------
+
+2. Supervisor de Almacen y Logistica
+
+Nombre del archivo:
+almacen-logistica.jpg
+
+Ruta:
+./images/team/almacen-logistica.jpg
+
+Formato recomendado:
+JPG o PNG
+
+Tamaño recomendado:
+800x800 px
+
+--------------------------------------
+
+3. Desarrollador Full Stack y Gestor de Pagos
+
+Nombre del archivo:
+desarrollador.jpg
+
+Ruta:
+./images/team/desarrollador.jpg
+
+Formato recomendado:
+JPG o PNG
+
+Tamaño recomendado:
+800x800 px
+
+--------------------------------------
+
+4. Especialista de Atencion al Cliente
+
+Nombre del archivo:
+atencion-clientes.jpg
+
+Ruta:
+./images/team/atencion-clientes.jpg
+
+Formato recomendado:
+JPG o PNG
+
+Tamaño recomendado:
+800x800 px
+
+--------------------------------------
+NOTAS IMPORTANTES
+--------------------------------------
+
+- Trata de usar imagenes cuadradas.
+- Usa buena iluminacion.
+- Evita fondos muy cargados.
+- Las fotos se mostraran en formato circular.
+- Puedes reemplazar los nombres directamente en el HTML.
+- Si quieres mejor rendimiento web, convierte las imagenes a .webp.
+
+```
