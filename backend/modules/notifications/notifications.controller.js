@@ -16,7 +16,6 @@ export function subscribeToNotifications(req, res) {
 
   NotificationManager.addClient(clientId, res);
 
-  // Mensaje de bienvenida
   res.write(`data: ${JSON.stringify({
     type: "connection_established",
     clientId,
@@ -24,25 +23,24 @@ export function subscribeToNotifications(req, res) {
     message: "Conectado al sistema de notificaciones"
   })}\n\n`);
 
-  // Heartbeat cada 30 segundos para mantener conexión viva
+  // Heartbeat como evento SSE real (no comentario) para que proxies y React Native lo procesen
   const heartbeatInterval = setInterval(() => {
     try {
-      res.write(`:heartbeat ${Date.now()}\n\n`);
-    } catch (err) {
-      clearInterval(heartbeatInterval);
-      NotificationManager.removeClient(clientId);
+      res.write(`event: ping\ndata: ${Date.now()}\n\n`);
+    } catch {
+      cleanup();
     }
-  }, 30000);
+  }, 20000);
 
-  req.on("close", () => {
+  function cleanup() {
     clearInterval(heartbeatInterval);
     NotificationManager.removeClient(clientId);
-  });
+  }
 
+  req.on("close", cleanup);
   req.on("error", (err) => {
     console.error(`[SSE] Error en cliente ${clientId}:`, err.message);
-    clearInterval(heartbeatInterval);
-    NotificationManager.removeClient(clientId);
+    cleanup();
   });
 }
 

@@ -31,6 +31,17 @@ import {
   getInfo
 } from "../modules/products/products.controller.js";
 
+import {
+  startSessionController,
+  clientMessageController,
+  listSessionsController,
+  getMessagesController,
+  adminReplyController,
+  takeoverController,
+  resolveSessionController,
+  releaseController
+} from "../modules/chat/chat.controller.js";
+
 import { upload } from "../middlewares/upload.js";
 import { requireSupabaseUser } from "../middlewares/auth.js";
 import { supabaseAuth } from "../config/supabase.js";
@@ -151,6 +162,16 @@ router.get("/notifications/subscribe", subscribeToNotifications);
 router.get("/notifications/stats", getConnectionStats);
 router.post("/notifications/test", requireSupabaseUser, testNotification);
 router.post("/notifications/push-token", requireSupabaseUser, registerPushToken);
+
+// CHAT (público para clientes, protegido para admin)
+router.post("/chat/session", startSessionController);
+router.post("/chat/message", clientMessageController);
+router.get("/chat/sessions", requireSupabaseUser, listSessionsController);
+router.get("/chat/sessions/:id/messages", requireSupabaseUser, getMessagesController);
+router.post("/chat/sessions/:id/reply", requireSupabaseUser, adminReplyController);
+router.patch("/chat/sessions/:id/takeover", requireSupabaseUser, takeoverController);
+router.patch("/chat/sessions/:id/resolve", requireSupabaseUser, resolveSessionController);
+router.patch("/chat/sessions/:id/release", requireSupabaseUser, releaseController);
 
 // PAYMENT METHODS
 router.use("/payment-methods", paymentMethodsRouter);
