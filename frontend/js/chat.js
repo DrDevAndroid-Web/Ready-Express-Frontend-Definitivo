@@ -243,12 +243,12 @@ function createWidget() {
   style.textContent = `
     .navbar-chat-btn {
       position: relative;
-      background: rgba(255,255,255,0.15); border: none; border-radius: 50%;
-      width: 40px; height: 40px; cursor: pointer; color: #fff;
+      background: #e0f2fe; border: none; border-radius: 50%;
+      width: 40px; height: 40px; cursor: pointer; color: #0D47A1;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; transition: background .2s;
+      font-size: 18px; transition: background .2s, transform .2s;
     }
-    .navbar-chat-btn:hover { background: rgba(255,255,255,0.25); }
+    .navbar-chat-btn:hover { background: #bae6fd; transform: scale(1.08); }
     .ren-chat-badge {
       position: absolute; top: -3px; right: -3px;
       background: #ef4444; color: #fff; border-radius: 50%;

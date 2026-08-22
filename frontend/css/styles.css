@@ -909,7 +909,7 @@ button:disabled {
 
 /* ── WhatsApp button in navbar ── */
 .navbar-wa-btn {
-  display: none;
+  display: flex;
   align-items: center; justify-content: center;
   width: 38px; height: 38px; border-radius: 50%;
   background: #25D366; color: var(--white);
