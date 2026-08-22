@@ -1,4 +1,4 @@
-import { addItem } from "./cart.js?v13";
+import { addItem } from "./cart.js?v14";
 
 const CHAT_API = "https://readyexpressnowbackend.versabold.com/api";
 let productCache = null;
