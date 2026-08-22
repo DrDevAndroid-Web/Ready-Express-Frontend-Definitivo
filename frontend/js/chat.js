@@ -1,6 +1,6 @@
 import { addItem } from "./cart.js?v13";
 
-const CHAT_API = "https://readyexpressnow.versabold.com/api";
+const CHAT_API = "https://readyexpressnowbackend.versabold.com/api";
 let productCache = null;
 const PROACTIVE_DELAY = 10000;
 const SESSION_KEY = "ren_chat_session";
