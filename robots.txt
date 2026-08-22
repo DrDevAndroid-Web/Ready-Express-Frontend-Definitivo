@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+Disallow: /pago.html
+
+Sitemap: https://readyexpressnow.versabold.com/sitemap.xml
