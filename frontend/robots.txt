@@ -3,4 +3,4 @@ Allow: /
 
 Disallow: /pago.html
 
-Sitemap: https://readyexpressnow.versabold.com/sitemap.xml
+Sitemap: https://readyexpressnow.com/sitemap.xml
