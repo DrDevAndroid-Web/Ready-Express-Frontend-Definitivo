@@ -127,7 +127,6 @@ function removeBubble() {
 function openChat() {
   open = true;
   document.getElementById("ren-chat-box").classList.add("open");
-  document.getElementById("ren-chat-nav-btn")?.setAttribute("aria-expanded", "true");
   removeBubble();
   clearBadge();
   if (!sessionId) initSession();
@@ -137,7 +136,6 @@ function openChat() {
 function closeChat() {
   open = false;
   document.getElementById("ren-chat-box").classList.remove("open");
-  document.getElementById("ren-chat-nav-btn")?.setAttribute("aria-expanded", "false");
 }
 
 function toggleChat() {
@@ -245,22 +243,7 @@ function autoResize(el) {
 function createWidget() {
   const style = document.createElement("style");
   style.textContent = `
-    .navbar-chat-btn {
-      position: relative;
-      background: #e0f2fe; border: none; border-radius: 50%;
-      width: 40px; height: 40px; cursor: pointer; color: #0D47A1;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; transition: background .2s, transform .2s;
-    }
-    .navbar-chat-btn:hover { background: #bae6fd; transform: scale(1.08); }
-    .ren-chat-badge {
-      position: absolute; top: -3px; right: -3px;
-      background: #ef4444; color: #fff; border-radius: 50%;
-      width: 16px; height: 16px; font-size: 9px; font-weight: 700;
-      display: none; align-items: center; justify-content: center;
-    }
-
-    #ren-proactive-bubble {
+#ren-proactive-bubble {
       position: fixed; top: 70px; right: 16px; z-index: 9997;
       width: 260px; background: #fff; border-radius: 14px;
       box-shadow: 0 6px 24px rgba(13,71,161,.18);
@@ -388,16 +371,22 @@ function createWidget() {
         bottom: 80px;
         right: 20px;
         z-index: 9998;
-        width: 58px;
-        height: 58px;
+        width: 62px;
+        height: 62px;
         border-radius: 50%;
-        background: #0D47A1;
+        background: #22c55e;
         color: #fff;
         border: none;
         cursor: pointer;
-        font-size: 26px;
-        box-shadow: 0 4px 18px rgba(13,71,161,.38);
-        animation: ren-fab-pulse 2.8s ease-in-out infinite;
+        font-size: 28px;
+        box-shadow: 0 4px 20px rgba(34,197,94,.45);
+        transition: background .3s ease, box-shadow .3s ease, transform .15s ease;
+        animation: ren-fab-pulse 2.6s ease-in-out infinite;
+      }
+      #ren-chat-fab.fab-scrolled {
+        background: #0D47A1;
+        box-shadow: 0 4px 20px rgba(13,71,161,.40);
+        animation: ren-fab-pulse-blue 2.6s ease-in-out infinite;
       }
       #ren-chat-fab .ren-fab-badge {
         position: absolute;
@@ -415,8 +404,12 @@ function createWidget() {
         justify-content: center;
       }
       @keyframes ren-fab-pulse {
-        0%, 100% { box-shadow: 0 4px 18px rgba(13,71,161,.38); transform: scale(1); }
-        50%       { box-shadow: 0 4px 28px rgba(13,71,161,.60); transform: scale(1.07); }
+        0%, 100% { box-shadow: 0 4px 20px rgba(34,197,94,.45); transform: scale(1); }
+        50%       { box-shadow: 0 6px 30px rgba(34,197,94,.70); transform: scale(1.08); }
+      }
+      @keyframes ren-fab-pulse-blue {
+        0%, 100% { box-shadow: 0 4px 20px rgba(13,71,161,.40); transform: scale(1); }
+        50%       { box-shadow: 0 6px 30px rgba(13,71,161,.65); transform: scale(1.08); }
       }
     }
   `;
@@ -456,7 +449,15 @@ function createWidget() {
   document.body.appendChild(fab);
   fab.addEventListener("click", toggleChat);
 
-  document.getElementById("ren-chat-nav-btn")?.addEventListener("click", toggleChat);
+  // Cambio de color al salir del hero
+  const heroEl = document.getElementById("inicio");
+  function updateFabColor() {
+    if (!heroEl) return;
+    const heroBottom = heroEl.getBoundingClientRect().bottom;
+    fab.classList.toggle("fab-scrolled", heroBottom <= 0);
+  }
+  window.addEventListener("scroll", updateFabColor, { passive: true });
+  updateFabColor();
   document.getElementById("ren-chat-close").addEventListener("click", closeChat);
   document.getElementById("ren-chat-send").addEventListener("click", handleSend);
   document.getElementById("ren-chat-input").addEventListener("keydown", e => {
