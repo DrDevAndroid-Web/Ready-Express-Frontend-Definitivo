@@ -1,4 +1,4 @@
-import { addItem } from "./cart.js?v13";
+import { addItem } from "./cart.js?v17";
 
 const CHAT_API = "https://readyexpressnowbackend.versabold.com/api";
 let productCache = null;
@@ -127,7 +127,6 @@ function removeBubble() {
 function openChat() {
   open = true;
   document.getElementById("ren-chat-box").classList.add("open");
-  document.getElementById("ren-chat-nav-btn")?.setAttribute("aria-expanded", "true");
   removeBubble();
   clearBadge();
   if (!sessionId) initSession();
@@ -137,7 +136,6 @@ function openChat() {
 function closeChat() {
   open = false;
   document.getElementById("ren-chat-box").classList.remove("open");
-  document.getElementById("ren-chat-nav-btn")?.setAttribute("aria-expanded", "false");
 }
 
 function toggleChat() {
@@ -224,12 +222,16 @@ function setTyping(visible) {
 function clearBadge() {
   const b = document.getElementById("ren-chat-badge");
   if (b) { b.style.display = "none"; b.textContent = ""; }
+  const fb = document.getElementById("ren-fab-badge");
+  if (fb) { fb.style.display = "none"; fb.textContent = ""; }
 }
 
 function showBadge() {
   if (open) return;
   const b = document.getElementById("ren-chat-badge");
   if (b) { b.style.display = "flex"; b.textContent = "1"; }
+  const fb = document.getElementById("ren-fab-badge");
+  if (fb) { fb.style.display = "flex"; fb.textContent = "1"; }
 }
 
 function autoResize(el) {
@@ -241,22 +243,7 @@ function autoResize(el) {
 function createWidget() {
   const style = document.createElement("style");
   style.textContent = `
-    .navbar-chat-btn {
-      position: relative;
-      background: #e0f2fe; border: none; border-radius: 50%;
-      width: 40px; height: 40px; cursor: pointer; color: #0D47A1;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; transition: background .2s, transform .2s;
-    }
-    .navbar-chat-btn:hover { background: #bae6fd; transform: scale(1.08); }
-    .ren-chat-badge {
-      position: absolute; top: -3px; right: -3px;
-      background: #ef4444; color: #fff; border-radius: 50%;
-      width: 16px; height: 16px; font-size: 9px; font-weight: 700;
-      display: none; align-items: center; justify-content: center;
-    }
-
-    #ren-proactive-bubble {
+#ren-proactive-bubble {
       position: fixed; top: 70px; right: 16px; z-index: 9997;
       width: 260px; background: #fff; border-radius: 14px;
       box-shadow: 0 6px 24px rgba(13,71,161,.18);
@@ -370,6 +357,61 @@ function createWidget() {
       #ren-chat-box { right: 8px; left: 8px; width: auto; top: 64px; }
       #ren-proactive-bubble { right: 8px; width: calc(100vw - 16px); top: 64px; }
     }
+
+    /* ── Botón flotante de chat (solo mobile) ── */
+    #ren-chat-fab {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      #ren-chat-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 9998;
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        background: #22c55e;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 28px;
+        box-shadow: 0 4px 20px rgba(34,197,94,.45);
+        transition: background .3s ease, box-shadow .3s ease, transform .15s ease;
+        animation: ren-fab-pulse 2.6s ease-in-out infinite;
+      }
+      #ren-chat-fab.fab-scrolled {
+        background: #0D47A1;
+        box-shadow: 0 4px 20px rgba(13,71,161,.40);
+        animation: ren-fab-pulse-blue 2.6s ease-in-out infinite;
+      }
+      #ren-chat-fab .ren-fab-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        background: #ef4444;
+        color: #fff;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+        font-weight: 700;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      @keyframes ren-fab-pulse {
+        0%, 100% { box-shadow: 0 4px 20px rgba(34,197,94,.45); transform: scale(1); }
+        50%       { box-shadow: 0 6px 30px rgba(34,197,94,.70); transform: scale(1.08); }
+      }
+      @keyframes ren-fab-pulse-blue {
+        0%, 100% { box-shadow: 0 4px 20px rgba(13,71,161,.40); transform: scale(1); }
+        50%       { box-shadow: 0 6px 30px rgba(13,71,161,.65); transform: scale(1.08); }
+      }
+    }
   `;
   document.head.appendChild(style);
 
@@ -399,7 +441,23 @@ function createWidget() {
   `;
   document.body.appendChild(box);
 
-  document.getElementById("ren-chat-nav-btn")?.addEventListener("click", toggleChat);
+  // FAB mobile
+  const fab = document.createElement("button");
+  fab.id = "ren-chat-fab";
+  fab.setAttribute("aria-label", "Abrir chat de asistencia");
+  fab.innerHTML = `<i class="fa-regular fa-comment-dots"></i><span class="ren-fab-badge" id="ren-fab-badge"></span>`;
+  document.body.appendChild(fab);
+  fab.addEventListener("click", toggleChat);
+
+  // Cambio de color al salir del hero
+  const heroEl = document.getElementById("inicio");
+  function updateFabColor() {
+    if (!heroEl) return;
+    const heroBottom = heroEl.getBoundingClientRect().bottom;
+    fab.classList.toggle("fab-scrolled", heroBottom <= 0);
+  }
+  window.addEventListener("scroll", updateFabColor, { passive: true });
+  updateFabColor();
   document.getElementById("ren-chat-close").addEventListener("click", closeChat);
   document.getElementById("ren-chat-send").addEventListener("click", handleSend);
   document.getElementById("ren-chat-input").addEventListener("keydown", e => {
