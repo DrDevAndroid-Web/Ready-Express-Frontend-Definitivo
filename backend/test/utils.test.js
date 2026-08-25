@@ -6,7 +6,10 @@ import {
   notFound,
   conflict,
   sendError,
-  throwIfSupabaseError
+  throwIfSupabaseError,
+  createBadRequest,
+  createNotFound,
+  createConflict
 } from "../utils/http-error.js";
 
 describe("HttpError", () => {
@@ -45,27 +48,27 @@ describe("throwIfSupabaseError PGRST116", () => {
 });
 
 describe("helpers de creación", () => {
-  it("badRequest devuelve HttpError con status 400", () => {
-    const err = badRequest("campo inválido");
+  it("createBadRequest devuelve HttpError con status 400", () => {
+    const err = createBadRequest("campo inválido");
     assert.ok(err instanceof HttpError);
     assert.equal(err.status, 400);
     assert.equal(err.message, "campo inválido");
   });
 
-  it("notFound devuelve HttpError con status 404", () => {
-    const err = notFound("no encontrado");
+  it("createNotFound devuelve HttpError con status 404", () => {
+    const err = createNotFound("no encontrado");
     assert.ok(err instanceof HttpError);
     assert.equal(err.status, 404);
   });
 
-  it("conflict devuelve HttpError con status 409", () => {
-    const err = conflict("ya existe");
+  it("createConflict devuelve HttpError con status 409", () => {
+    const err = createConflict("ya existe");
     assert.ok(err instanceof HttpError);
     assert.equal(err.status, 409);
   });
 
   it("acepta details como segundo argumento", () => {
-    const err = badRequest("error con detalles", { campo: "nombre" });
+    const err = createBadRequest("error con detalles", { campo: "nombre" });
     assert.deepEqual(err.details, { campo: "nombre" });
   });
 });
@@ -80,7 +83,7 @@ describe("sendError", () => {
 
   it("usa el status del HttpError para responder", () => {
     const res = makeFakeRes();
-    sendError(res, badRequest("campo inválido"));
+    sendError(res, createBadRequest("campo inválido"));
     assert.equal(res.statusCode, 400);
     assert.equal(res.jsonBody.error, "campo inválido");
   });
@@ -94,13 +97,13 @@ describe("sendError", () => {
 
   it("incluye details en el JSON cuando existen", () => {
     const res = makeFakeRes();
-    sendError(res, badRequest("error con detalles", { campo: "nombre" }));
+    sendError(res, createBadRequest("error con detalles", { campo: "nombre" }));
     assert.deepEqual(res.jsonBody.details, { campo: "nombre" });
   });
 
   it("no incluye la clave details cuando son null", () => {
     const res = makeFakeRes();
-    sendError(res, badRequest("sin detalles"));
+    sendError(res, createBadRequest("sin detalles"));
     assert.equal("details" in res.jsonBody, false);
   });
 
@@ -123,7 +126,7 @@ describe("sendError", () => {
     const original = console.error;
     console.error = (...args) => captured.push(args);
     try {
-      sendError(res, badRequest("error 400"));
+      sendError(res, createBadRequest("error 400"));
     } finally {
       console.error = original;
     }
