@@ -5,6 +5,7 @@ import {
   getSessionMessages,
   saveMessage,
   setSessionStatus,
+  deleteSession,
   processMessage,
   notifyChatStarted
 } from "./chat.service.js";
@@ -135,6 +136,17 @@ export async function releaseController(req, res) {
   try {
     const { id } = req.params;
     await setSessionStatus(id, "ai");
+    res.json({ ok: true });
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+// DELETE /api/chat/sessions/:id — elimina sesión y mensajes de Supabase
+export async function deleteSessionController(req, res) {
+  try {
+    const { id } = req.params;
+    await deleteSession(id);
     res.json({ ok: true });
   } catch (err) {
     sendError(res, err);
