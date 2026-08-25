@@ -80,7 +80,7 @@ describe("POST /api/payments/upload — validación de comprobantes", () => {
     const form = new FormData();
     form.append("image", makeImageBlob(), "comprobante.jpg");
     form.set("order_id", "test-order");
-    form.set("method", "WellsFargoZelle");
+    form.set("method", "Zelle");
     form.set("amount", "0");
 
     const res = await request("/api/payments/upload", { method: "POST", body: form });
