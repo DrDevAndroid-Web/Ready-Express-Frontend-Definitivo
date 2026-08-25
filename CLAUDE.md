@@ -381,3 +381,49 @@ Antes de dar una tarea por completada, verificar:
 - `app.set("trust proxy", 1)` está configurado — necesario para que rate limiting funcione correctamente detrás de proxy reverso
 - Para actualizar variables de entorno en producción: reiniciar el servidor después del cambio
 - El servidor carga variables de entorno desde el entorno del proceso (no desde `dotenv.config()` en runtime) — verificar que el hosting inyecta las variables directamente
+
+## Flujo de Deploy del Frontend
+
+### Repositorio y Vercel
+- **Repo GitHub:** `https://github.com/DrDevAndroid-Web/Ready-Express-Frontend-Definitivo`
+- **Proyecto Vercel:** `ready-express-frontend-definitivo`
+- **URL de preview (última):** `ready-express-frontend-definitivo-awh3hrf58.vercel.app`
+- **URL de producción:** `https://readyexpressnow.versabold.com`
+- **Rama principal:** `master`
+
+### Reglas de Deploy
+
+⚠️ **NUNCA hacer push directo a `master` sin instrucción explícita del usuario.**
+
+| Acción | Cuándo | Comando |
+|--------|--------|---------|
+| Preview | Por defecto, en cada cambio | Crear rama `preview/descripcion`, hacer push, Vercel genera URL de preview automáticamente |
+| Producción | **Solo cuando el usuario lo indique explícitamente** | `git push origin master` → Vercel despliega a producción |
+
+### Flujo estándar para cambios en el frontend
+
+```bash
+# 1. Crear rama de preview desde master
+git checkout -b preview/descripcion-del-cambio
+
+# 2. Hacer los cambios y commit
+git add frontend/archivo-modificado.html frontend/js/archivo.js
+git commit -m "tipo: descripción"
+
+# 3. Push → Vercel crea preview automáticamente
+git push origin preview/descripcion-del-cambio
+
+# 4. Vercel genera URL de preview (NOT producción)
+# → El usuario revisa y cuando confirme, se hace merge a master
+```
+
+### Promover preview a producción
+
+Solo cuando el usuario diga explícitamente "sube a producción" o equivalente:
+
+```bash
+git checkout master
+git merge preview/descripcion-del-cambio
+git push origin master
+# → Vercel despliega automáticamente a readyexpressnow.versabold.com
+```

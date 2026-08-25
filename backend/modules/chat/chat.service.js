@@ -212,9 +212,6 @@ ${productContext}`;
 // ─── SMS de alerta ───────────────────────────────────────────────────────────
 
 export async function notifyChatStarted(sessionId) {
-  // SMS pausado durante pruebas
-  if (process.env.NODE_ENV !== "production") return;
-
   const VERSABOLD_SMS_URL = process.env.VERSABOLD_SMS_URL;
   const VERSABOLD_API_KEY = process.env.VERSABOLD_API_KEY;
   const recipients = (process.env.SMS_NOTIFY_PHONES ?? "").split(",").map(p => p.trim()).filter(Boolean);

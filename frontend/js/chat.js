@@ -1,4 +1,4 @@
-import { addItem } from "./cart.js?v13";
+import { addItem } from "./cart.js?v14";
 
 const CHAT_API = "https://readyexpressnowbackend.versabold.com/api";
 let productCache = null;
@@ -224,12 +224,16 @@ function setTyping(visible) {
 function clearBadge() {
   const b = document.getElementById("ren-chat-badge");
   if (b) { b.style.display = "none"; b.textContent = ""; }
+  const fb = document.getElementById("ren-fab-badge");
+  if (fb) { fb.style.display = "none"; fb.textContent = ""; }
 }
 
 function showBadge() {
   if (open) return;
   const b = document.getElementById("ren-chat-badge");
   if (b) { b.style.display = "flex"; b.textContent = "1"; }
+  const fb = document.getElementById("ren-fab-badge");
+  if (fb) { fb.style.display = "flex"; fb.textContent = "1"; }
 }
 
 function autoResize(el) {
@@ -370,6 +374,51 @@ function createWidget() {
       #ren-chat-box { right: 8px; left: 8px; width: auto; top: 64px; }
       #ren-proactive-bubble { right: 8px; width: calc(100vw - 16px); top: 64px; }
     }
+
+    /* ── Botón flotante de chat (solo mobile) ── */
+    #ren-chat-fab {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      #ren-chat-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        z-index: 9998;
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        background: #0D47A1;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 26px;
+        box-shadow: 0 4px 18px rgba(13,71,161,.38);
+        animation: ren-fab-pulse 2.8s ease-in-out infinite;
+      }
+      #ren-chat-fab .ren-fab-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        background: #ef4444;
+        color: #fff;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+        font-weight: 700;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      @keyframes ren-fab-pulse {
+        0%, 100% { box-shadow: 0 4px 18px rgba(13,71,161,.38); transform: scale(1); }
+        50%       { box-shadow: 0 4px 28px rgba(13,71,161,.60); transform: scale(1.07); }
+      }
+    }
   `;
   document.head.appendChild(style);
 
@@ -398,6 +447,14 @@ function createWidget() {
     </div>
   `;
   document.body.appendChild(box);
+
+  // FAB mobile
+  const fab = document.createElement("button");
+  fab.id = "ren-chat-fab";
+  fab.setAttribute("aria-label", "Abrir chat de asistencia");
+  fab.innerHTML = `<i class="fa-regular fa-comment-dots"></i><span class="ren-fab-badge" id="ren-fab-badge"></span>`;
+  document.body.appendChild(fab);
+  fab.addEventListener("click", toggleChat);
 
   document.getElementById("ren-chat-nav-btn")?.addEventListener("click", toggleChat);
   document.getElementById("ren-chat-close").addEventListener("click", closeChat);
