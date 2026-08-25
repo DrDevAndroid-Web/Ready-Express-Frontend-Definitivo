@@ -64,6 +64,20 @@ export async function setSessionStatus(sessionId, status) {
   if (error) throw error;
 }
 
+export async function deleteSession(sessionId) {
+  const { error: msgErr } = await supabase
+    .from("chat_messages")
+    .delete()
+    .eq("session_id", sessionId);
+  if (msgErr) throw msgErr;
+
+  const { error: sessErr } = await supabase
+    .from("chat_sessions")
+    .delete()
+    .eq("id", sessionId);
+  if (sessErr) throw sessErr;
+}
+
 export async function saveClientContact(sessionId, contact) {
   const { error } = await supabase
     .from("chat_sessions")

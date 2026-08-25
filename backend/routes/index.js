@@ -39,7 +39,8 @@ import {
   adminReplyController,
   takeoverController,
   resolveSessionController,
-  releaseController
+  releaseController,
+  deleteSessionController
 } from "../modules/chat/chat.controller.js";
 
 import { upload } from "../middlewares/upload.js";
@@ -172,6 +173,7 @@ router.post("/chat/sessions/:id/reply", requireSupabaseUser, adminReplyControlle
 router.patch("/chat/sessions/:id/takeover", requireSupabaseUser, takeoverController);
 router.patch("/chat/sessions/:id/resolve", requireSupabaseUser, resolveSessionController);
 router.patch("/chat/sessions/:id/release", requireSupabaseUser, releaseController);
+router.delete("/chat/sessions/:id", requireSupabaseUser, deleteSessionController);
 
 // PAYMENT METHODS
 router.use("/payment-methods", paymentMethodsRouter);
