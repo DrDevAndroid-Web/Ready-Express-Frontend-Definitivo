@@ -3,8 +3,11 @@ import { addItem } from "./cart.js?v17";
 const CHAT_API = "https://readyexpressnowbackend.versabold.com/api";
 let productCache = null;
 const PROACTIVE_DELAY = 10000;
+const CLIENT_KEY = "ren_chat_client";
 const SESSION_KEY = "ren_chat_session";
+const TRANSCRIPT_KEY = "ren_chat_messages";
 const PROACTIVE_KEY = "ren_chat_proactive_shown";
+const MAX_STORED_MESSAGES = 80;
 
 let sessionId = null;
 let open = false;
@@ -12,9 +15,42 @@ let sending = false;
 let sseSource = null;
 
 // ─── Persistencia ─────────────────────────────────────────────────────────────
-function saveSession(id) { try { sessionStorage.setItem(SESSION_KEY, id); } catch { } }
-function loadSession() { try { return sessionStorage.getItem(SESSION_KEY); } catch { return null; } }
-function clearSession() { try { sessionStorage.removeItem(SESSION_KEY); } catch { } }
+function saveSession(id) {
+  try {
+    localStorage.setItem(SESSION_KEY, id);
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch { }
+}
+function saveClient(id) { try { if (id) localStorage.setItem(CLIENT_KEY, id); } catch { } }
+function loadClient() { try { return localStorage.getItem(CLIENT_KEY); } catch { return null; } }
+function loadSession() {
+  try {
+    const saved = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+    if (saved) saveSession(saved);
+    return saved;
+  } catch { return null; }
+}
+function clearSession() {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(TRANSCRIPT_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch { }
+}
+function loadTranscript() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TRANSCRIPT_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+function saveTranscriptMessage(message) {
+  try {
+    const messages = loadTranscript();
+    if (message.id && messages.some(item => String(item.id) === String(message.id))) return;
+    messages.push(message);
+    localStorage.setItem(TRANSCRIPT_KEY, JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)));
+  } catch { }
+}
 function proactiveAlreadyShown() { try { return !!localStorage.getItem(PROACTIVE_KEY); } catch { return false; } }
 function markProactiveShown() { try { localStorage.setItem(PROACTIVE_KEY, "1"); } catch { } }
 
@@ -47,10 +83,15 @@ async function addCartItems(items) {
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 async function apiStartSession() {
-  const res = await fetch(`${CHAT_API}/chat/session`, { method: "POST" });
+  const clientId = loadClient();
+  const savedSessionId = loadSession();
+  const res = await fetch(`${CHAT_API}/chat/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, sessionId: savedSessionId })
+  });
   if (!res.ok) throw new Error("No se pudo crear sesión");
-  const data = await res.json();
-  return data.sessionId;
+  return res.json();
 }
 
 async function apiSendMessage(text) {
@@ -77,7 +118,7 @@ function connectSSE() {
       const n = JSON.parse(e.data);
       if (n.type === "chat_admin_reply" && n.data?.sessionId === sessionId) {
         setTyping(false);
-        appendMessage("assistant", n.data.message);
+        appendMessage("assistant", n.data.chatMessage?.content || n.data.message, n.data.chatMessage?.id);
       }
     } catch { }
   });
@@ -146,18 +187,25 @@ function toggleChat() {
 async function initSession() {
   setTyping(true);
   try {
-    const saved = loadSession();
-    if (saved) {
-      sessionId = saved;
-    } else {
-      sessionId = await apiStartSession();
-      saveSession(sessionId);
-      connectSSE();
+    const localSession = loadSession();
+    const sessionData = await apiStartSession();
+    sessionId = sessionData.sessionId || localSession;
+    saveClient(sessionData.clientId);
+    saveSession(sessionId);
+    if (Array.isArray(sessionData.messages) && sessionData.messages.length) {
+      clearMessages();
+      sessionData.messages.forEach(msg => appendMessage(msg.role, msg.content, msg.id, false));
     }
+    connectSSE();
     setTyping(false);
     if (document.querySelectorAll(".ren-msg").length === 0) {
-      appendMessage("assistant", "¡Hola! ¿En qué te puedo ayudar hoy? 😊");
-      appendMessage("assistant", "Puedo contarte sobre nuestros combos, cómo funciona el envío, los métodos de pago o cualquier duda que tengas.");
+      const transcript = loadTranscript();
+      if (transcript.length) {
+        transcript.forEach(msg => appendMessage(msg.role, msg.text, msg.id, false));
+      } else {
+        appendMessage("assistant", "¡Hola! ¿En qué te puedo ayudar hoy? 😊");
+        appendMessage("assistant", "Puedo contarte sobre nuestros combos, cómo funciona el envío, los métodos de pago o cualquier duda que tengas.");
+      }
     }
   } catch {
     setTyping(false);
@@ -183,7 +231,8 @@ async function handleSend() {
   try {
     const data = await apiSendMessage(text);
     setTyping(false);
-    if (data.reply) appendMessage("assistant", data.reply);
+    if (data.assistantMessage?.content) appendMessage("assistant", data.assistantMessage.content, data.assistantMessage.id);
+    else if (data.reply) appendMessage("assistant", data.reply);
     if (data.cartItems?.length) {
       await addCartItems(data.cartItems);
       // Cerrar el chat y abrir el carrito para que el cliente continúe
@@ -201,13 +250,17 @@ async function handleSend() {
 }
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────
-function appendMessage(role, text) {
+function appendMessage(role, text, id = null, persist = true) {
+  if (!text) return;
   const container = document.getElementById("ren-chat-messages");
   const typing = document.getElementById("ren-typing");
+  if (id && Array.from(container.querySelectorAll(".ren-msg")).some(msg => msg.dataset.messageId === String(id))) return;
   const div = document.createElement("div");
   div.className = `ren-msg ren-msg-${role === "user" ? "user" : "assistant"}`;
+  if (id) div.dataset.messageId = String(id);
   div.textContent = text;
   container.insertBefore(div, typing);
+  if (persist) saveTranscriptMessage({ id, role, text, at: new Date().toISOString() });
   setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
   if (role === "assistant" && !open) showBadge();
 }
@@ -217,6 +270,12 @@ function setTyping(visible) {
   if (el) el.style.display = visible ? "block" : "none";
   const c = document.getElementById("ren-chat-messages");
   if (c) setTimeout(() => { c.scrollTop = c.scrollHeight; }, 50);
+}
+
+function clearMessages() {
+  const container = document.getElementById("ren-chat-messages");
+  if (!container) return;
+  container.querySelectorAll(".ren-msg").forEach(msg => msg.remove());
 }
 
 function clearBadge() {
@@ -476,6 +535,9 @@ function createWidget() {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
   try { localStorage.removeItem(PROACTIVE_KEY); } catch { }
+  try { localStorage.removeItem(CLIENT_KEY); } catch { }
+  try { localStorage.removeItem(SESSION_KEY); } catch { }
+  try { localStorage.removeItem(TRANSCRIPT_KEY); } catch { }
   try { sessionStorage.removeItem(SESSION_KEY); } catch { }
 }
 
