@@ -7,7 +7,8 @@ import {
   setSessionStatus,
   deleteSession,
   processMessage,
-  notifyChatStarted
+  notifyChatStarted,
+  toChatMessagePayload
 } from "./chat.service.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { sendError } from "../../utils/http-error.js";
@@ -44,11 +45,18 @@ export async function clientMessageController(req, res) {
       NotificationManager.sendNotification("chat_message_pending", {
         sessionId,
         lastMessage: message.trim(),
+        chatMessage: toChatMessagePayload(result.userMessage),
         message: `Mensaje pendiente de atención humana en sesión ${sessionId}`
       });
     }
 
-    res.json({ reply: result.reply, handoff: result.handoff, cartItems: result.cartItems ?? null });
+    res.json({
+      reply: result.reply,
+      handoff: result.handoff,
+      cartItems: result.cartItems ?? null,
+      userMessage: toChatMessagePayload(result.userMessage),
+      assistantMessage: toChatMessagePayload(result.assistantMessage)
+    });
   } catch (err) {
     sendError(res, err);
   }
@@ -92,7 +100,8 @@ export async function adminReplyController(req, res) {
     // Notificar al cliente vía SSE (el frontend del cliente escucha)
     NotificationManager.sendNotification("chat_admin_reply", {
       sessionId: id,
-      message: message.trim()
+      message: message.trim(),
+      chatMessage: toChatMessagePayload(msg)
     });
 
     res.json({ message: msg });

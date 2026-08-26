@@ -56,6 +56,17 @@ export async function saveMessage(sessionId, role, content) {
   return data;
 }
 
+export function toChatMessagePayload(message) {
+  if (!message) return null;
+  return {
+    id: message.id,
+    sessionId: message.session_id,
+    role: message.role,
+    content: message.content,
+    createdAt: message.created_at
+  };
+}
+
 export async function setSessionStatus(sessionId, status) {
   const { error } = await supabase
     .from("chat_sessions")
@@ -247,20 +258,23 @@ export async function notifyChatStarted(sessionId) {
 
 export async function processMessage(sessionId, userText) {
   const session = await getSession(sessionId);
+  let handoffActive = session.status === "handoff";
 
-  await saveMessage(sessionId, "user", userText);
+  const userMessage = await saveMessage(sessionId, "user", userText);
 
   // Si está en modo handoff, el admin responde — no invocamos la IA
-  if (session.status === "handoff") {
-    return { handoff: true, reply: null };
+  if (handoffActive) {
+    return { handoff: true, reply: null, userMessage };
   }
 
   // Detectar si el mensaje activa handoff
   if (needsHandoff(userText)) {
     await setSessionStatus(sessionId, "handoff");
+    handoffActive = true;
     NotificationManager.sendNotification("chat_handoff_needed", {
       sessionId,
       lastMessage: userText,
+      chatMessage: toChatMessagePayload(userMessage),
       message: `Cliente necesita atención en sesión ${sessionId}`
     });
   }
@@ -287,10 +301,16 @@ export async function processMessage(sessionId, userText) {
 
   // La IA devolvió un CART_ACTION
   if (aiResult?.__cart) {
-    await saveMessage(sessionId, "assistant", aiResult.reply);
-    return { handoff: session.status === "handoff", reply: aiResult.reply, cartItems: aiResult.items };
+    const assistantMessage = await saveMessage(sessionId, "assistant", aiResult.reply);
+    return {
+      handoff: handoffActive,
+      reply: aiResult.reply,
+      cartItems: aiResult.items,
+      userMessage,
+      assistantMessage
+    };
   }
 
-  await saveMessage(sessionId, "assistant", aiResult);
-  return { handoff: session.status === "handoff", reply: aiResult };
+  const assistantMessage = await saveMessage(sessionId, "assistant", aiResult);
+  return { handoff: handoffActive, reply: aiResult, userMessage, assistantMessage };
 }

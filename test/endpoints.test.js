@@ -40,6 +40,13 @@ describe("admin endpoint surface", () => {
   it("requires a Supabase session for admin reads and writes", async () => {
     const protectedEndpoints = [
       ["GET", "/api/orders"],
+      ["GET", "/api/chat/sessions"],
+      ["GET", "/api/chat/sessions/test-chat-id/messages"],
+      ["POST", "/api/chat/sessions/test-chat-id/reply"],
+      ["PATCH", "/api/chat/sessions/test-chat-id/takeover"],
+      ["PATCH", "/api/chat/sessions/test-chat-id/resolve"],
+      ["PATCH", "/api/chat/sessions/test-chat-id/release"],
+      ["DELETE", "/api/chat/sessions/test-chat-id"],
       ["GET", "/api/payments/pending"],
       ["PATCH", "/api/payments/test-payment-id/verify"],
       ["POST", "/api/combos-comida"],
@@ -88,5 +95,17 @@ describe("admin endpoint surface", () => {
 
     assert.equal(response.status, 400);
     assert.match(body.error, /imagen|comprobante/i);
+  });
+
+  it("rejects chat messages without sessionId and message with a controlled 400 response", async () => {
+    const response = await request("/api/chat/message", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({})
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.match(body.error, /sessionId y message/i);
   });
 });
