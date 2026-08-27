@@ -374,6 +374,56 @@ Antes de dar una tarea por completada, verificar:
 5. [ ] Bucket `porductos-variados` respeta el typo existente
 6. [ ] Tests de servicios externos usan `{ skip: !process.env.API_KEY }`
 7. [ ] Nuevos archivos JS del frontend: incrementar `?vN` en los `<script>` del HTML correspondiente
+8. [ ] **Cambios en el frontend: ejecutar `node test-android-compat.mjs` y verificar que pase** (ver sección abajo)
+
+---
+
+## Compatibilidad Android — Verificación Obligatoria en Cambios de Frontend
+
+**Cada vez que se modifiquen archivos en `css/`, `js/` o HTML del frontend, ejecutar el test de compatibilidad Android antes de hacer commit:**
+
+```bash
+# Levantar servidor local desde frontend/
+npx serve frontend -p 4444 &
+
+# Ejecutar test de compatibilidad Android + iOS (Playwright global)
+node "C:/Users/100270999/Documents/PRPOGRAMACION/VersaBold_Innovations/Navegador de Prueba/tests/readyexpressnow-android-compat.mjs"
+```
+
+El script simula un dispositivo Android (Chrome Mobile, viewport 412×915 — Galaxy S21) usando Playwright con el motor Chromium.
+
+### Qué verifica el test
+
+| Check | Qué detecta |
+|-------|-------------|
+| `body.style.overflow` limpio | Sin inline overflow que bloquee scroll en Android |
+| `body.modal-open` al abrir modal/carrito | La clase CSS controla el bloqueo, no el style inline |
+| `modal-open` se limpia al cerrar | No deja el scroll permanentemente bloqueado |
+| `cart-panel` height válido | Sin `height:0` ni `height:100vh` roto |
+| Navegación paso 1 → 2 → 3 del checkout | El flujo de pasos completo funciona |
+| `scrollTo` sin errores JS | El fallback no lanza excepciones en Chrome Mobile |
+| `:hover` inactivo en dispositivo touch | `@media (hover:hover) and (pointer:fine)` bien aplicado |
+| Métodos de pago cargados (mock) | El render del paso 3 funciona |
+| Selección de método de pago por tap | `click` registra `.selected` correctamente |
+| Sin errores JS críticos | Sin excepciones no capturadas en consola |
+
+### Problemas comunes en Android a revisar manualmente
+
+Estos no se pueden verificar con Playwright headless — revisarlos al hacer cambios de layout:
+
+- **`position: sticky` en headers dentro de `overflow:auto`** — en Chrome Android puede no funcionar si el padre tiene `overflow:hidden`.
+- **`vh` en inputs dentro de modales** — el teclado virtual en Android reduce el viewport, los elementos con `height:100vh` se comprimen. Usar `dvh` o `min-height` relativo.
+- **`type="number"` en inputs** — en Android muestra teclado numérico correcto, pero `e`, `+`, `-` pasan como valores. Validar en JS.
+- **`tap` delay de 300ms** — ya resuelto con `touch-action:manipulation` si el CSS lo incluye. Verificar que los botones de navegación entre pasos lo tengan.
+- **Autofill de Chrome** — Chrome Android puede autocompletar campos con datos incorrectos. Los inputs tienen `autocomplete` apropiado.
+- **Zoom en inputs < 16px** — Android Chrome también hace zoom si `font-size < 16px`. El media query `@media (max-width:600px) { font-size: 16px }` ya cubre esto, pero verificar que aplique a inputs nuevos.
+
+### Cómo interpretar fallos del test
+
+- **Fallo en WebKit + pasa en Chromium** → bug específico de iOS/Safari
+- **Fallo en Chromium + pasa en WebKit** → bug específico de Android/Chrome
+- **Fallo en ambos** → bug general (puede ser de entorno local o un bug real en ambas plataformas)
+- **Fallo solo en "Métodos de pago cargados"** → limitación de CORS en localhost, no es un bug real; pasa en producción
 
 ## Notas de Despliegue
 

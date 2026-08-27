@@ -1,6 +1,0 @@
-User-agent: *
-Allow: /
-
-Disallow: /pago.html
-
-Sitemap: https://readyexpressnow.com/sitemap.xml
