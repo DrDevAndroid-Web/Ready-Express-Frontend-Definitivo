@@ -1,5 +1,4 @@
 import {
-  createSession,
   getSession,
   getAllSessions,
   getSessionMessages,
@@ -7,7 +6,7 @@ import {
   setSessionStatus,
   deleteSession,
   processMessage,
-  notifyChatStarted,
+  startOrResumeSession,
   toChatMessagePayload
 } from "./chat.service.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
@@ -16,15 +15,16 @@ import { sendError } from "../../utils/http-error.js";
 // POST /api/chat/session — cliente inicia una nueva sesión
 export async function startSessionController(req, res) {
   try {
-    const session = await createSession();
-    notifyChatStarted(session.id).catch(err =>
-      console.error("[chat] Error enviando SMS de alerta:", err.message)
-    );
-    NotificationManager.sendNotification("chat_session_started", {
-      sessionId: session.id,
-      message: "Nuevo cliente en el chat"
-    });
-    res.json({ sessionId: session.id });
+    const { clientId, sessionId } = req.body || {};
+    const { client, session, messages, reused } = await startOrResumeSession(clientId, sessionId);
+    if (!reused) {
+      NotificationManager.sendNotification("chat_session_started", {
+        sessionId: session.id,
+        clientId: client.id,
+        message: "Nuevo cliente en el chat"
+      });
+    }
+    res.json({ clientId: client.id, sessionId: session.id, messages, reused });
   } catch (err) {
     sendError(res, err);
   }
@@ -39,13 +39,21 @@ export async function clientMessageController(req, res) {
     }
 
     const result = await processMessage(sessionId, message.trim());
+    const userMessage = toChatMessagePayload(result.userMessage);
+
+    NotificationManager.sendNotification("chat_client_message", {
+      sessionId,
+      lastMessage: message.trim(),
+      chatMessage: userMessage,
+      message: `Nuevo mensaje de cliente en sesión ${sessionId}`
+    });
 
     // Si está en handoff, notificar al admin vía SSE
     if (result.handoff) {
       NotificationManager.sendNotification("chat_message_pending", {
         sessionId,
         lastMessage: message.trim(),
-        chatMessage: toChatMessagePayload(result.userMessage),
+        chatMessage: userMessage,
         message: `Mensaje pendiente de atención humana en sesión ${sessionId}`
       });
     }
@@ -54,7 +62,7 @@ export async function clientMessageController(req, res) {
       reply: result.reply,
       handoff: result.handoff,
       cartItems: result.cartItems ?? null,
-      userMessage: toChatMessagePayload(result.userMessage),
+      userMessage,
       assistantMessage: toChatMessagePayload(result.assistantMessage)
     });
   } catch (err) {
