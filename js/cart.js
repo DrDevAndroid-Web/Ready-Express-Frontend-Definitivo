@@ -168,6 +168,7 @@ export function initCart() {
   cartBtn?.addEventListener("click", () => {
     cartPanel?.classList.add("open");
     overlay?.classList.add("show");
+    document.body.classList.add("modal-open");
   });
 
   cartClose?.addEventListener("click", closeCart);
@@ -176,7 +177,11 @@ export function initCart() {
 
 export function closeCart() {
   document.getElementById("cart-panel")?.classList.remove("open");
-  document.getElementById("overlay")?.classList.remove("show");
+  const anyOpen = document.querySelector(".modal.open, #cart-panel.open");
+  if (!anyOpen) {
+    document.getElementById("overlay")?.classList.remove("show");
+    document.body.classList.remove("modal-open");
+  }
 }
 
 

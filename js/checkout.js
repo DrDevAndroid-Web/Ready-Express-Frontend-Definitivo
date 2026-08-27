@@ -174,8 +174,12 @@ async function goToCheckoutStep(step, validate = true) {
     if (paymentStep) paymentStep.style.display = "block";
   }
 
-  // Scroll al inicio del modal body
-  document.querySelector("#checkout-modal .modal-body")?.scrollTo({ top: 0, behavior: "smooth" });
+  // Scroll al inicio del modal body (fallback para iOS Safari que no soporta smooth)
+  const modalBody = document.querySelector("#checkout-modal .modal-body");
+  if (modalBody) {
+    try { modalBody.scrollTo({ top: 0, behavior: "smooth" }); }
+    catch { modalBody.scrollTop = 0; }
+  }
   return true;
 }
 
@@ -360,7 +364,7 @@ function selectPaymentMethod(card) {
 }
 
 function copyToClipboard(text, btn) {
-  navigator.clipboard.writeText(text).then(() => {
+  const markCopied = () => {
     const original = btn.textContent;
     btn.textContent = "✓ Copiado";
     btn.disabled = true;
@@ -368,19 +372,28 @@ function copyToClipboard(text, btn) {
       btn.textContent = original;
       btn.disabled = false;
     }, 2000);
-  }).catch(() => {
-    // Fallback para navegadores sin clipboard API
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-    btn.textContent = "✓ Copiado";
-    setTimeout(() => { btn.textContent = "📋 Copiar"; }, 2000);
-  });
+  };
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(markCopied).catch(() => iosFallbackCopy(text, btn, markCopied));
+  } else {
+    iosFallbackCopy(text, btn, markCopied);
+  }
+}
+
+function iosFallbackCopy(text, btn, onSuccess) {
+  // En iOS Safari, seleccionar un input es necesario para que el copy funcione
+  const input = document.createElement("input");
+  input.setAttribute("readonly", "");
+  input.value = text;
+  input.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none;";
+  document.body.appendChild(input);
+  input.focus();
+  input.setSelectionRange(0, text.length);
+  const ok = document.execCommand("copy");
+  document.body.removeChild(input);
+  if (ok) { onSuccess(); }
+  else { btn.textContent = "Copia: " + text; }
 }
 
 // ── Envío del pedido ──────────────────────────────────────────
@@ -482,7 +495,9 @@ function fieldValue(form, name) {
 export function openModal(id) {
   document.getElementById(id)?.classList.add("open");
   document.getElementById("overlay")?.classList.add("show");
-  document.body.style.overflow = "hidden";
+  // En iOS, overflow:hidden en body no bloquea el scroll de elementos fixed.
+  // Usamos una clase CSS con touch-action y position en su lugar.
+  document.body.classList.add("modal-open");
 }
 
 export function closeModal(id) {
@@ -490,6 +505,6 @@ export function closeModal(id) {
   const anyOpen = document.querySelector(".modal.open, #cart-panel.open");
   if (!anyOpen) {
     document.getElementById("overlay")?.classList.remove("show");
-    document.body.style.overflow = "";
+    document.body.classList.remove("modal-open");
   }
 }

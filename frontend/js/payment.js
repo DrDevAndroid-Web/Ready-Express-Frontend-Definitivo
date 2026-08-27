@@ -461,7 +461,9 @@ function showSuccess() {
   if (orderRef) orderRef.textContent = `#${pendingOrderId || "-"}`;
   if (paymentContent) paymentContent.style.display = "none";
   screen?.classList.add("open");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  // scrollTo con smooth no es confiable en iOS Safari; usamos fallback directo
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); }
+  catch { window.scrollTo(0, 0); }
 }
 
 

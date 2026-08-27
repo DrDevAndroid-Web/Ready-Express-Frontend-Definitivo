@@ -652,7 +652,7 @@ footer ul li a:hover { color: var(--orange-light); }
 
 /* ── Cart Panel ── */
 .cart-panel {
-  position: fixed; top: 0; right: -400px; width: 380px; height: 100vh;
+  position: fixed; top: 0; right: -400px; width: 380px; height: 100vh; height: 100dvh;
   background: var(--white); z-index: 200;
   box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
   transition: right 0.35s cubic-bezier(0.25,0.46,0.45,0.94);
@@ -671,7 +671,7 @@ footer ul li a:hover { color: var(--orange-light); }
 .cart-header h3 { font-size: 1.1rem; }
 .icon-btn { background: none; color: var(--white); font-size: 1.3rem; padding: 4px; border-radius: 4px; transition: background var(--transition); }
 .icon-btn:hover { background: rgba(255,255,255,0.15); }
-.cart-body { flex: 1; overflow-y: auto; padding: 16px; }
+.cart-body { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
 .cart-empty { text-align: center; padding: 60px 20px; color: var(--gray); }
 .cart-empty span { font-size: 3rem; display: block; margin-bottom: 12px; }
 #cart-items { display: flex; flex-direction: column; gap: 12px; }
@@ -738,13 +738,15 @@ button:disabled {
 .modal {
   display: block;
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-60%);
-  width: min(560px, 95vw); max-height: 90vh; overflow-y: auto;
+  width: min(560px, 95vw); max-height: 90vh; max-height: 90dvh; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--white); border-radius: var(--radius);
   box-shadow: var(--shadow-lg); z-index: 300;
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.25s ease;
   will-change: transform, opacity;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 .modal.open {
   opacity: 1;
@@ -824,9 +826,11 @@ button:disabled {
   padding: 16px 12px; text-align: center; cursor: pointer;
   transition: all var(--transition);
 }
-.method-card:hover {
-  border-color: var(--orange);
-  box-shadow: 0 2px 8px rgba(37,211,102,0.15);
+@media (hover: hover) and (pointer: fine) {
+  .method-card:hover {
+    border-color: var(--orange);
+    box-shadow: 0 2px 8px rgba(37,211,102,0.15);
+  }
 }
 .method-card.selected {
   border-color: var(--orange);
@@ -843,11 +847,13 @@ button:disabled {
   transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
   background: var(--gray-light); margin-bottom: 14px;
 }
-.dropzone:hover {
-  border-color: var(--orange);
-  background: var(--orange-pale);
-  box-shadow: 0 4px 12px rgba(37,211,102,0.15);
-  transform: scale(1.01);
+@media (hover: hover) and (pointer: fine) {
+  .dropzone:hover {
+    border-color: var(--orange);
+    background: var(--orange-pale);
+    box-shadow: 0 4px 12px rgba(37,211,102,0.15);
+    transform: scale(1.01);
+  }
 }
 .dropzone.drag-over {
   border-color: var(--orange);
@@ -2328,10 +2334,19 @@ button:disabled {
 }
 
 /* iOS Safari checkout/payment stability fixes */
-@supports (height: 100dvh) {
-  .cart-panel { height: 100dvh; }
-  .modal { max-height: 90dvh; }
+/* Bloqueo de scroll al abrir modales — compatible con iOS (overflow:hidden en body no funciona en iOS) */
+body.modal-open {
+  overflow: hidden;
+  /* En iOS el overflow:hidden no detiene el scroll; touch-action lo fuerza */
+  touch-action: none;
 }
+/* El modal y el cart sí pueden hacer scroll internamente */
+body.modal-open .modal,
+body.modal-open .cart-panel {
+  touch-action: pan-y;
+}
+
+/* dvh ya aplicado directamente en .cart-panel y .modal como valor doble (100vh fallback + 100dvh) */
 
 @media (max-width: 600px) {
   .modal.open {
