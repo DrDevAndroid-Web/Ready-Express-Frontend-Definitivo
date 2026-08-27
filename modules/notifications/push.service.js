@@ -107,24 +107,48 @@ function isExpoPushToken(token) {
 
 function getPushTitle(type) {
   const titles = {
-    order_created: "Nueva orden recibida",
-    order_delivered: "Orden entregada",
-    payment_received: "Nuevo comprobante recibido",
-    payment_approved: "Pago aprobado",
-    payment_rejected: "Pago rechazado",
-    test: "Prueba de notificaciones"
+    order_created:          "🛒 Nueva orden",
+    order_delivered:        "✅ Orden entregada",
+    payment_received:       "💳 Nuevo comprobante",
+    payment_approved:       "✅ Pago aprobado",
+    payment_rejected:       "❌ Pago rechazado",
+    test:                   "🔔 Prueba de notificaciones",
+    chat_session_started:   "💬 Nuevo cliente en el chat",
+    chat_client_message:    "💬 Mensaje de cliente",
+    chat_message_pending:   "⏳ Cliente esperando atención",
+    chat_handoff_needed:    "🚨 Cliente pide atención humana",
+    chat_contact_received:  "📞 Cliente dejó su contacto",
   };
   return titles[type] || "ReadyExpress Admin";
 }
 
 function getPushBody(type, data = {}) {
-  if (data.message) return data.message;
-  if (type === "order_created") return data.customerName ? `Nueva orden: ${data.customerName}` : "Nueva orden recibida";
-  if (type === "payment_received") return data.senderName
-    ? `Llego un pedido nuevo de ${data.senderName}`
-    : "Llego un pedido nuevo";
+  // Eventos de chat — usar lastMessage como cuerpo si está disponible
+  if (type === "chat_client_message" || type === "chat_message_pending") {
+    if (data.lastMessage) return truncate(data.lastMessage, 100);
+    return "El cliente envió un mensaje";
+  }
+  if (type === "chat_session_started") {
+    return "Un cliente inició una nueva conversación";
+  }
+  if (type === "chat_handoff_needed") {
+    if (data.lastMessage) return truncate(data.lastMessage, 100);
+    return "El cliente necesita hablar con una persona";
+  }
+  if (type === "chat_contact_received") {
+    return data.contact ? `Contacto: ${data.contact}` : "El cliente compartió su contacto";
+  }
+
+  // Eventos de órdenes y pagos
+  if (type === "order_created") return data.customerName ? `De: ${data.customerName}` : "Nueva orden recibida";
+  if (type === "payment_received") return data.senderName ? `De: ${data.senderName}` : "Nuevo comprobante recibido";
   if (data.orderId) return `Orden ${String(data.orderId).slice(0, 8)}`;
   return "Evento recibido desde ReadyExpress";
+}
+
+function truncate(str, max) {
+  if (!str || str.length <= max) return str;
+  return str.slice(0, max - 1) + "…";
 }
 
 function chunk(items, size) {
