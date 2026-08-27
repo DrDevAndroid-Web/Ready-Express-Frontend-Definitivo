@@ -1,11 +1,30 @@
 import { createOrder, cancelOrder } from "./orders.service.js";
 import { assertSupabaseServiceRole, supabase, supabaseKeyInfo } from "../../config/supabase.js";
 import { sendError, throwIfSupabaseError } from "../../utils/http-error.js";
+import { createNotFound } from "../../utils/http-error.js";
 import { getPaymentImageUrl } from "../payments/payments.service.js";
 
 export async function createOrderController(req, res) {
   try {
     const order = await createOrder(req.body);
+    res.json(order);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function getOrderByIdController(req, res) {
+  try {
+    const { id } = req.params;
+    const { data: order, error } = await supabase
+      .from("orders")
+      .select("id, items, total, status, customer_name, customer_phone, customer_address, receiver_name, receiver_phone, delivery_notes, created_at")
+      .eq("id", id)
+      .single();
+
+    throwIfSupabaseError(error, "No se pudo cargar la orden");
+    if (!order) throw createNotFound("Orden no encontrada");
+
     res.json(order);
   } catch (err) {
     sendError(res, err);
