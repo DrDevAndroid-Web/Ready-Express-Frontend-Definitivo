@@ -1,8 +1,8 @@
-import { uploadPayment, cancelOrder } from "./api.js?v17";
+import { uploadPayment, cancelOrder } from "./api.js?v18";
 
 const API_BASE = "https://readyexpressnowbackend.versabold.com/api";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v17";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v17";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v18";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v18";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
