@@ -4,17 +4,103 @@ import { NotificationManager } from "../notifications/notifications.service.js";
 const AI_API_URL = "https://hostingclan.com/api/ai/chat/completions";
 const AI_MODEL = "openai/gpt-5-nano";
 const AI_API_KEY = process.env.CHAT_AI_API_KEY;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // ─── Supabase helpers ────────────────────────────────────────────────────────
 
-export async function createSession() {
+export async function getOrCreateClient(clientId = null) {
+  const candidateId = String(clientId || "").trim();
+  const normalizedId = UUID_RE.test(candidateId) ? candidateId : "";
+
+  if (normalizedId) {
+    const { data: existing, error: existingError } = await supabase
+      .from("chat_clients")
+      .select("*")
+      .eq("id", normalizedId)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing) {
+      await touchClient(existing.id);
+      return existing;
+    }
+  }
+
+  const insertPayload = normalizedId ? { id: normalizedId } : {};
   const { data, error } = await supabase
-    .from("chat_sessions")
-    .insert({ status: "ai" })
+    .from("chat_clients")
+    .insert(insertPayload)
     .select()
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function touchClient(clientId, patch = {}) {
+  if (!clientId) return;
+  const { error } = await supabase
+    .from("chat_clients")
+    .update({ last_seen_at: new Date().toISOString(), ...patch })
+    .eq("id", clientId);
+  if (error) throw error;
+}
+
+export async function findReusableSession(clientId) {
+  if (!clientId) return null;
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .select("*")
+    .eq("client_id", clientId)
+    .in("status", ["ai", "handoff"])
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function assignSessionClient(sessionId, clientId) {
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .update({ client_id: clientId })
+    .eq("id", sessionId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function createSession(clientId = null) {
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .insert({ status: "ai", client_id: clientId })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function startOrResumeSession(clientId = null, sessionId = null) {
+  const normalizedSessionId = String(sessionId || "").trim();
+  if (normalizedSessionId) {
+    try {
+      const existingSession = await getSession(normalizedSessionId);
+      const client = await getOrCreateClient(existingSession.client_id || clientId);
+      const session = existingSession.client_id
+        ? existingSession
+        : await assignSessionClient(existingSession.id, client.id);
+      const messages = await getSessionMessages(session.id);
+      return { client, session, messages, reused: true };
+    } catch {
+      // Si la sesión guardada en el navegador ya no existe, se crea una nueva.
+    }
+  }
+
+  const client = await getOrCreateClient(clientId);
+  const reusableSession = await findReusableSession(client.id);
+  const session = reusableSession || await createSession(client.id);
+  const messages = await getSessionMessages(session.id);
+
+  return { client, session, messages, reused: Boolean(reusableSession) };
 }
 
 export async function getSession(sessionId) {
@@ -243,7 +329,7 @@ export async function notifyChatStarted(sessionId) {
 
   if (!VERSABOLD_SMS_URL || !VERSABOLD_API_KEY || !recipients.length) return;
 
-  const mstext = `💬 Cliente en chat - ReadyExpressNow\nSesión ${sessionId}`;
+  const mstext = `💬 Cliente escribió en chat - ReadyExpressNow\nSesión ${sessionId}`;
 
   await Promise.allSettled(recipients.map(r =>
     fetch(VERSABOLD_SMS_URL, {
@@ -259,8 +345,20 @@ export async function notifyChatStarted(sessionId) {
 export async function processMessage(sessionId, userText) {
   const session = await getSession(sessionId);
   let handoffActive = session.status === "handoff";
+  const isFirstClientMessage = !session.last_client_message_at && !session.last_message;
 
   const userMessage = await saveMessage(sessionId, "user", userText);
+
+  if (isFirstClientMessage) {
+    notifyChatStarted(sessionId).catch(err =>
+      console.error("[chat] Error enviando SMS de alerta:", err.message)
+    );
+  }
+
+  if (session.client_id) {
+    touchClient(session.client_id, { last_message_at: new Date().toISOString() })
+      .catch(err => console.error("[chat] Error actualizando cliente:", err.message));
+  }
 
   // Si está en modo handoff, el admin responde — no invocamos la IA
   if (handoffActive) {

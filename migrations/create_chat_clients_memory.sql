@@ -1,4 +1,6 @@
--- Sesiones de chat con clientes
+-- Memoria de clientes de chat + limpieza semanal de historiales inactivos.
+-- Proyecto Supabase detectado por SUPABASE_URL: plxvkchghkvtbjplwyix
+
 create extension if not exists pgcrypto;
 create extension if not exists pg_cron with schema extensions;
 
@@ -9,31 +11,16 @@ create table if not exists chat_clients (
   last_message_at timestamptz
 );
 
-create table if not exists chat_sessions (
-  id          text primary key default ('chat-' || substr(md5(random()::text), 1, 10)),
-  client_id   uuid references chat_clients(id) on delete cascade,
-  status      text not null default 'ai' check (status in ('ai', 'handoff', 'resolved')),
-  client_contact text,                  -- WhatsApp o email que dejó el cliente
-  last_message text,                    -- Último mensaje para preview en la lista
-  last_client_message_at timestamptz,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
-);
+alter table chat_sessions
+  add column if not exists client_id uuid references chat_clients(id) on delete cascade,
+  add column if not exists last_client_message_at timestamptz;
 
--- Mensajes de cada sesión
-create table if not exists chat_messages (
-  id          bigserial primary key,
-  session_id  text not null references chat_sessions(id) on delete cascade,
-  role        text not null check (role in ('user', 'assistant', 'admin')),
-  content     text not null,
-  created_at  timestamptz not null default now()
-);
+create index if not exists chat_sessions_client_id_idx
+  on chat_sessions(client_id, updated_at desc);
 
-create index if not exists chat_messages_session_idx on chat_messages(session_id, created_at);
-create index if not exists chat_sessions_client_id_idx on chat_sessions(client_id, updated_at desc);
-create index if not exists chat_clients_last_message_at_idx on chat_clients(last_message_at);
+create index if not exists chat_clients_last_message_at_idx
+  on chat_clients(last_message_at);
 
--- Actualiza updated_at automáticamente al insertar mensaje
 create or replace function update_chat_session_timestamp()
 returns trigger language plpgsql as $$
 begin
@@ -66,18 +53,7 @@ create trigger chat_messages_update_session
   after insert on chat_messages
   for each row execute function update_chat_session_timestamp();
 
--- RLS: solo service_role puede leer/escribir (el backend usa service_role)
-alter table chat_sessions enable row level security;
-alter table chat_messages enable row level security;
 alter table chat_clients enable row level security;
-
-drop policy if exists "service_role_all_sessions" on chat_sessions;
-create policy "service_role_all_sessions" on chat_sessions
-  for all using (true) with check (true);
-
-drop policy if exists "service_role_all_messages" on chat_messages;
-create policy "service_role_all_messages" on chat_messages
-  for all using (true) with check (true);
 
 drop policy if exists "service_role_all_clients" on chat_clients;
 create policy "service_role_all_clients" on chat_clients
