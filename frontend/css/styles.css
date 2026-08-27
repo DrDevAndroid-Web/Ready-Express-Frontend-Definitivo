@@ -2379,3 +2379,184 @@ button:disabled {
   }
 }
 
+/* ── Checkout Stepper ── */
+.checkout-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 14px 24px 0;
+  background: var(--white);
+}
+.checkout-stepper-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.stepper-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--gray-light);
+  border: 2px solid var(--border);
+  color: var(--gray);
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+.stepper-label {
+  font-size: 0.72rem;
+  color: var(--gray);
+  font-weight: 500;
+  transition: color 0.25s ease;
+}
+.checkout-stepper-item.active .stepper-dot {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--white);
+  box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.18);
+}
+.checkout-stepper-item.active .stepper-label {
+  color: var(--navy);
+  font-weight: 700;
+}
+.checkout-stepper-item.done .stepper-dot {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--white);
+}
+.checkout-stepper-item.done .stepper-label { color: var(--green); }
+.stepper-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  width: 48px;
+  margin: 0 4px;
+  margin-bottom: 20px;
+  transition: background 0.25s ease;
+}
+.checkout-stepper-item.done + .stepper-line {
+  background: var(--green);
+}
+
+/* ── Checkout mini-resumen sticky ── */
+.checkout-mini-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 24px;
+  background: var(--orange-pale);
+  border-bottom: 1px solid rgba(37, 211, 102, 0.25);
+  font-size: 0.85rem;
+  color: var(--navy);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.mini-summary-items { color: var(--gray); }
+.mini-summary-total strong { color: var(--navy); }
+
+/* ── Checkout acciones con botón atrás ── */
+.checkout-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.checkout-actions .form-submit { flex: 1; margin-top: 0; }
+.checkout-back-btn {
+  background: var(--gray-light);
+  color: var(--navy);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.checkout-back-btn:hover { background: var(--border); border-color: var(--navy); }
+
+/* ── Validación por campo ── */
+.field-error {
+  color: #c62828;
+  font-size: 0.8rem;
+  margin-top: 4px;
+  display: none;
+  min-height: 0;
+}
+.field-error:not(:empty) { display: block; }
+.form-group input.input-error,
+.form-group textarea.input-error {
+  border-color: #c62828 !important;
+  background: #fff8f8;
+}
+
+/* ── Métodos de pago: instrucciones en acordeón ── */
+.method-instructions {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  text-align: left;
+}
+.method-account-copy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+}
+.account-number-text {
+  font-family: monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--navy);
+  word-break: break-all;
+}
+.btn-copy-account {
+  background: var(--navy);
+  color: var(--white);
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.btn-copy-account:hover { background: var(--navy-light); }
+.btn-copy-account:disabled { background: var(--green); cursor: default; }
+.instructions-text {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.method-card.selected .method-instructions { display: block !important; }
+
+/* ── Overlay de éxito pre-redirect ── */
+#checkout-success-overlay .spinner {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+}
+
+@media (max-width: 480px) {
+  .checkout-stepper { padding: 12px 16px 0; }
+  .stepper-line { width: 28px; }
+  .stepper-label { font-size: 0.65rem; }
+  .checkout-mini-summary { padding: 8px 16px; }
+  .checkout-back-btn { padding: 10px 12px; font-size: 0.85rem; }
+}

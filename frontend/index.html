@@ -421,12 +421,31 @@
       <button class="modal-close" id="checkout-close" aria-label="Cerrar">✕</button>
     </div>
 
-    <div class="modal-body">
-      <div class="checkout-summary" id="checkout-summary"></div>
+    <!-- Stepper de progreso -->
+    <div class="checkout-stepper" id="checkout-stepper">
+      <div class="checkout-stepper-item active" data-step="1">
+        <div class="stepper-dot">1</div>
+        <span class="stepper-label">Remitente</span>
+      </div>
+      <div class="stepper-line"></div>
+      <div class="checkout-stepper-item" data-step="2">
+        <div class="stepper-dot">2</div>
+        <span class="stepper-label">Destinatario</span>
+      </div>
+      <div class="stepper-line"></div>
+      <div class="checkout-stepper-item" data-step="3">
+        <div class="stepper-dot">3</div>
+        <span class="stepper-label">Pago</span>
+      </div>
+    </div>
 
+    <!-- Mini-resumen sticky del carrito -->
+    <div class="checkout-mini-summary" id="checkout-mini-summary"></div>
+
+    <div class="modal-body">
       <form id="checkout-form" novalidate>
 
-        <!-- DATOS DEL REMITENTE -->
+        <!-- PASO 1: DATOS DEL REMITENTE -->
         <div data-checkout-step="1">
           <div class="form-row">
             <div class="form-group">
@@ -434,15 +453,15 @@
                 Nombre completo del remitente
                 <span class="required">*</span>
               </label>
-
               <input
                 type="text"
                 id="sender_name"
                 name="sender_name"
                 placeholder="Tu nombre completo"
                 required
-                aria-describedby="checkout-error"
+                autocomplete="name"
               >
+              <p class="field-error" id="error-sender_name"></p>
             </div>
 
             <div class="form-group">
@@ -450,26 +469,31 @@
                 Teléfono / WhatsApp
                 <span class="required">*</span>
               </label>
-
               <input
                 type="tel"
                 id="sender_phone"
                 name="sender_phone"
                 placeholder="+1 (555) 000-0000"
                 required
+                autocomplete="tel"
               >
+              <p class="field-error" id="error-sender_phone"></p>
             </div>
+          </div>
+
+          <p class="form-error" id="checkout-error-step1" style="display:none"></p>
+          <div class="checkout-actions" id="checkout-actions-step1">
+            <button type="button" id="checkout-next-btn" class="form-submit">Siguiente →</button>
           </div>
         </div>
 
-        <!-- DATOS DEL RECEPTOR -->
+        <!-- PASO 2: DATOS DEL RECEPTOR -->
         <div data-checkout-step="2" style="display:none">
           <div class="form-group">
             <label for="receiver_name">
               Nombre del familiar o persona que recibe
               <span class="required">*</span>
             </label>
-
             <input
               type="text"
               id="receiver_name"
@@ -477,6 +501,7 @@
               placeholder="Nombre de quien recibe"
               required
             >
+            <p class="field-error" id="error-receiver_name"></p>
           </div>
 
           <div class="form-group">
@@ -484,7 +509,6 @@
               Dirección de entrega en Guantánamo
               <span class="required">*</span>
             </label>
-
             <input
               type="text"
               id="customer_address"
@@ -492,6 +516,7 @@
               placeholder="Calle, número, reparto, municipio"
               required
             >
+            <p class="field-error" id="error-customer_address"></p>
           </div>
 
           <div class="form-group">
@@ -499,7 +524,6 @@
               Teléfono de la persona que recibe
               <span class="required">*</span>
             </label>
-
             <input
               type="tel"
               id="receiver_phone"
@@ -507,16 +531,11 @@
               placeholder="+53 5XXX-XXXX"
               required
             >
+            <p class="field-error" id="error-receiver_phone"></p>
           </div>
-        </div>
 
-        <!-- NOTAS -->
-        <div data-checkout-step="2" style="display:none">
           <div class="form-group">
-            <label for="delivery_notes">
-              Notas de entrega
-            </label>
-
+            <label for="delivery_notes">Notas de entrega</label>
             <textarea
               id="delivery_notes"
               name="delivery_notes"
@@ -524,45 +543,32 @@
               placeholder="Referencias adicionales para la entrega (opcional)"
             ></textarea>
           </div>
+
+          <div class="checkout-actions">
+            <button type="button" id="checkout-back-step2-btn" class="checkout-back-btn">← Atrás</button>
+            <button type="button" id="checkout-next-btn" class="form-submit">Siguiente →</button>
+          </div>
         </div>
 
         <!-- PASO 3: MÉTODO DE PAGO -->
         <div id="checkout-payment-step" style="display:none">
-          <div class="checkout-step-header">
-            <h4>Paso 3: Selecciona tu método de pago</h4>
-          </div>
-
-          <div class="payment-summary" style="background:#f8f9fa;padding:16px;border-radius:8px;margin-bottom:20px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-              <span>Orden</span>
-              <strong id="checkout-order-display">#-</strong>
-            </div>
-            <div style="display:flex;justify-content:space-between">
-              <span>Total a pagar</span>
-              <strong id="checkout-total-display" style="color:var(--primary);font-size:1.2rem">$0.00</strong>
-            </div>
-          </div>
-
           <span class="method-label">Elige cómo deseas pagar <span class="required">*</span></span>
           <div class="methods-grid" id="checkout-methods-container"></div>
 
-          <div id="payment-instructions" style="display:none;margin-top:20px;padding:16px;background:#e7f5ff;border-left:4px solid var(--primary);border-radius:4px;max-height:none;overflow:visible">
-            <strong style="display:block;margin-bottom:12px">Instrucciones de pago:</strong>
-            <div id="payment-instructions-text" style="font-size:0.95rem;line-height:1.8;color:#333;word-wrap:break-word;white-space:pre-wrap"></div>
-          </div>
-
           <p class="form-error" id="checkout-error"></p>
 
-          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:20px">
-            <button type="button" id="checkout-back-btn" class="form-submit" style="background-color:#6c757d">Atrás</button>
-            <button type="submit" id="checkout-submit-btn" class="form-submit" style="flex:1">He realizado el pago, continuar</button>
+          <div class="checkout-actions" style="margin-top:20px">
+            <button type="button" id="checkout-back-btn" class="checkout-back-btn">← Atrás</button>
+            <button type="submit" id="checkout-submit-btn" class="form-submit" style="flex:1">Confirmar pedido →</button>
           </div>
         </div>
 
-        <p class="form-error" id="checkout-error-step1" style="display:none"></p>
-
-        <div id="checkout-actions-step1" style="display:flex;gap:12px;flex-wrap:wrap">
-          <button type="button" id="checkout-next-btn" class="form-submit">Siguiente paso →</button>
+        <!-- Overlay de éxito antes del redirect -->
+        <div id="checkout-success-overlay" style="display:none;text-align:center;padding:32px 16px">
+          <div style="font-size:3rem;margin-bottom:12px">🎉</div>
+          <h4 style="color:var(--navy);margin-bottom:8px">¡Pedido creado!</h4>
+          <p style="color:var(--gray);margin-bottom:16px">Redirigiendo a la página de pago...</p>
+          <span class="spinner" style="display:inline-block"></span>
         </div>
 
       </form>

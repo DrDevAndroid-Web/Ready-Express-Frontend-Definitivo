@@ -1,7 +1,7 @@
 import express from "express";
 import paymentMethodsRouter from "./payment-methods.js";
 
-import { createOrderController, getOrdersController, cancelOrderController } from "../modules/orders/orders.controller.js"
+import { createOrderController, getOrdersController, cancelOrderController, getOrderByIdController } from "../modules/orders/orders.controller.js"
 import {
   uploadPayment,
   getPendingPaymentsController,
@@ -149,6 +149,7 @@ router.get("/orders", requireSupabaseUser, getOrdersController);
 
 // ORDERS
 router.post("/orders", createOrderController);
+router.get("/orders/:id", getOrderByIdController);
 router.patch("/orders/:id/cancel", cancelOrderController);
 
 

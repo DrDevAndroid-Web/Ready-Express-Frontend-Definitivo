@@ -1,4 +1,6 @@
 import { uploadPayment, cancelOrder } from "./api.js?v17";
+
+const API_BASE = "https://readyexpressnowbackend.versabold.com/api";
 import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v17";
 import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v17";
 
@@ -393,6 +395,21 @@ async function downloadReceipt() {
     const checkoutFormData = JSON.parse(storageGet("ren_checkout_form_data") || "{}");
     const pendingPayment = getPendingPayment();
 
+    let items = pendingPayment?.items || [];
+
+    // Fallback robusto: si los items están vacíos, los obtiene del backend
+    if (items.length === 0 && pendingOrderId) {
+      try {
+        const res = await fetch(`${API_BASE}/orders/${pendingOrderId}`);
+        if (res.ok) {
+          const order = await res.json();
+          items = order.items || [];
+        }
+      } catch (fetchErr) {
+        console.warn("[PDF] No se pudieron obtener items del backend:", fetchErr);
+      }
+    }
+
     const orderData = {
       id: pendingOrderId,
       total: pendingTotal,
@@ -405,7 +422,7 @@ async function downloadReceipt() {
       receiver_phone: checkoutFormData.receiver_phone || "-",
       customer_address: checkoutFormData.customer_address || "-",
       delivery_notes: checkoutFormData.delivery_notes || "",
-      items: pendingPayment?.items || []
+      items
     };
 
     const methodId = storageGet("ren_selected_payment_method_id") || storageGet("ren_selected_payment_method");
