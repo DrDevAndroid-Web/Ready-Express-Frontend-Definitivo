@@ -118,6 +118,9 @@ function getPushTitle(type) {
     chat_message_pending:   "⏳ Cliente esperando atención",
     chat_handoff_needed:    "🚨 Cliente pide atención humana",
     chat_contact_received:  "📞 Cliente dejó su contacto",
+    chat_handoff_timeout:   "🔄 Sesión devuelta al bot",
+    chat_takeover:          "👤 Admin tomó el chat",
+    chat_resolved:          "✅ Sesión resuelta",
   };
   return titles[type] || "ReadyExpress Admin";
 }

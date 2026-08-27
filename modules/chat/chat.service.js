@@ -69,6 +69,9 @@ export async function assignSessionClient(sessionId, clientId) {
   return data;
 }
 
+const WELCOME_MESSAGE =
+  "Hola, soy el asistente virtual de ReadyExpressNow. Entiendo que enviar desde el exterior puede generar dudas — estoy aquí para ayudarte. Un agente real revisará tu caso muy pronto. ¿Qué necesitas hoy? 🛒";
+
 export async function createSession(clientId = null) {
   const { data, error } = await supabase
     .from("chat_sessions")
@@ -76,6 +79,12 @@ export async function createSession(clientId = null) {
     .select()
     .single();
   if (error) throw error;
+
+  // Guardar el mensaje de bienvenida del asistente como primer mensaje
+  await saveMessage(data.id, "assistant", WELCOME_MESSAGE).catch(err =>
+    console.error("[chat] Error guardando mensaje de bienvenida:", err.message)
+  );
+
   return data;
 }
 
@@ -154,11 +163,25 @@ export function toChatMessagePayload(message) {
 }
 
 export async function setSessionStatus(sessionId, status) {
+  const patch = { status };
+  if (status === "handoff") patch.handoff_triggered_at = new Date().toISOString();
   const { error } = await supabase
     .from("chat_sessions")
-    .update({ status })
+    .update(patch)
     .eq("id", sessionId);
   if (error) throw error;
+}
+
+// Devuelve sesiones en handoff donde el admin no ha respondido en más de `maxMinutes`
+export async function getAbandonedHandoffSessions(maxMinutes = 8) {
+  const cutoff = new Date(Date.now() - maxMinutes * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .select("id, handoff_triggered_at")
+    .eq("status", "handoff")
+    .lt("handoff_triggered_at", cutoff);
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function deleteSession(sessionId) {
@@ -225,14 +248,51 @@ INFORMACIÓN DEL NEGOCIO:
 
 // ─── Detección de handoff ────────────────────────────────────────────────────
 
-const HANDOFF_TRIGGERS = [
-  "hablar con", "agente", "persona", "humano", "gerente", "no puedo pagar",
-  "no tengo", "no funciona", "problema", "ayuda urgente", "quiero hablar"
+// Frases que inequívocamente piden hablar con una persona
+const HANDOFF_STRONG = [
+  "hablar con", "habla con", "hablar con alguien", "habla con alguien",
+  "quiero hablar", "necesito hablar", "quiero un agente", "necesito un agente",
+  "quiero un humano", "necesito un humano", "quiero una persona", "necesita una persona",
+  "agente humano", "persona real", "hablar con ernesto", "contactar con ernesto",
+  "ayuda urgente", "urgente", "emergencia"
+];
+
+// Señales de frustración — solo escalan si van acompañadas de puntuación fuerte
+const HANDOFF_FRUSTRATION_RE = /[!?]{2,}|[A-ZÁÉÍÓÚÑ]{4,}/;
+
+// Frases de problema que por sí solas NO deben escalar (requieren refuerzo)
+const HANDOFF_SOFT = [
+  "no puedo pagar", "no funciona", "problema con", "error en",
+  "no me llega", "no recibí", "no aparece", "algo está mal"
 ];
 
 export function needsHandoff(text) {
   const lower = text.toLowerCase();
-  return HANDOFF_TRIGGERS.some(t => lower.includes(t));
+
+  // Disparo inmediato — frases explícitas de escalación
+  if (HANDOFF_STRONG.some(t => lower.includes(t))) return true;
+
+  // Frases de problema + marcador de frustración (mayúsculas sostenidas o !! / ??)
+  if (HANDOFF_SOFT.some(t => lower.includes(t)) && HANDOFF_FRUSTRATION_RE.test(text)) return true;
+
+  return false;
+}
+
+// Detecta si el cliente repitió una pregunta muy similar (señal de frustración)
+export function isRepeatedQuestion(newText, history) {
+  if (!history?.length) return false;
+  const recent = history.slice(-6).filter(m => m.role === "user").map(m => m.content.toLowerCase());
+  const newLower = newText.toLowerCase().slice(0, 60);
+  return recent.filter(prev => prev.slice(0, 60) === newLower || similarity(prev, newLower) > 0.82).length >= 2;
+}
+
+function similarity(a, b) {
+  if (!a || !b) return 0;
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+  if (!longer.length) return 1;
+  const matches = shorter.split("").filter((c, i) => longer[i] === c).length;
+  return matches / longer.length;
 }
 
 // ─── Detección de contacto del cliente ──────────────────────────────────────
@@ -365,8 +425,9 @@ export async function processMessage(sessionId, userText) {
     return { handoff: true, reply: null, userMessage };
   }
 
-  // Detectar si el mensaje activa handoff
-  if (needsHandoff(userText)) {
+  // Detectar si el mensaje activa handoff (por keywords o por pregunta repetida)
+  const historyForRepeat = await getSessionMessages(sessionId);
+  if (!handoffActive && (needsHandoff(userText) || isRepeatedQuestion(userText, historyForRepeat))) {
     await setSessionStatus(sessionId, "handoff");
     handoffActive = true;
     NotificationManager.sendNotification("chat_handoff_needed", {

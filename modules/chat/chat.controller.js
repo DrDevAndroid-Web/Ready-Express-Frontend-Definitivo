@@ -123,9 +123,15 @@ export async function takeoverController(req, res) {
   try {
     const { id } = req.params;
     await setSessionStatus(id, "handoff");
+    // Notificar al admin (APK)
     NotificationManager.sendNotification("chat_takeover", {
       sessionId: id,
       message: "Admin tomó control del chat"
+    });
+    // Notificar al cliente vía SSE para que el frontend muestre el cambio
+    NotificationManager.sendNotification("chat_agent_joined", {
+      sessionId: id,
+      agentMessage: "Un agente se unió a la conversación y te atenderá en breve."
     });
     res.json({ ok: true });
   } catch (err) {
@@ -153,6 +159,11 @@ export async function releaseController(req, res) {
   try {
     const { id } = req.params;
     await setSessionStatus(id, "ai");
+    // Informar al cliente que el bot retoma
+    NotificationManager.sendNotification("chat_bot_resumed", {
+      sessionId: id,
+      agentMessage: "El asistente virtual retoma la conversación. Escríbeme cuando quieras 🛒"
+    });
     res.json({ ok: true });
   } catch (err) {
     sendError(res, err);
