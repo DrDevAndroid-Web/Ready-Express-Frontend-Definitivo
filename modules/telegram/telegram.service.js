@@ -49,6 +49,12 @@ function escape(text) {
   return String(text ?? "").replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
 }
 
+function extractPaymentMethod(order) {
+  const notes = String(order?.delivery_notes || "");
+  const match = notes.match(/Metodo de pago seleccionado:\s*([^\n.]+)/i);
+  return match?.[1]?.trim() || order?.payment_method || order?.paymentMethod || "-";
+}
+
 async function sendTelegramMessage(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -92,6 +98,8 @@ export async function notifyNewOrder(order) {
   }
 
   lines.push("");
+  lines.push(`💳 *Método de pago:* ${escape(extractPaymentMethod(order))}`);
+  lines.push("");
   lines.push("🧾 *Pedido:*");
   lines.push("");
 
@@ -115,6 +123,17 @@ export async function notifyNewOrder(order) {
   lines.push("");
   lines.push(`💰 *Total: \\$${escape(Number(order.total).toFixed(2))}*`);
   lines.push(`📅 ${escape(formatDate(order.created_at))}`);
+
+  await sendTelegramMessage(lines.join("\n"));
+}
+
+export async function notifyChatStartedTelegram(sessionId) {
+  const lines = [
+    "💬 *Usuario en chat*",
+    "",
+    `Sesión: \`${escape(shortId(sessionId))}\``,
+    "Canal alterno por si falla el SMS\\."
+  ];
 
   await sendTelegramMessage(lines.join("\n"));
 }

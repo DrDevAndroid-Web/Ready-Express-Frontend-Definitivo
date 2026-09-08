@@ -1,5 +1,6 @@
 import { supabase } from "../../config/supabase.js";
 import { sendEmail, sendCancelledOrderEmail } from "../email/email.service.js";
+import { sendPrintableOrderEmail } from "../email/resend.js";
 import { notifyNewOrder, notifyOrderCancelled } from "../telegram/telegram.service.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
@@ -83,6 +84,25 @@ export async function cancelOrder(orderId) {
   return { status: "cancelled", orderId };
 }
 
+export async function printOrder(orderId) {
+  const { data: order, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .single();
+
+  throwIfSupabaseError(error, "No se pudo cargar la orden para imprimir");
+  if (!order) throw createNotFound("Orden no encontrada");
+
+  await sendPrintableOrderEmail(order);
+
+  return {
+    status: "printed",
+    orderId,
+    message: "Orden enviada a imprimir"
+  };
+}
+
 function normalizeOrderInput(data = {}) {
   const items = Array.isArray(data.items) ? data.items : [];
   const total = Number(data.total);
@@ -98,6 +118,8 @@ function normalizeOrderInput(data = {}) {
   const receiverPhone = requireText(data.receiver_phone, "El telefono del receptor es requerido");
   const address = requireText(data.customer_address, "La direccion de entrega es requerida");
 
+  const status = data.status === "awaiting_manual_payment" ? "awaiting_manual_payment" : "pending";
+
   return {
     customer_name: senderName,
     customer_email: optionalText(data.customer_email),
@@ -110,7 +132,7 @@ function normalizeOrderInput(data = {}) {
     delivery_notes: optionalText(data.delivery_notes),
     items: items.map(normalizeItem),
     total,
-    status: data.status || "pending"
+    status
   };
 }
 

@@ -33,12 +33,12 @@ export async function startSessionController(req, res) {
 // POST /api/chat/message — cliente envía un mensaje
 export async function clientMessageController(req, res) {
   try {
-    const { sessionId, message } = req.body;
+    const { sessionId, message, context } = req.body;
     if (!sessionId || !message?.trim()) {
       return res.status(400).json({ error: "sessionId y message son requeridos" });
     }
 
-    const result = await processMessage(sessionId, message.trim());
+    const result = await processMessage(sessionId, message.trim(), context);
     const userMessage = toChatMessagePayload(result.userMessage);
 
     NotificationManager.sendNotification("chat_client_message", {
@@ -123,9 +123,15 @@ export async function takeoverController(req, res) {
   try {
     const { id } = req.params;
     await setSessionStatus(id, "handoff");
+    // Notificar al admin (APK)
     NotificationManager.sendNotification("chat_takeover", {
       sessionId: id,
       message: "Admin tomó control del chat"
+    });
+    // Notificar al cliente vía SSE para que el frontend muestre el cambio
+    NotificationManager.sendNotification("chat_agent_joined", {
+      sessionId: id,
+      agentMessage: "Un agente se unió a la conversación y te atenderá en breve."
     });
     res.json({ ok: true });
   } catch (err) {
@@ -153,6 +159,11 @@ export async function releaseController(req, res) {
   try {
     const { id } = req.params;
     await setSessionStatus(id, "ai");
+    // Informar al cliente que el bot retoma
+    NotificationManager.sendNotification("chat_bot_resumed", {
+      sessionId: id,
+      agentMessage: "El asistente virtual retoma la conversación. Escríbeme cuando quieras 🛒"
+    });
     res.json({ ok: true });
   } catch (err) {
     sendError(res, err);

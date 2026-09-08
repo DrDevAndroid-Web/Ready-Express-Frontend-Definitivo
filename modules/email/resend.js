@@ -55,6 +55,12 @@ export async function sendPrintableOrderEmail(order, to = process.env.IMPRESORA_
 }
 
 function createSmtpTransporter() {
+  const required = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS"];
+  const missing = required.filter(name => !process.env[name]);
+  if (missing.length) {
+    throw new Error(`Configuracion SMTP incompleta para imprimir PDF: falta ${missing.join(", ")}`);
+  }
+
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),

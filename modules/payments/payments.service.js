@@ -28,6 +28,11 @@ export async function processPayment(file, orderId, method, expectedAmount) {
   const order = await getOrderByIdSafe(orderId);
   if (!order) throw createNotFound("La orden indicada no existe");
 
+  const orderTotal = Number(order.total);
+  if (!Number.isFinite(orderTotal) || Math.abs(orderTotal - expectedAmount) > 0.01) {
+    throw createBadRequest("El monto del pago no coincide con el total de la orden");
+  }
+
   // 1. Comprimir imagen
   const compressed = await compressImage(file.buffer);
 
@@ -232,7 +237,7 @@ export async function verifyPayment(paymentId, action) {
     .single();
 
   throwIfSupabaseError(currentError, "No se pudo cargar el pago");
-  if (!currentPayment?.order_id) throw notFound("No se encontro la orden asociada al pago");
+  if (!currentPayment?.order_id) throw createNotFound("No se encontro la orden asociada al pago");
 
   if (currentPayment.validation_status === validationStatus) {
     return {
@@ -254,7 +259,7 @@ export async function verifyPayment(paymentId, action) {
     .single();
 
   throwIfSupabaseError(error, "No se pudo actualizar el pago");
-  if (!payment?.order_id) throw notFound("No se encontro la orden asociada al pago");
+  if (!payment?.order_id) throw createNotFound("No se encontro la orden asociada al pago");
 
   // 2. Actualizar orden
   const { error: orderError } = await supabase
