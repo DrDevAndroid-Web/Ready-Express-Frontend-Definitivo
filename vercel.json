@@ -1,5 +1,13 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "rootDirectory": "frontend"
+  "outputDirectory": "frontend",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "readyexpressnow.com" }],
+      "destination": "https://www.readyexpressnow.com/:path*",
+      "permanent": true
+    }
+  ]
 }

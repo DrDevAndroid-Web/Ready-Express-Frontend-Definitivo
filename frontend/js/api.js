@@ -1,5 +1,9 @@
-const API_BASE = "https://readyexpressnowbackend.versabold.com/api";
-const SUPPORT_PHONE = "+53 5 8324155";
+const PROD_API_BASE = "https://readyexpressnowbackend.versabold.com/api";
+const LOCAL_API_BASE = "http://localhost:3000/api";
+const isLocalFrontend = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+export const API_BASE = isLocalFrontend ? LOCAL_API_BASE : PROD_API_BASE;
+const SUPPORT_PHONE = "+53 56189395";
 const SUPPORT_MSG = `\n\nSi el problema persiste, contacta a nuestro equipo de soporte:\n📱 WhatsApp: ${SUPPORT_PHONE}`;
 
 function getUserFriendlyError(error, status) {

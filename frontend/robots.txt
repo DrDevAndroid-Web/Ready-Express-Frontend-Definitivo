@@ -3,4 +3,4 @@ Allow: /
 
 Disallow: /pago.html
 
-Sitemap: https://readyexpressnow.com/sitemap.xml
+Sitemap: https://www.readyexpressnow.com/sitemap.xml

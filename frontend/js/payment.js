@@ -1,8 +1,6 @@
-import { uploadPayment, cancelOrder } from "./api.js?v18";
-
-const API_BASE = "https://readyexpressnowbackend.versabold.com/api";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v18";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v18";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v19";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v19";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v19";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -22,13 +20,14 @@ function storageRemove(key) {
   try { localStorage.removeItem(key); } catch {}
 }
 
-export function savePendingPayment(orderId, total, items = []) {
+export function savePendingPayment(orderId, total, items = [], methodName = "") {
   storageSet(
     PENDING_PAYMENT_KEY,
     JSON.stringify({
       orderId,
       total,
       items,
+      methodName,
       createdAt: new Date().toISOString(),
     })
   );
@@ -86,7 +85,7 @@ export async function initPaymentPage() {
   resetPaymentForm();
 
   // Mostrar método de pago seleccionado
-  const selectedMethodValue = storageGet("ren_selected_payment_method");
+  const selectedMethodValue = storageGet("ren_selected_payment_method") || pending.methodName;
   const selectedMethodId = storageGet("ren_selected_payment_method_id");
   if (selectedMethodValue || selectedMethodId) {
     const allMethods = await cargarMetodosPago();
@@ -297,7 +296,8 @@ function setFile(file, input, preview, dropzone) {
 
 async function submitPayment(form) {
   const btn = form.querySelector('button[type="submit"]');
-  const method = storageGet("ren_selected_payment_method");
+  const pending = getPendingPayment();
+  const method = storageGet("ren_selected_payment_method") || pending?.methodName;
   const fileInput = document.getElementById("payment-file");
   const file = selectedPaymentFile || fileInput?.files?.[0];
 
@@ -333,12 +333,9 @@ async function submitPayment(form) {
   try {
     await uploadPayment(formData);
     btn.innerHTML = '<span style="color:var(--green)">✓</span> ¡Enviado exitosamente!';
-    setTimeout(() => {
-      showReceiptModal(form);
-      clearPendingPayment();
-    }, 800);
+    showReceiptModal(form);
   } catch (err) {
-    const message = err.message || `❌ No pudimos enviar tu comprobante. Por favor intenta de nuevo o contacta a nuestro equipo: 📱 +53 5 8324155`;
+    const message = err.message || `❌ No pudimos enviar tu comprobante. Por favor intenta de nuevo o contacta a nuestro equipo: 📱 +53 56189395`;
     showPaymentError(message);
     btn.disabled = false;
     btn.style.opacity = "1";
@@ -363,19 +360,35 @@ function showReceiptModal(form) {
   if (!modal) return;
 
   modal.style.visibility = "visible";
+  modal.setAttribute("aria-hidden", "false");
+  hideReceiptError();
 
   const downloadBtn = document.getElementById("btn-descargar-recibo");
   const skipBtn = document.getElementById("btn-omitir-recibo");
 
   if (downloadBtn) {
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = "Descargar";
     downloadBtn.onclick = async () => {
-      await downloadReceipt();
-      showSuccess();
-      closeReceiptModal();
+      const originalText = downloadBtn.textContent;
+      downloadBtn.disabled = true;
+      if (skipBtn) skipBtn.disabled = true;
+      downloadBtn.innerHTML = '<span class="spinner"></span> Generando...';
+      try {
+        await downloadReceipt();
+        showSuccess();
+        closeReceiptModal();
+      } catch (err) {
+        showReceiptError("No pudimos generar el PDF ahora. Puedes omitirlo y tu comprobante seguirá enviado correctamente.");
+        downloadBtn.disabled = false;
+        if (skipBtn) skipBtn.disabled = false;
+        downloadBtn.textContent = originalText;
+      }
     };
   }
 
   if (skipBtn) {
+    skipBtn.disabled = false;
     skipBtn.onclick = () => {
       showSuccess();
       closeReceiptModal();
@@ -385,7 +398,24 @@ function showReceiptModal(form) {
 
 function closeReceiptModal() {
   const modal = document.getElementById("receipt-modal");
-  if (modal) modal.style.visibility = "hidden";
+  if (modal) {
+    modal.style.visibility = "hidden";
+    modal.setAttribute("aria-hidden", "true");
+  }
+  clearPendingPayment();
+  storageRemove("ren_checkout_form_data");
+}
+
+function showReceiptError(message) {
+  const errorEl = document.getElementById("receipt-error");
+  if (!errorEl) return;
+  errorEl.textContent = message;
+  errorEl.style.display = "block";
+}
+
+function hideReceiptError() {
+  const errorEl = document.getElementById("receipt-error");
+  if (errorEl) errorEl.style.display = "none";
 }
 
 async function downloadReceipt() {
@@ -395,37 +425,37 @@ async function downloadReceipt() {
     const checkoutFormData = JSON.parse(storageGet("ren_checkout_form_data") || "{}");
     const pendingPayment = getPendingPayment();
 
-    let items = pendingPayment?.items || [];
-
-    // Fallback robusto: si los items están vacíos, los obtiene del backend
-    if (items.length === 0 && pendingOrderId) {
+    let orderFromBackend = null;
+    if (pendingOrderId) {
       try {
         const res = await fetch(`${API_BASE}/orders/${pendingOrderId}`);
         if (res.ok) {
-          const order = await res.json();
-          items = order.items || [];
+          orderFromBackend = await res.json();
         }
       } catch (fetchErr) {
-        console.warn("[PDF] No se pudieron obtener items del backend:", fetchErr);
+        console.warn("[PDF] No se pudo obtener la orden del backend:", fetchErr);
       }
     }
 
+    const items = pendingPayment?.items?.length
+      ? pendingPayment.items
+      : orderFromBackend?.items || [];
+
     const orderData = {
       id: pendingOrderId,
-      total: pendingTotal,
-      sender_name: checkoutFormData.sender_name || "-",
-      sender_phone: checkoutFormData.sender_phone || "-",
-      customer_name: checkoutFormData.sender_name || "-",
-      customer_phone: checkoutFormData.sender_phone || "-",
-      customer_email: checkoutFormData.customer_email || "-",
-      receiver_name: checkoutFormData.receiver_name || "-",
-      receiver_phone: checkoutFormData.receiver_phone || "-",
-      customer_address: checkoutFormData.customer_address || "-",
-      delivery_notes: checkoutFormData.delivery_notes || "",
+      total: Number(pendingTotal || orderFromBackend?.total || 0),
+      sender_name: checkoutFormData.sender_name || orderFromBackend?.sender_name || orderFromBackend?.customer_name || "-",
+      sender_phone: checkoutFormData.sender_phone || orderFromBackend?.sender_phone || orderFromBackend?.customer_phone || "-",
+      customer_name: checkoutFormData.sender_name || orderFromBackend?.customer_name || orderFromBackend?.sender_name || "-",
+      customer_phone: checkoutFormData.sender_phone || orderFromBackend?.customer_phone || orderFromBackend?.sender_phone || "-",
+      customer_email: checkoutFormData.customer_email || orderFromBackend?.customer_email || "-",
+      receiver_name: checkoutFormData.receiver_name || orderFromBackend?.receiver_name || "-",
+      receiver_phone: checkoutFormData.receiver_phone || orderFromBackend?.receiver_phone || "-",
+      customer_address: checkoutFormData.customer_address || orderFromBackend?.customer_address || "-",
+      delivery_notes: checkoutFormData.delivery_notes || orderFromBackend?.delivery_notes || "",
       items
     };
 
-    const methodId = storageGet("ren_selected_payment_method_id") || storageGet("ren_selected_payment_method");
     const methodName = window.currentPaymentMethod?.method_name || "-";
 
     const preview = document.getElementById("file-preview");
@@ -450,6 +480,7 @@ async function downloadReceipt() {
     await generarPDFRecibo(orderData, methodName, logo, comprobanteImage);
   } catch (err) {
     console.error("Error generating receipt:", err);
+    throw err;
   }
 }
 

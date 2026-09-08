@@ -1,12 +1,19 @@
-import { createOrder } from "./api.js?v18";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v18";
-import { savePendingPayment } from "./payment.js?v18";
-import { cargarMetodosPago } from "./payment-methods.js?v18";
+import { API_BASE, createOrder } from "./api.js?v19";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v19";
+import { savePendingPayment } from "./payment.js?v19";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED } from "./payment-methods.js?v19";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v19";
+
+const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
+const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
 
 let currentOrderId = null;
 let currentTotal = 0;
 let currentSelectedMethod = null;
 let currentSelectedMethodId = null;
+let currentSelectedMethodFlow = "proof_upload";
+let currentPaymentMethods = [];
+let currentOrderReceiptData = null;
 let checkoutStep = 1;
 
 function storageGet(key) {
@@ -74,6 +81,18 @@ export function hasSavedCheckoutStep() {
 
 function clearCheckoutStep() {
   storageRemove(CHECKOUT_STEP_KEY);
+}
+
+function clearSelectedPaymentState() {
+  storageRemove("ren_selected_payment_method");
+  storageRemove("ren_selected_payment_method_id");
+  storageRemove("ren_selected_payment_flow");
+}
+
+function clearCheckoutPersistence({ keepSelectedPayment = false } = {}) {
+  clearCheckoutStep();
+  clearFormData();
+  if (!keepSelectedPayment) clearSelectedPaymentState();
 }
 
 export function openCheckoutAtSavedStep() {
@@ -155,7 +174,6 @@ async function goToCheckoutStep(step, validate = true) {
   if (!form) return false;
 
   if (step === 2 && validate && !validateCheckoutStep(1)) return false;
-  if (step === 3 && validate && !validateCheckoutStep(2)) return false;
 
   checkoutStep = step;
   saveCheckoutStep(step);
@@ -165,13 +183,18 @@ async function goToCheckoutStep(step, validate = true) {
   document.querySelectorAll("[data-checkout-step]").forEach(el => (el.style.display = "none"));
   const paymentStep = document.getElementById("checkout-payment-step");
   if (paymentStep) paymentStep.style.display = "none";
+  const confirmationStep = document.getElementById("checkout-success-overlay");
+  if (confirmationStep) confirmationStep.style.display = "none";
 
-  if (step === 1 || step === 2) {
+  if (step === 1) {
     const stepEl = document.querySelector(`[data-checkout-step="${step}"]`);
     if (stepEl) stepEl.style.display = "block";
-  } else if (step === 3) {
+  } else if (step === 2) {
     await renderPaymentMethods();
+    renderCheckoutReview();
     if (paymentStep) paymentStep.style.display = "block";
+  } else if (step === 3) {
+    if (confirmationStep) confirmationStep.style.display = "block";
   }
 
   // Scroll al inicio del modal body (fallback para iOS Safari que no soporta smooth)
@@ -196,7 +219,14 @@ export function showCheckoutModal() {
 
   currentTotal = getTotal();
   openModal("checkout-modal");
-  const savedStep = getCheckoutStep();
+  let savedStep = getCheckoutStep();
+  if (savedStep === 3 && !currentOrderReceiptData) {
+    clearCheckoutPersistence();
+    currentSelectedMethod = null;
+    currentSelectedMethodId = null;
+    currentSelectedMethodFlow = "proof_upload";
+    savedStep = 1;
+  }
   goToCheckoutStep(savedStep, false);
 }
 
@@ -209,11 +239,15 @@ export function initCheckout() {
   document.getElementById("cart-checkout-btn")?.addEventListener("click", showCheckoutModal);
 
   document.getElementById("checkout-close")?.addEventListener("click", () => {
+    if (checkoutStep === 3) {
+      clearCheckoutPersistence();
+    } else {
+      clearCheckoutStep();
+    }
     closeModal("checkout-modal");
-    clearCheckoutStep();
   });
 
-  // Botón Siguiente (paso 1 → 2 y paso 2 → 3, mismo id reutilizado por paso)
+  // Botón Siguiente (datos de envío → pago)
   document.addEventListener("click", async (e) => {
     if (e.target.id !== "checkout-next-btn") return;
     e.preventDefault();
@@ -234,21 +268,16 @@ export function initCheckout() {
     btn.textContent = originalText;
   });
 
-  // Botón Atrás paso 2 → 1
-  document.getElementById("checkout-back-step2-btn")?.addEventListener("click", (e) => {
+  // Botón Atrás pago → datos de envío
+  document.getElementById("checkout-back-btn")?.addEventListener("click", (e) => {
     e.preventDefault();
     const f = document.getElementById("checkout-form");
     if (f) saveFormData(f);
     goToCheckoutStep(1, false);
   });
 
-  // Botón Atrás paso 3 → 2
-  document.getElementById("checkout-back-btn")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    const f = document.getElementById("checkout-form");
-    if (f) saveFormData(f);
-    goToCheckoutStep(2, false);
-  });
+  setupCheckoutAssistant();
+  setupConfirmationActions();
 
   if (form) {
     FORM_FIELDS.forEach(fieldName => {
@@ -261,7 +290,7 @@ export function initCheckout() {
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      if (checkoutStep === 3) await submitOrder(form);
+      if (checkoutStep === 2) await submitOrder(form);
     });
   }
 }
@@ -275,41 +304,30 @@ async function renderPaymentMethods() {
 
   try {
     const metodos = await cargarMetodosPago();
+    currentPaymentMethods = metodos;
     if (!metodos.length) {
       container.innerHTML = '<div class="alerta">Sin métodos de pago disponibles</div>';
       return;
     }
 
-    container.innerHTML = metodos.map(m => `
-      <div class="method-card" data-method="${m.method_name}" data-method-id="${m.id}"
-           data-instructions="${escapeHtml(m.instructions || "")}"
-           data-account="${escapeHtml(m.account_number || "")}">
-        <div class="method-content">
-          ${m.image_url
-            ? `<img src="${m.image_url}" alt="${m.method_name}" class="method-image">`
-            : `<div class="method-icon">${getIconoMetodo(m.method_name)}</div>`}
-          <div class="method-info">
-            <strong>${m.method_name}</strong>
-            ${m.account_number ? `<small class="method-account">${m.account_number}</small>` : ""}
-          </div>
-        </div>
-        <!-- Instrucciones en acordeón dentro de la tarjeta -->
-        <div class="method-instructions" style="display:none">
-          ${m.account_number ? `
-            <div class="method-account-copy">
-              <span class="account-number-text">${m.account_number}</span>
-              <button type="button" class="btn-copy-account" data-account="${escapeHtml(m.account_number)}" aria-label="Copiar número">
-                📋 Copiar
-              </button>
-            </div>` : ""}
-          <div class="instructions-text"></div>
-        </div>
-      </div>
-    `).join("");
+    const directMethods = metodos.filter(m => (m.payment_flow || "proof_upload") !== PAYMENT_FLOW_ASSISTED);
+    const assistedMethods = metodos.filter(m => (m.payment_flow || "proof_upload") === PAYMENT_FLOW_ASSISTED);
+    container.innerHTML = `
+      ${renderPaymentGroup(
+        "Pago ahora y subo comprobante",
+        "Crea tu pedido y luego adjunta la captura del pago.",
+        directMethods
+      )}
+      ${renderPaymentGroup(
+        "Necesito ayuda para pagar",
+        "Creamos tu pedido y el equipo te escribe por WhatsApp.",
+        assistedMethods
+      )}
+    `;
 
     // Restaurar selección previa si existe
     if (currentSelectedMethod) {
-      const prevCard = container.querySelector(`[data-method="${currentSelectedMethod}"]`);
+      const prevCard = container.querySelector(`[data-method="${cssEscape(currentSelectedMethod)}"]`);
       if (prevCard) selectPaymentMethod(prevCard);
     }
 
@@ -330,7 +348,56 @@ async function renderPaymentMethods() {
   }
 }
 
+function renderPaymentGroup(title, description, methods) {
+  if (!methods.length) return "";
+  return `
+    <section class="checkout-payment-group">
+      <div class="checkout-payment-group-heading">
+        <h5>${title}</h5>
+        <p>${description}</p>
+      </div>
+      <div class="checkout-method-list">
+        ${methods.map(m => `
+      <div class="method-card" data-method="${m.method_name}" data-method-id="${m.id}"
+           data-payment-flow="${m.payment_flow || "proof_upload"}"
+           data-instructions="${escapeHtml(m.instructions || "")}"
+           data-account="${escapeHtml(m.account_number || "")}">
+        <div class="method-content">
+          ${m.image_url
+            ? `<img src="${m.image_url}" alt="${m.method_name}" class="method-image">`
+            : `<div class="method-icon">${getIconoMetodo(m.method_name)}</div>`}
+          <div class="method-info">
+            <strong>${m.method_name}</strong>
+            ${m.account_number ? `<small class="method-account">${m.account_number}</small>` : ""}
+            ${m.payment_flow === PAYMENT_FLOW_ASSISTED ? `<small class="method-account">Contacto por WhatsApp</small>` : ""}
+          </div>
+        </div>
+        <div class="method-instructions" style="display:none">
+          ${m.account_number ? `
+            <div class="method-account-copy">
+              <span class="account-number-text">${m.account_number}</span>
+              <button type="button" class="btn-copy-account" data-account="${escapeHtml(m.account_number)}" aria-label="Copiar número">
+                📋 Copiar
+              </button>
+            </div>` : ""}
+          <div class="instructions-text"></div>
+        </div>
+      </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 const ZELLE_AVISO = `Para que tu pago sea procesado correctamente:\n\n✅ Agrega el contacto exactamente con el nombre "Global Market Group"\n⚠️ No uses palabras como "remesa" o "dinero para Cuba" en el concepto\n⚠️ Si el nombre es diferente, la transferencia podría no acreditarse\n\nCualquier duda, escríbenos por WhatsApp antes de transferir.`;
+
+function buildTocopayNotice(account) {
+  const accountLine = account
+    ? `Usa esta cuenta/tarjeta: ${account}`
+    : "Usa la cuenta/tarjeta que aparece en este metodo de pago.";
+
+  return `Para pagar por Tocopay:\n\n1. Entra a tocopay.com e inicia sesion o crea tu cuenta.\n2. Anade como beneficiario a Ernesto, gerente de ventas.\n3. ${accountLine}\n4. Completa el pago en Tocopay y toma una captura clara del comprobante.\n5. Vuelve a Ready Express Now y sube esa captura para validar tu pedido.\n\nTocopay es una plataforma externa e independiente. Ready Express Now no esta afiliada ni asociada a Tocopay; solo usamos tu comprobante para validar el pago de tu pedido.`;
+}
 
 function selectPaymentMethod(card) {
   document.querySelectorAll(".method-card").forEach(c => {
@@ -342,14 +409,21 @@ function selectPaymentMethod(card) {
   card.classList.add("selected");
   currentSelectedMethod = card.dataset.method;
   currentSelectedMethodId = card.dataset.methodId || null;
+  currentSelectedMethodFlow = card.dataset.paymentFlow || "proof_upload";
 
   const instrEl = card.querySelector(".method-instructions");
   const instrText = card.querySelector(".instructions-text");
 
   if (instrEl && instrText) {
-    const isZelle = currentSelectedMethod.toLowerCase().includes("zelle");
+    const methodName = currentSelectedMethod.toLowerCase();
+    const isZelle = methodName.includes("zelle");
+    const isTocopay = methodName.includes("tocopay");
     const base = card.dataset.instructions || "";
-    const full = isZelle ? (base ? base + "\n\n" : "") + ZELLE_AVISO : base;
+    const full = isZelle
+      ? (base ? base + "\n\n" : "") + ZELLE_AVISO
+      : isTocopay
+        ? buildTocopayNotice(card.dataset.account)
+        : base;
     instrText.style.whiteSpace = "pre-wrap";
     instrText.textContent = full || "";
     instrEl.style.display = full ? "block" : "none";
@@ -361,6 +435,9 @@ function selectPaymentMethod(card) {
 
   storageSet("ren_selected_payment_method", currentSelectedMethod);
   if (currentSelectedMethodId) storageSet("ren_selected_payment_method_id", currentSelectedMethodId);
+  storageSet("ren_selected_payment_flow", currentSelectedMethodFlow);
+  updateSubmitButton();
+  renderCheckoutReview();
 }
 
 function copyToClipboard(text, btn) {
@@ -425,7 +502,7 @@ async function submitOrder(form) {
     sender_phone:     senderPhone,
     receiver_name:    fieldValue(form, "receiver_name"),
     receiver_phone:   fieldValue(form, "receiver_phone"),
-    delivery_notes:   fieldValue(form, "delivery_notes"),
+    delivery_notes:   buildDeliveryNotes(fieldValue(form, "delivery_notes")),
     items: cart.map(i => ({
       id:          i.id,
       nombre:      i.nombre,
@@ -435,32 +512,31 @@ async function submitOrder(form) {
       category:    i.category,
     })),
     total:  getTotal(),
-    status: "pending",
+    status: currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED ? "awaiting_manual_payment" : "pending",
   };
 
   try {
     const order = await createOrder(orderData);
     currentOrderId = order.id;
     currentTotal   = orderData.total;
+    currentOrderReceiptData = {
+      ...orderData,
+      id: order.id,
+      created_at: order.created_at || new Date().toISOString()
+    };
 
-    savePendingPayment(currentOrderId, currentTotal, orderData.items);
+    if (currentSelectedMethodFlow !== PAYMENT_FLOW_ASSISTED) {
+      savePendingPayment(currentOrderId, currentTotal, orderData.items);
+    }
     clearCart();
     clearCheckoutStep();
-    clearFormData();
 
-    // Feedback de éxito antes del redirect
-    showSuccessOverlay();
-
-    setTimeout(() => {
-      closeModal("checkout-modal");
-      form.reset();
-      window.location.href = "./pago.html";
-    }, 1800);
+    showSuccessOverlay(currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED, order);
 
   } catch (err) {
     const errorEl = document.getElementById("checkout-error");
     if (errorEl) {
-      errorEl.textContent = err.message || "❌ No pudimos crear tu pedido. Intenta de nuevo o contáctanos: +53 5 8324155";
+      errorEl.textContent = err.message || "❌ No pudimos crear tu pedido. Intenta de nuevo o contáctanos: +53 56189395";
       errorEl.style.display = "block";
     }
     btn.disabled = false;
@@ -468,12 +544,40 @@ async function submitOrder(form) {
   }
 }
 
-function showSuccessOverlay() {
-  // Ocultar el paso 3 y mostrar overlay de éxito
+function buildDeliveryNotes(notes) {
+  const paymentLine = `Metodo de pago seleccionado: ${currentSelectedMethod || "No especificado"}.`;
+    if (currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED) {
+      const assistedLine = "Pago asistido: contactar al cliente por WhatsApp para enviar datos de transferencia y validar comprobante manualmente.";
+      return [notes, paymentLine, assistedLine].filter(Boolean).join("\n\n");
+    }
+  return [notes, paymentLine].filter(Boolean).join("\n\n");
+}
+
+function showSuccessOverlay(isAssisted = false) {
+  checkoutStep = 3;
+  saveCheckoutStep(3);
+  updateStepper(3);
+  document.querySelectorAll("[data-checkout-step]").forEach(el => (el.style.display = "none"));
   const paymentStep = document.getElementById("checkout-payment-step");
   if (paymentStep) paymentStep.style.display = "none";
   const overlay = document.getElementById("checkout-success-overlay");
-  if (overlay) overlay.style.display = "block";
+  if (overlay) {
+    const text = document.getElementById("checkout-confirmation-text");
+    const total = document.getElementById("checkout-confirm-total");
+    const method = document.getElementById("checkout-confirm-method");
+    const next = document.getElementById("checkout-confirm-next");
+    const primary = document.getElementById("checkout-confirm-primary");
+    if (text) text.textContent = `Tu pedido #${currentOrderId} está listo.`;
+    if (total) total.textContent = `$${Number(currentTotal || 0).toFixed(2)}`;
+    if (method) method.textContent = currentSelectedMethod || "-";
+    if (next) {
+      next.textContent = isAssisted
+        ? "Nuestro equipo se pondrá en contacto con usted a la brevedad. Para cualquier duda, puede contactarnos al +53 56189395."
+        : "Subir comprobante";
+    }
+    if (primary) primary.textContent = isAssisted ? "Volver a la tienda" : "Continuar a subir comprobante";
+    overlay.style.display = "block";
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -490,6 +594,179 @@ function escapeHtml(text) {
 
 function fieldValue(form, name) {
   return form.elements[name]?.value?.trim() || "";
+}
+
+function updateSubmitButton() {
+  const btn = document.getElementById("checkout-submit-btn");
+  if (!btn) return;
+  if (!currentSelectedMethod) {
+    btn.textContent = "Selecciona un método";
+    return;
+  }
+  btn.textContent = currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED
+    ? "Crear pedido y recibir ayuda"
+    : "Crear pedido y subir comprobante";
+}
+
+function renderCheckoutReview() {
+  const el = document.getElementById("checkout-review-card");
+  const form = document.getElementById("checkout-form");
+  if (!el || !form) return;
+  const count = getCart().reduce((s, i) => s + i.qty, 0);
+  const receiver = fieldValue(form, "receiver_name") || "Por completar";
+  const address = fieldValue(form, "customer_address") || "Por completar";
+  el.innerHTML = `
+    <div class="checkout-review-row"><span>Total</span><strong>$${getTotal().toFixed(2)}</strong></div>
+    <div class="checkout-review-row"><span>Productos</span><strong>${count}</strong></div>
+    <div class="checkout-review-row"><span>Recibe</span><strong>${escapeHtml(receiver)}</strong></div>
+    <div class="checkout-review-row"><span>Dirección</span><strong>${escapeHtml(address)}</strong></div>
+    <div class="checkout-review-row"><span>Método</span><strong>${escapeHtml(currentSelectedMethod || "Selecciona uno")}</strong></div>
+  `;
+}
+
+function setupConfirmationActions() {
+  document.getElementById("checkout-confirm-primary")?.addEventListener("click", () => {
+    const form = document.getElementById("checkout-form");
+    closeModal("checkout-modal");
+    form?.reset();
+    if (currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED) {
+      clearCheckoutPersistence();
+      window.location.href = "./index.html";
+    } else {
+      clearCheckoutPersistence({ keepSelectedPayment: true });
+      window.location.href = "./pago.html";
+    }
+  });
+
+  document.getElementById("checkout-confirm-download")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await downloadCheckoutReceipt(e.currentTarget);
+  });
+}
+
+async function downloadCheckoutReceipt(btn) {
+  if (!currentOrderReceiptData) return;
+  const originalText = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Generando comprobante...";
+  }
+
+  try {
+    await cargarLibreriasPDF();
+    const logo = await loadCheckoutLogo();
+    await generarPDFRecibo(currentOrderReceiptData, currentSelectedMethod || "-", logo, null);
+    clearCheckoutPersistence();
+  } catch (err) {
+    console.error("[checkout:receipt]", err);
+    alert("No pudimos generar el comprobante ahora. Tu pedido ya fue creado correctamente.");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText || "Descargar comprobante de compra";
+    }
+  }
+}
+
+async function loadCheckoutLogo() {
+  const logoImg = document.querySelector(".navbar-logo img");
+  if (!logoImg?.src) return null;
+  try {
+    const response = await fetch(logoImg.src);
+    const blob = await response.blob();
+    return await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+function setupCheckoutAssistant() {
+  const form = document.getElementById("checkout-ai-form");
+  const input = document.getElementById("checkout-ai-input");
+  const chips = document.getElementById("checkout-ai-chips");
+
+  chips?.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-question]");
+    if (!btn) return;
+    await askCheckoutAssistant(btn.dataset.question);
+  });
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = input?.value?.trim();
+    if (!question) return;
+    input.value = "";
+    await askCheckoutAssistant(question);
+  });
+}
+
+async function askCheckoutAssistant(question) {
+  const responseEl = document.getElementById("checkout-ai-response");
+  if (!responseEl) return;
+  responseEl.style.display = "block";
+  responseEl.textContent = "Consultando...";
+
+  try {
+    const sessionId = await getCheckoutChatSession();
+    const res = await fetch(`${API_BASE}/chat/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId,
+        message: question,
+        context: buildCheckoutAIContext()
+      })
+    });
+    if (!res.ok) throw new Error("No se pudo consultar al asistente");
+    const data = await res.json();
+    responseEl.textContent = data.assistantMessage?.content || data.reply || "No pude responder ahora. Intenta otra vez.";
+  } catch (err) {
+    responseEl.textContent = "No pude conectar con el asistente. Si tienes dudas, escríbenos por WhatsApp.";
+  }
+}
+
+async function getCheckoutChatSession() {
+  const saved = storageGet(CHECKOUT_CHAT_SESSION_KEY);
+  if (saved) return saved;
+
+  const res = await fetch(`${API_BASE}/chat/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      clientId: storageGet(CHECKOUT_CHAT_CLIENT_KEY),
+      sessionId: saved,
+      surface: "checkout"
+    })
+  });
+  if (!res.ok) throw new Error("No se pudo iniciar chat");
+  const data = await res.json();
+  if (data.clientId) storageSet(CHECKOUT_CHAT_CLIENT_KEY, data.clientId);
+  if (data.sessionId) storageSet(CHECKOUT_CHAT_SESSION_KEY, data.sessionId);
+  return data.sessionId;
+}
+
+function buildCheckoutAIContext() {
+  return {
+    surface: "checkout",
+    step: checkoutStep === 2 ? "payment" : "delivery_data",
+    cartTotal: Number(getTotal().toFixed(2)),
+    selectedPaymentMethod: currentSelectedMethod,
+    selectedPaymentFlow: currentSelectedMethodFlow,
+    availablePaymentMethods: currentPaymentMethods.map(m => ({
+      id: m.id,
+      name: m.method_name,
+      flow: m.payment_flow || "proof_upload"
+    }))
+  };
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return CSS.escape(value);
+  return String(value).replace(/"/g, '\\"');
 }
 
 export function openModal(id) {

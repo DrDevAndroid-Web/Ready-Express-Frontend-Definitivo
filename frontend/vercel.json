@@ -1,4 +1,12 @@
 {
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "readyexpressnow.com" }],
+      "destination": "https://www.readyexpressnow.com/:path*",
+      "permanent": true
+    }
+  ]
 }

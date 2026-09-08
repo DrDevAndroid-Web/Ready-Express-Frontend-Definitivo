@@ -1,6 +1,7 @@
-import { addItem } from "./cart.js?v18";
+import { addItem } from "./cart.js?v19";
+import { API_BASE } from "./api.js?v19";
 
-const CHAT_API = "https://readyexpressnowbackend.versabold.com/api";
+const CHAT_API = API_BASE;
 let productCache = null;
 const PROACTIVE_DELAY = 10000;
 const CLIENT_KEY = "ren_chat_client";
@@ -417,58 +418,63 @@ function createWidget() {
       #ren-proactive-bubble { right: 8px; width: calc(100vw - 16px); top: 64px; }
     }
 
-    /* ── Botón flotante de chat (solo mobile) ── */
+    /* ── Botón flotante de chat ── */
     #ren-chat-fab {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9998;
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      background: #22c55e;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 28px;
+      box-shadow: 0 4px 20px rgba(34,197,94,.45);
+      transition: background .3s ease, box-shadow .3s ease, transform .15s ease;
+      animation: ren-fab-pulse 2.6s ease-in-out infinite;
+    }
+    #ren-chat-fab.fab-scrolled {
+      background: #0D47A1;
+      box-shadow: 0 4px 20px rgba(13,71,161,.40);
+      animation: ren-fab-pulse-blue 2.6s ease-in-out infinite;
+    }
+    body.modal-open #ren-chat-fab,
+    body.modal-open #ren-proactive-bubble {
+      display: none !important;
+    }
+    #ren-chat-fab .ren-fab-badge {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: #ef4444;
+      color: #fff;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 10px;
+      font-weight: 700;
       display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    @keyframes ren-fab-pulse {
+      0%, 100% { box-shadow: 0 4px 20px rgba(34,197,94,.45); transform: scale(1); }
+      50%       { box-shadow: 0 6px 30px rgba(34,197,94,.70); transform: scale(1.08); }
+    }
+    @keyframes ren-fab-pulse-blue {
+      0%, 100% { box-shadow: 0 4px 20px rgba(13,71,161,.40); transform: scale(1); }
+      50%       { box-shadow: 0 6px 30px rgba(13,71,161,.65); transform: scale(1.08); }
     }
     @media (max-width: 768px) {
       #ren-chat-fab {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: fixed;
         bottom: 80px;
         right: 20px;
-        z-index: 9998;
-        width: 62px;
-        height: 62px;
-        border-radius: 50%;
-        background: #22c55e;
-        color: #fff;
-        border: none;
-        cursor: pointer;
-        font-size: 28px;
-        box-shadow: 0 4px 20px rgba(34,197,94,.45);
-        transition: background .3s ease, box-shadow .3s ease, transform .15s ease;
-        animation: ren-fab-pulse 2.6s ease-in-out infinite;
-      }
-      #ren-chat-fab.fab-scrolled {
-        background: #0D47A1;
-        box-shadow: 0 4px 20px rgba(13,71,161,.40);
-        animation: ren-fab-pulse-blue 2.6s ease-in-out infinite;
-      }
-      #ren-chat-fab .ren-fab-badge {
-        position: absolute;
-        top: -2px;
-        right: -2px;
-        background: #ef4444;
-        color: #fff;
-        border-radius: 50%;
-        width: 18px;
-        height: 18px;
-        font-size: 10px;
-        font-weight: 700;
-        display: none;
-        align-items: center;
-        justify-content: center;
-      }
-      @keyframes ren-fab-pulse {
-        0%, 100% { box-shadow: 0 4px 20px rgba(34,197,94,.45); transform: scale(1); }
-        50%       { box-shadow: 0 6px 30px rgba(34,197,94,.70); transform: scale(1.08); }
-      }
-      @keyframes ren-fab-pulse-blue {
-        0%, 100% { box-shadow: 0 4px 20px rgba(13,71,161,.40); transform: scale(1); }
-        50%       { box-shadow: 0 6px 30px rgba(13,71,161,.65); transform: scale(1.08); }
       }
     }
   `;
@@ -533,14 +539,6 @@ function createWidget() {
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
-if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-  try { localStorage.removeItem(PROACTIVE_KEY); } catch { }
-  try { localStorage.removeItem(CLIENT_KEY); } catch { }
-  try { localStorage.removeItem(SESSION_KEY); } catch { }
-  try { localStorage.removeItem(TRANSCRIPT_KEY); } catch { }
-  try { sessionStorage.removeItem(SESSION_KEY); } catch { }
-}
-
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", createWidget);
 } else {

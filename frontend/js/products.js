@@ -1,5 +1,7 @@
-import { getProductos, getInfo, getCombos, getElectrodomesticos } from "./api.js?v18";
-import { addItem } from "./cart.js?v18";
+import { getProductos, getInfo, getCombos, getElectrodomesticos } from "./api.js?v19";
+import { addItem } from "./cart.js?v19";
+
+const CONTACT_WHATSAPP = "5356189395";
 
 const ICON_MAP = {
   // Combos
@@ -316,7 +318,7 @@ async function loadInfoBanner() {
       }
     }
 
-    const phone = info.whatsapp || info.telefono || info.phone;
+    const phone = CONTACT_WHATSAPP || info.whatsapp || info.telefono || info.phone;
     if (phone) {
       const clean = phone.replace(/\D/g, "");
       document.querySelectorAll("[data-whatsapp]").forEach((el) => {
@@ -383,7 +385,7 @@ window.changeQty = (btn, delta) => {
 
 window.addToCart = (product, btn) => {
   if (product.precio <= 0) {
-    alert("⚠️ Este producto no tiene precio disponible. Contáctanos por WhatsApp para más información: +53 5 8324155");
+    alert("⚠️ Este producto no tiene precio disponible. Contáctanos por WhatsApp para más información: +53 56189395");
     return;
   }
   const qtyDisplay = btn.closest(".card-actions")?.querySelector(".qty-display");
