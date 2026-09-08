@@ -1,4 +1,4 @@
-import { createOrder, cancelOrder } from "./orders.service.js";
+import { createOrder, cancelOrder, printOrder } from "./orders.service.js";
 import { assertSupabaseServiceRole, supabase, supabaseKeyInfo } from "../../config/supabase.js";
 import { sendError, throwIfSupabaseError } from "../../utils/http-error.js";
 import { createNotFound } from "../../utils/http-error.js";
@@ -35,6 +35,16 @@ export async function cancelOrderController(req, res) {
   try {
     const { id } = req.params;
     const result = await cancelOrder(id);
+    res.json(result);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function printOrderController(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await printOrder(id);
     res.json(result);
   } catch (err) {
     sendError(res, err);

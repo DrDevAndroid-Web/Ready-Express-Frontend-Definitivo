@@ -19,11 +19,17 @@ async function sendOne(recipient, mstext) {
   }
 }
 
+function extractPaymentMethod(order) {
+  const notes = String(order?.delivery_notes || "");
+  const match = notes.match(/Metodo de pago seleccionado:\s*([^\n.]+)/i);
+  return match?.[1]?.trim() || order?.payment_method || order?.paymentMethod || "-";
+}
+
 export async function notifyOrderSMS(order) {
   const recipients = (process.env.SMS_NOTIFY_PHONES ?? "").split(",").map(p => p.trim()).filter(Boolean);
   if (!recipients.length) return;
 
-  const mstext = `Nuevo pedido de ${order.sender_name}: $${order.total}`;
+  const mstext = `Nuevo pedido de ${order.sender_name}: $${order.total}. Pago: ${extractPaymentMethod(order)}`;
 
   await Promise.allSettled(recipients.map(r => sendOne(r, mstext)));
 }

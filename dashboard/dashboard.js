@@ -17,7 +17,7 @@ function obtenerApiBase() {
 
 function obtenerUrlInicialApi() {
   const guardada = localStorage.getItem('re_api_url');
-  if (!guardada || guardada.includes('localhost:3000')) {
+  if (!guardada || guardada.includes('localhost:3000') || guardada.includes('readyexpressnowbackend.versabold.com')) {
     localStorage.setItem('re_api_url', API_PREDETERMINADA);
     return API_PREDETERMINADA;
   }
@@ -121,9 +121,20 @@ function etiquetaEstado(estado) {
     payment_review: 'etiqueta-revision',
     pending_payment: 'etiqueta-pendiente',
     payment_rejected: 'etiqueta-rechazada',
+    awaiting_manual_payment: 'etiqueta-revision',
+  };
+  const etiquetas = {
+    awaiting_manual_payment: 'pago asistido',
+    payment_review: 'revision de pago',
+    pending_review: 'pendiente',
+    pending_payment: 'pendiente',
+    payment_rejected: 'rechazado',
+    paid: 'pagado',
+    approved: 'aprobado',
+    rejected: 'rechazado',
   };
   const clase = mapa[estado] || 'etiqueta-generica';
-  return `<span class="etiqueta ${clase}">${estado || 'sin estado'}</span>`;
+  return `<span class="etiqueta ${clase}">${etiquetas[estado] || estado || 'sin estado'}</span>`;
 }
 
 function formatearFecha(fecha) {
@@ -482,6 +493,9 @@ async function cargarOrdenes() {
           <span class="clave-info">telefono</span>
           <span class="valor-info">${o.customer_phone || '-'}</span>
         </div>
+        <div class="acciones-tarjeta">
+          <button class="boton boton-aprobar" data-accion-orden="print" data-id-orden="${o.id}">Imprimir factura</button>
+        </div>
       </div>`;
     }).join('');
   } catch(e) {
@@ -538,6 +552,12 @@ function registrarEventos() {
     verificarPago(boton.dataset.idPago, boton.dataset.accionPago, boton);
   });
 
+  document.getElementById('lista-ordenes').addEventListener('click', evento => {
+    const boton = evento.target.closest('[data-accion-orden="print"]');
+    if (!boton) return;
+    imprimirOrden(boton.dataset.idOrden, boton);
+  });
+
   document.querySelectorAll('[data-section]').forEach(boton => {
     boton.addEventListener('click', () => {
       mostrarModalCrearProducto(boton.dataset.section, apiFetch, () => cargarProductos(apiFetch, guardarCategoriasProductos));
@@ -550,6 +570,25 @@ function registrarEventos() {
   document.getElementById('cerrar-modal-metodo')?.addEventListener('click', cerrarModalMetodoPago);
   document.getElementById('cancelar-modal-metodo')?.addEventListener('click', cerrarModalMetodoPago);
   document.getElementById('formulario-metodo-pago')?.addEventListener('submit', guardarMetodoPago);
+}
+
+async function imprimirOrden(id, boton) {
+  if (!id) return;
+  const textoOriginal = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = 'Imprimiendo...';
+
+  try {
+    const data = await apiFetch(`/api/orders/${encodeURIComponent(id)}/print`, {
+      method: 'POST'
+    });
+    mostrarAviso(data.message || 'Orden enviada a imprimir', 'exito');
+  } catch (e) {
+    mostrarAviso('Error imprimiendo: ' + (e.message || 'desconocido'), 'error');
+  } finally {
+    boton.disabled = false;
+    boton.textContent = textoOriginal;
+  }
 }
 
 async function probarConexionApi() {

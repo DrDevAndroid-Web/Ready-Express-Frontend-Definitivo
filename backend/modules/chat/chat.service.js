@@ -1,9 +1,11 @@
 import { supabase } from "../../config/supabase.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
+import { notifyChatStartedTelegram } from "../telegram/telegram.service.js";
 
 const AI_API_URL = "https://hostingclan.com/api/ai/chat/completions";
 const AI_MODEL = "openai/gpt-5-nano";
 const AI_API_KEY = process.env.CHAT_AI_API_KEY;
+const SUPPORT_WHATSAPP = "+53 56189395";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // ─── Supabase helpers ────────────────────────────────────────────────────────
@@ -69,6 +71,9 @@ export async function assignSessionClient(sessionId, clientId) {
   return data;
 }
 
+const WELCOME_MESSAGE =
+  "Hola, soy el asistente virtual de ReadyExpressNow. Entiendo que enviar desde el exterior puede generar dudas — estoy aquí para ayudarte. ¿Qué necesitas hoy? 🛒";
+
 export async function createSession(clientId = null) {
   const { data, error } = await supabase
     .from("chat_sessions")
@@ -76,6 +81,12 @@ export async function createSession(clientId = null) {
     .select()
     .single();
   if (error) throw error;
+
+  // Guardar el mensaje de bienvenida del asistente como primer mensaje
+  await saveMessage(data.id, "assistant", WELCOME_MESSAGE).catch(err =>
+    console.error("[chat] Error guardando mensaje de bienvenida:", err.message)
+  );
+
   return data;
 }
 
@@ -154,11 +165,25 @@ export function toChatMessagePayload(message) {
 }
 
 export async function setSessionStatus(sessionId, status) {
+  const patch = { status };
+  if (status === "handoff") patch.handoff_triggered_at = new Date().toISOString();
   const { error } = await supabase
     .from("chat_sessions")
-    .update({ status })
+    .update(patch)
     .eq("id", sessionId);
   if (error) throw error;
+}
+
+// Devuelve sesiones en handoff donde el admin no ha respondido en más de `maxMinutes`
+export async function getAbandonedHandoffSessions(maxMinutes = 8) {
+  const cutoff = new Date(Date.now() - maxMinutes * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .select("id, handoff_triggered_at")
+    .eq("status", "handoff")
+    .lt("handoff_triggered_at", cutoff);
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function deleteSession(sessionId) {
@@ -216,23 +241,62 @@ ${productosText || "No hay productos sueltos disponibles en este momento."}
 
 INFORMACIÓN DEL NEGOCIO:
 - Horario: ${info?.horario || "Consultar por WhatsApp"}
-- WhatsApp: ${info?.whatsapp || "No disponible"}
+- WhatsApp: ${SUPPORT_WHATSAPP}
 - Entregas únicamente en Guantánamo, Cuba
-- Métodos de pago (solo mencionar si el cliente pregunta): Zelle y TocoPay
+- Métodos de pago directos con comprobante (solo mencionar si el cliente pregunta): Zelle y TocoPay
+- Métodos de pago asistidos (solo mencionar si el cliente pregunta o si dice que paga desde esos lugares): transferencia desde Mexico, transferencia desde Brazil e IBAN Europa. En estos casos el equipo contacta al cliente por WhatsApp para darle los datos de transferencia y validar el comprobante manualmente.
+- IBAN Europa puede demorar mas en confirmarse segun el banco emisor.
 - Tarjetas (solo mencionar si el cliente pregunta por Visa/Mastercard): no se aceptan por restricciones bancarias hacia Cuba
 `.trim();
 }
 
 // ─── Detección de handoff ────────────────────────────────────────────────────
 
-const HANDOFF_TRIGGERS = [
-  "hablar con", "agente", "persona", "humano", "gerente", "no puedo pagar",
-  "no tengo", "no funciona", "problema", "ayuda urgente", "quiero hablar"
+// Frases que inequívocamente piden hablar con una persona
+const HANDOFF_STRONG = [
+  "hablar con", "habla con", "hablar con alguien", "habla con alguien",
+  "quiero hablar", "necesito hablar", "quiero un agente", "necesito un agente",
+  "quiero un humano", "necesito un humano", "quiero una persona", "necesita una persona",
+  "agente humano", "persona real", "hablar con adrian", "hablar con adrián", "contactar con adrian", "contactar con adrián",
+  "ayuda urgente", "urgente", "emergencia"
+];
+
+// Señales de frustración — solo escalan si van acompañadas de puntuación fuerte
+const HANDOFF_FRUSTRATION_RE = /[!?]{2,}|[A-ZÁÉÍÓÚÑ]{4,}/;
+
+// Frases de problema que por sí solas NO deben escalar (requieren refuerzo)
+const HANDOFF_SOFT = [
+  "no puedo pagar", "no funciona", "problema con", "error en",
+  "no me llega", "no recibí", "no aparece", "algo está mal"
 ];
 
 export function needsHandoff(text) {
   const lower = text.toLowerCase();
-  return HANDOFF_TRIGGERS.some(t => lower.includes(t));
+
+  // Disparo inmediato — frases explícitas de escalación
+  if (HANDOFF_STRONG.some(t => lower.includes(t))) return true;
+
+  // Frases de problema + marcador de frustración (mayúsculas sostenidas o !! / ??)
+  if (HANDOFF_SOFT.some(t => lower.includes(t)) && HANDOFF_FRUSTRATION_RE.test(text)) return true;
+
+  return false;
+}
+
+// Detecta si el cliente repitió una pregunta muy similar (señal de frustración)
+export function isRepeatedQuestion(newText, history) {
+  if (!history?.length) return false;
+  const recent = history.slice(-6).filter(m => m.role === "user").map(m => m.content.toLowerCase());
+  const newLower = newText.toLowerCase().slice(0, 60);
+  return recent.filter(prev => prev.slice(0, 60) === newLower || similarity(prev, newLower) > 0.82).length >= 2;
+}
+
+function similarity(a, b) {
+  if (!a || !b) return 0;
+  const longer = a.length > b.length ? a : b;
+  const shorter = a.length > b.length ? b : a;
+  if (!longer.length) return 1;
+  const matches = shorter.split("").filter((c, i) => longer[i] === c).length;
+  return matches / longer.length;
 }
 
 // ─── Detección de contacto del cliente ──────────────────────────────────────
@@ -245,8 +309,10 @@ export function extractContact(text) {
 
 // ─── Llamada a la IA ─────────────────────────────────────────────────────────
 
-export async function callAI(messages, productContext) {
+export async function callAI(messages, productContext, checkoutContext = null) {
   if (!AI_API_KEY) throw new Error("CHAT_AI_API_KEY no configurada");
+
+  const checkoutPrompt = buildCheckoutPrompt(checkoutContext);
 
   const systemPrompt = `Eres el asistente de ventas de ReadyExpressNow, servicio de envíos a Guantánamo, Cuba desde el exterior.
 
@@ -262,28 +328,34 @@ Tus capacidades:
 - Ayudar al cliente a elegir qué enviar según lo que necesita su familia
 - Informar sobre combos y productos disponibles HOY con precios exactos
 - Cuando el cliente confirme su pedido, añadirlo al carrito y guiarlo al checkout
-- Si no puedes resolver algo técnico o de soporte, ofrecer conectar con Ernesto
+- Si no puedes resolver algo técnico o de soporte, ofrecer que un agente de ventas lo contacte
+- Si el cliente no estará pendiente del chat o necesita seguimiento manual, pedirle su WhatsApp y decirle que un agente de ventas le responderá por esa vía cuando revise el caso
 
 Reglas estrictas:
 - NUNCA inventes productos, precios o disponibilidad — usa solo los datos del contexto
 - NUNCA menciones métodos de pago a menos que el cliente pregunte
-- Si preguntan cómo pagar: Zelle o TocoPay. Nada más.
+- Si preguntan cómo pagar: explica brevemente que hay pagos directos por Zelle o TocoPay y pagos asistidos por WhatsApp para Mexico, Brazil e IBAN Europa.
+- Si el cliente quiere pagar desde Mexico, Brazil o Europa: dile que puede elegir ese metodo en checkout y que el equipo le escribira por WhatsApp para enviarle los datos. No pidas datos bancarios por el chat.
+- Si pregunta por IBAN Europa: aclara que puede demorar mas en confirmarse segun el banco emisor.
 - Si preguntan por Visa/Mastercard: explica que no aplican por restricciones bancarias hacia Cuba
 - Responde solo lo que te preguntan. Sin información extra no solicitada.
-- Si el cliente duda o tiene un problema técnico: ofrece conectarlo con Ernesto
-- Cuando el cliente deje su contacto, confirma que se lo pasaste a Ernesto
+- Si el cliente duda, tiene un problema técnico o pide ayuda humana: ofrece seguimiento manual con un agente de ventas por WhatsApp
+- No prometas notificaciones automáticas al cliente fuera del navegador; de momento el seguimiento fuera del chat es manual
+- Cuando el cliente deje su contacto, confirma que se lo pasaste a un agente de ventas y que le responderán manualmente por WhatsApp
 - Si el mensaje es exactamente "__assistant_start__": responde SOLO "¿Qué necesitan en casa? Cuéntame y te ayudo a armar el pedido 🛒"
 
 FLUJO DE PEDIDO — MUY IMPORTANTE:
 Paso 1 — Cuando el cliente diga qué quiere pedir: muestra el resumen con precios y pregunta SIEMPRE: "¿Confirmas que quieres añadir esto al carrito?"
 Paso 2 — Solo cuando el cliente confirme explícitamente (diga "sí", "ok", "confirmo", "adelante", "dale" o similar): responde con este formato EXACTO (sin texto adicional antes ni después):
-CART_ACTION:{"items":[{"nombre":"Nombre exacto del producto","cantidad":1,"precio":0.00},...],"mensaje":"Listo, lo agregué al carrito 🛒 Ahora completa tus datos y sube el comprobante de pago — en menos de 24h lo confirmamos."}
+CART_ACTION:{"items":[{"nombre":"Nombre exacto del producto","cantidad":1,"precio":0.00},...],"mensaje":"Listo, lo agregué al carrito 🛒 Ahora completa tus datos y elige el metodo de pago en checkout."}
 - Usa los nombres exactos de los productos tal como aparecen en el contexto
 - El precio es el precio unitario
 - NUNCA emitas CART_ACTION sin que el cliente haya confirmado explícitamente
 
 DATOS ACTUALIZADOS DE LA TIENDA:
-${productContext}`;
+${productContext}
+
+${checkoutPrompt}`;
 
   const res = await fetch(AI_API_URL, {
     method: "POST",
@@ -342,17 +414,25 @@ export async function notifyChatStarted(sessionId) {
 
 // ─── Flujo principal de mensaje ──────────────────────────────────────────────
 
-export async function processMessage(sessionId, userText) {
+export async function processMessage(sessionId, userText, context = null) {
   const session = await getSession(sessionId);
   let handoffActive = session.status === "handoff";
-  const isFirstClientMessage = !session.last_client_message_at && !session.last_message;
+  const isFirstClientMessage = !session.last_client_message_at;
 
   const userMessage = await saveMessage(sessionId, "user", userText);
 
   if (isFirstClientMessage) {
-    notifyChatStarted(sessionId).catch(err =>
-      console.error("[chat] Error enviando SMS de alerta:", err.message)
-    );
+    Promise.allSettled([
+      notifyChatStarted(sessionId),
+      notifyChatStartedTelegram(sessionId)
+    ]).then(results => {
+      const labels = ["sms", "telegram"];
+      results.forEach((result, i) => {
+        if (result.status === "rejected") {
+          console.error(`[chat] Error enviando alerta por ${labels[i]}:`, result.reason?.message || result.reason);
+        }
+      });
+    });
   }
 
   if (session.client_id) {
@@ -365,8 +445,9 @@ export async function processMessage(sessionId, userText) {
     return { handoff: true, reply: null, userMessage };
   }
 
-  // Detectar si el mensaje activa handoff
-  if (needsHandoff(userText)) {
+  // Detectar si el mensaje activa handoff (por keywords o por pregunta repetida)
+  const historyForRepeat = await getSessionMessages(sessionId);
+  if (!handoffActive && (needsHandoff(userText) || isRepeatedQuestion(userText, historyForRepeat))) {
     await setSessionStatus(sessionId, "handoff");
     handoffActive = true;
     NotificationManager.sendNotification("chat_handoff_needed", {
@@ -395,7 +476,7 @@ export async function processMessage(sessionId, userText) {
 
   const aiMessages = messages.map(m => ({ role: m.role === "admin" ? "assistant" : m.role, content: m.content }));
 
-  const aiResult = await callAI(aiMessages, productContext);
+  const aiResult = await callAI(aiMessages, productContext, normalizeCheckoutContext(context));
 
   // La IA devolvió un CART_ACTION
   if (aiResult?.__cart) {
@@ -411,4 +492,50 @@ export async function processMessage(sessionId, userText) {
 
   const assistantMessage = await saveMessage(sessionId, "assistant", aiResult);
   return { handoff: handoffActive, reply: aiResult, userMessage, assistantMessage };
+}
+
+function normalizeCheckoutContext(context) {
+  if (!context || context.surface !== "checkout") return null;
+  const methods = Array.isArray(context.availablePaymentMethods)
+    ? context.availablePaymentMethods.slice(0, 12).map(method => ({
+      name: String(method.name || "").slice(0, 80),
+      flow: String(method.flow || "").slice(0, 40)
+    }))
+    : [];
+
+  return {
+    surface: "checkout",
+    step: String(context.step || "").slice(0, 40),
+    cartTotal: Number(context.cartTotal) || null,
+    selectedPaymentMethod: context.selectedPaymentMethod ? String(context.selectedPaymentMethod).slice(0, 80) : null,
+    selectedPaymentFlow: context.selectedPaymentFlow ? String(context.selectedPaymentFlow).slice(0, 40) : null,
+    availablePaymentMethods: methods
+  };
+}
+
+function buildCheckoutPrompt(context) {
+  if (!context) return "";
+  const methods = context.availablePaymentMethods
+    .map(method => `- ${method.name} (${method.flow === "assisted" ? "pago asistido por WhatsApp" : "pago directo con comprobante"})`)
+    .join("\n");
+
+  return `
+CONTEXTO ACTUAL DEL CHECKOUT:
+- El cliente está dentro del checkout, no en la etapa de venta.
+- Paso actual: ${context.step || "desconocido"}
+- Total del carrito: ${context.cartTotal ? `$${context.cartTotal} USD` : "no disponible"}
+- Método seleccionado: ${context.selectedPaymentMethod || "ninguno"}
+- Flujo seleccionado: ${context.selectedPaymentFlow || "ninguno"}
+- Métodos disponibles:
+${methods || "- No disponible"}
+
+REGLAS PARA CHECKOUT:
+- Responde solo dudas del checkout, pago, datos de entrega o qué sucede después.
+- No agregues productos al carrito y no emitas CART_ACTION mientras el cliente esté en checkout.
+- Si el cliente no tiene Zelle o TocoPay, recomiéndale elegir un método asistido según su país.
+- Si necesita ayuda humana o no entiende cómo pagar, ofrece que un agente de ventas lo contacte.
+- Si el cliente no va a quedarse en la página esperando, pídele su WhatsApp para seguimiento manual con un agente de ventas.
+- No digas que recibirá SMS, email o aviso automático cuando un agente responda; fuera del chat el contacto es manual por WhatsApp.
+- Mantén la respuesta corta, clara y accionable.
+`.trim();
 }
