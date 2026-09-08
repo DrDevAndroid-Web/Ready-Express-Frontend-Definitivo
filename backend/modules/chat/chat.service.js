@@ -72,7 +72,7 @@ export async function assignSessionClient(sessionId, clientId) {
 }
 
 const WELCOME_MESSAGE =
-  "Hola, soy el asistente virtual de ReadyExpressNow. Entiendo que enviar desde el exterior puede generar dudas — estoy aquí para ayudarte. ¿Qué necesitas hoy? 🛒";
+  "Hola, soy el asistente virtual de ReadyExpressNow. Entiendo que enviar desde el exterior puede generar dudas — estoy aquí para ayudarte. Un agente real revisará tu caso muy pronto. ¿Qué necesitas hoy? 🛒";
 
 export async function createSession(clientId = null) {
   const { data, error } = await supabase
@@ -257,7 +257,7 @@ const HANDOFF_STRONG = [
   "hablar con", "habla con", "hablar con alguien", "habla con alguien",
   "quiero hablar", "necesito hablar", "quiero un agente", "necesito un agente",
   "quiero un humano", "necesito un humano", "quiero una persona", "necesita una persona",
-  "agente humano", "persona real", "hablar con adrian", "hablar con adrián", "contactar con adrian", "contactar con adrián",
+  "agente humano", "persona real",
   "ayuda urgente", "urgente", "emergencia"
 ];
 

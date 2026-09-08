@@ -9,7 +9,7 @@ const TIMEOUT_MINUTES = 8;
 const CHECK_INTERVAL_MS = 2 * 60 * 1000; // revisar cada 2 minutos
 
 const TIMEOUT_BOT_MESSAGE =
-  "Nuestro equipo no pudo atenderte en este momento. Retomo yo para ayudarte mientras — si prefieres, déjame tu número o correo y Adrián te contactará.";
+  "Nuestro equipo no pudo atenderte en este momento. Retomo yo para ayudarte mientras — si prefieres, déjame tu número o correo y un agente de ventas te contactará.";
 
 async function checkAbandonedHandoffs() {
   try {
