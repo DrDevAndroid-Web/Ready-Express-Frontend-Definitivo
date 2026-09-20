@@ -18,7 +18,7 @@ export async function getOrderByIdController(req, res) {
     const { id } = req.params;
     const { data: order, error } = await supabase
       .from("orders")
-      .select("id, items, total, status, customer_name, customer_phone, customer_address, receiver_name, receiver_phone, delivery_notes, created_at")
+      .select("id, items, total, status, customer_name, customer_phone, customer_address, receiver_name, receiver_phone, delivery_notes, delivery_municipality, products_subtotal, delivery_surcharge, created_at")
       .eq("id", id)
       .single();
 

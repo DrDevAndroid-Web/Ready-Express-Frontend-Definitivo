@@ -10,10 +10,17 @@ import {
 } from "../modules/payments/payments.controller.js";
 import {
   subscribeToNotifications,
+  subscribeToLocationChanges,
   getConnectionStats,
   testNotification,
   registerPushToken
 } from "../modules/notifications/notifications.controller.js";
+import {
+  getLocationsController,
+  createLocationController,
+  updateLocationController,
+  deleteLocationController
+} from "../modules/locations/locations.controller.js";
 
 import {
   createFoodCombo,
@@ -165,6 +172,17 @@ router.get("/notifications/subscribe", subscribeToNotifications);
 router.get("/notifications/stats", getConnectionStats);
 router.post("/notifications/test", requireSupabaseUser, testNotification);
 router.post("/notifications/push-token", requireSupabaseUser, registerPushToken);
+
+// DELIVERY LOCATIONS
+router.get("/localizaciones", getLocationsController);
+router.get("/localizaciones/admin", requireSupabaseUser, (req, res, next) => {
+  req.query.includeInactive = "true";
+  getLocationsController(req, res, next);
+});
+router.get("/localizaciones/events", subscribeToLocationChanges);
+router.post("/localizaciones", requireSupabaseUser, createLocationController);
+router.put("/localizaciones/:id", requireSupabaseUser, updateLocationController);
+router.delete("/localizaciones/:id", requireSupabaseUser, deleteLocationController);
 
 // CHAT (público para clientes, protegido para admin)
 router.post("/chat/session", startSessionController);

@@ -3,6 +3,7 @@ import { registerAdminPushToken } from "./push.service.js";
 import { sendError } from "../../utils/http-error.js";
 
 let clientCounter = 0;
+let locationClientCounter = 0;
 
 export function subscribeToNotifications(req, res) {
   const clientId = `client-${++clientCounter}-${Date.now()}`;
@@ -49,6 +50,28 @@ export function getConnectionStats(req, res) {
     connectedClients: NotificationManager.getConnectedCount(),
     timestamp: new Date().toISOString()
   });
+}
+
+export function subscribeToLocationChanges(req, res) {
+  const clientId = `location-${++locationClientCounter}-${Date.now()}`;
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  NotificationManager.addLocationClient(clientId, res);
+  res.write(`data: ${JSON.stringify({ type: "location_connection_established", timestamp: new Date().toISOString() })}\n\n`);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`event: ping\ndata: ${Date.now()}\n\n`); } catch { cleanup(); }
+  }, 20000);
+  function cleanup() {
+    clearInterval(heartbeat);
+    NotificationManager.removeLocationClient(clientId);
+  }
+  req.on("close", cleanup);
+  req.on("error", cleanup);
 }
 
 export function testNotification(req, res) {

@@ -5,9 +5,10 @@ import { notifyNewOrder, notifyOrderCancelled } from "../telegram/telegram.servi
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
 import { notifyOrderSMS } from "../sms/sms.service.js";
+import { getDeliveryLocation } from "../locations/locations.service.js";
 
 export async function createOrder(data) {
-  const orderInput = normalizeOrderInput(data);
+  const orderInput = await normalizeOrderInput(data);
 
   const { data: order, error } = await supabase
     .from("orders")
@@ -103,12 +104,12 @@ export async function printOrder(orderId) {
   };
 }
 
-function normalizeOrderInput(data = {}) {
+async function normalizeOrderInput(data = {}) {
   const items = Array.isArray(data.items) ? data.items : [];
-  const total = Number(data.total);
+  const requestedTotal = Number(data.total);
 
   if (!items.length) throw createBadRequest("La orden debe incluir al menos un item");
-  if (!Number.isFinite(total) || total <= 0) {
+  if (!Number.isFinite(requestedTotal) || requestedTotal <= 0) {
     throw createBadRequest("El total de la orden debe ser mayor que cero");
   }
 
@@ -117,6 +118,12 @@ function normalizeOrderInput(data = {}) {
   const receiverName = requireText(data.receiver_name, "El nombre del receptor es requerido");
   const receiverPhone = requireText(data.receiver_phone, "El telefono del receptor es requerido");
   const address = requireText(data.customer_address, "La direccion de entrega es requerida");
+  const normalizedItems = items.map(normalizeItem);
+  const productsSubtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + item.precio * item.cantidad, 0));
+  let location = null;
+  if (data.delivery_location_id) location = await getDeliveryLocation(data.delivery_location_id);
+  const deliverySurcharge = roundMoney(location?.es_base ? 0 : Number(location?.recargo || 0));
+  const total = location ? roundMoney(productsSubtotal + deliverySurcharge) : requestedTotal;
 
   const status = data.status === "awaiting_manual_payment" ? "awaiting_manual_payment" : "pending";
 
@@ -130,10 +137,18 @@ function normalizeOrderInput(data = {}) {
     receiver_name: receiverName,
     receiver_phone: receiverPhone,
     delivery_notes: optionalText(data.delivery_notes),
-    items: items.map(normalizeItem),
+    delivery_location_id: location?.id || null,
+    delivery_municipality: location?.municipio || optionalText(data.delivery_municipality),
+    products_subtotal: location ? productsSubtotal : null,
+    delivery_surcharge: deliverySurcharge,
+    items: normalizedItems,
     total,
     status
   };
+}
+
+function roundMoney(value) {
+  return Math.round(Number(value) * 100) / 100;
 }
 
 function normalizeItem(item = {}) {

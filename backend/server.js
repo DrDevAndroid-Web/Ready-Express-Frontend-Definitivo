@@ -1,6 +1,7 @@
 import "./config/env.js";
 import app from "./app.js";
 import { startHandoffTimeoutJob } from "./modules/chat/handoff-timeout.job.js";
+import { startLocationRealtime } from "./modules/locations/locations.service.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -15,6 +16,7 @@ process.on("uncaughtException", (err) => {
 const server = app.listen(PORT, () => {
   console.log("Servidor corriendo en puerto", PORT);
   startHandoffTimeoutJob();
+  startLocationRealtime();
 });
 
 server.on("error", (err) => {

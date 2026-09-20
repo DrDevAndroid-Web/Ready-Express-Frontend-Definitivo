@@ -2,6 +2,7 @@ import { sendAdminPushNotification } from "./push.service.js";
 
 // Clientes conectados al SSE
 const connectedClients = new Map();
+const locationClients = new Map();
 
 export class NotificationManager {
   static addClient(clientId, res) {
@@ -43,6 +44,31 @@ export class NotificationManager {
 
   static getConnectedCount() {
     return connectedClients.size;
+  }
+
+  static addLocationClient(clientId, res) {
+    locationClients.set(clientId, res);
+  }
+
+  static removeLocationClient(clientId) {
+    locationClients.delete(clientId);
+  }
+
+  static broadcastLocationChanged() {
+    const message = {
+      type: "localizaciones_updated",
+      timestamp: new Date().toISOString(),
+      data: { message: "Los precios de entrega cambiaron" }
+    };
+    const payload = `data: ${JSON.stringify(message)}\n\n`;
+    locationClients.forEach((res, clientId) => {
+      try {
+        res.write(payload);
+      } catch {
+        locationClients.delete(clientId);
+      }
+    });
+    return locationClients.size;
   }
 
   static broadcastPaymentReceived(paymentData) {

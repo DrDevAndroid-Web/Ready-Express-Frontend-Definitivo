@@ -48,6 +48,21 @@ export function getItemQuantity(item) {
   return item?.cantidad || item?.quantity || item?.qty || 1;
 }
 
+export function getItemComponents(item) {
+  const raw = item?.combo_items || item?.items || item?.productos || item?.componentes;
+  if (Array.isArray(raw)) {
+    return raw.map(component => normalizeComponent(component)).filter(Boolean);
+  }
+
+  const details = normalizeDetailObject(item?.detalles || item?.details);
+  if (isComboItem(item) && details && typeof details === "object" && !Array.isArray(details)) {
+    return Object.entries(details)
+      .map(([name, quantity]) => normalizeComponent({ nombre: name, cantidad: quantity }))
+      .filter(Boolean);
+  }
+  return [];
+}
+
 export async function enrichComboItems(items) {
   const list = normalizeItems(items);
   const needsLookup = list.some(item => isComboItem(item) && !hasDetails(item));
@@ -65,7 +80,7 @@ export async function enrichComboItems(items) {
       if (!isComboItem(item) || hasDetails(item)) return item;
       const combo = findMatchingCombo(item, data);
       if (!combo?.detalles) return item;
-      return { ...item, detalles: combo.detalles };
+      return { ...item, detalles: combo.detalles, combo_items: getItemComponents({ ...item, detalles: combo.detalles }) };
     });
   } catch {
     return list;
@@ -74,6 +89,12 @@ export async function enrichComboItems(items) {
 
 export function getItemDetails(item) {
   const details = [];
+
+  const components = getItemComponents(item);
+  if (components.length) {
+    const multiplier = Number(getItemQuantity(item)) || 1;
+    return components.map(component => ["Producto", `${component.quantity * multiplier}x ${component.name}`]);
+  }
 
   Object.entries(item || {}).forEach(([key, value]) => {
     if (HIDDEN_ITEM_FIELDS.has(key) || value === null || value === undefined || value === "") return;
@@ -141,4 +162,12 @@ function findMatchingCombo(item, combos) {
 
 function normalizeKey(value) {
   return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function normalizeComponent(component) {
+  if (!component || typeof component !== "object") return null;
+  const name = String(component.nombre || component.name || component.item || component.producto || "").trim();
+  const quantity = Number(component.cantidad ?? component.quantity ?? component.qty ?? component.value ?? 1);
+  if (!name || !Number.isFinite(quantity) || quantity <= 0) return null;
+  return { name, quantity };
 }

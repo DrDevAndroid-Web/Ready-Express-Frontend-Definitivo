@@ -32,7 +32,7 @@ export async function generatePDF(order, options = {}) {
         renderHeader(doc, order);
         renderOrderDetails(doc, order);
         renderItems(doc, items);
-        renderTotal(doc, order.total);
+        renderTotal(doc, order.total, order);
       }
       doc.end();
     } catch (error) {
@@ -65,6 +65,7 @@ function renderOrderDetails(doc, order) {
     ["Receptor", order.receiver_name],
     ["Telefono receptor", order.receiver_phone],
     ["Direccion", order.customer_address],
+    ["Municipio", order.delivery_municipality],
     ["Notas de entrega", order.delivery_notes]
   ];
 
@@ -101,9 +102,14 @@ function renderItems(doc, items) {
   });
 }
 
-function renderTotal(doc, total) {
+function renderTotal(doc, total, order = {}) {
   ensureSpace(doc, 58);
   doc.moveDown(0.5);
+  if (Number(order.products_subtotal) >= 0 && Number(order.delivery_surcharge) > 0) {
+    doc.font("Helvetica").fontSize(9).text(`Subtotal productos: ${formatMoney(order.products_subtotal)}`, 340, doc.y, { width: 210, align: "right" });
+    doc.text(`Ajuste de entrega: ${formatMoney(order.delivery_surcharge)}`, 340, doc.y + 13, { width: 210, align: "right" });
+    doc.moveDown(2);
+  }
   doc.rect(340, doc.y, 210, 38).fill("#f2f2f2");
   doc.fillColor("#000").font("Helvetica-Bold").fontSize(12);
   doc.text("TOTAL:", 356, doc.y - 28);
