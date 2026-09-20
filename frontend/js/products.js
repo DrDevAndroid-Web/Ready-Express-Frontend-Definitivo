@@ -1,5 +1,5 @@
-import { getProductos, getInfo, getCombos, getElectrodomesticos } from "./api.js?v19";
-import { addItem } from "./cart.js?v19";
+import { getProductos, getInfo, getCombos, getElectrodomesticos } from "./api.js?v21";
+import { addItem } from "./cart.js?v23";
 
 const CONTACT_WHATSAPP = "5356189395";
 
@@ -45,9 +45,34 @@ function parseDetalles(val) {
   return String(val);
 }
 
+function parseComponentQuantity(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  const match = String(value ?? "").match(/^\s*(\d+(?:[.,]\d+)?)/);
+  return match ? Number(match[1].replace(",", ".")) : 1;
+}
+
+function normalizeComboItems(item) {
+  const raw = item.items || item.productos || item.componentes;
+  if (Array.isArray(raw)) {
+    return raw.map(component => ({
+      nombre: component.nombre || component.name || component.item || component.producto || "",
+      cantidad: parseComponentQuantity(component.cantidad ?? component.quantity ?? component.qty ?? 1),
+    })).filter(component => component.nombre && Number.isFinite(component.cantidad) && component.cantidad > 0);
+  }
+  const details = item.detalles;
+  if (details && typeof details === "object" && !Array.isArray(details)) {
+    return Object.entries(details).map(([nombre, cantidad]) => ({
+      nombre,
+      cantidad: parseComponentQuantity(cantidad),
+    })).filter(component => component.nombre);
+  }
+  return [];
+}
+
 function normalize(item, defaultCategory) {
   // Parsear items del combo si existen
-  const items = item.items || item.productos || [];
+  const items = normalizeComboItems(item);
   const itemsText = Array.isArray(items) && items.length > 0
     ? items.map(i => {
         const nombre = i.nombre || i.name || i.item || "";
@@ -57,7 +82,9 @@ function normalize(item, defaultCategory) {
     : "";
 
   const descripcion = parseDetalles(item.descripcion || item.description || item.detalle || item.detalles);
-  const descFinal = itemsText ? (descripcion ? `${descripcion} └─ ${itemsText}` : itemsText) : descripcion;
+  // `detalles` ya se renderiza como lista. No repitas los mismos componentes
+  // en una segunda linea: `combo_items` se conserva para checkout y facturas.
+  const descFinal = descripcion || itemsText;
 
   return {
     id: item.id,
@@ -65,6 +92,7 @@ function normalize(item, defaultCategory) {
     nombre: item.nombre || item.name || item.titulo || "Sin nombre",
     precio: parseFloat(item.precio || item.price || item.costo || 0),
     descripcion: descFinal,
+    combo_items: items,
     imagen: item.img || item.imagen || item.imagen_url || item.image || item.image_url || null,
     disponible: item.disponible !== false,
   };

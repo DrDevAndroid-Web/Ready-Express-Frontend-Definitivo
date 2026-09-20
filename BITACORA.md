@@ -1,5 +1,41 @@
 # Bitacora ReadyExpressNow
 
+## 2026-09-20 - Auditoria de duplicacion visual en combos
+
+- **Hallazgo:** `GET /api/food-combos` devuelve los componentes en `detalles` como objeto producto → cantidad.
+- **Causa:** `frontend/js/products.js` convertia `detalles` en una lista y ademas concatenaba los mismos componentes con el prefijo `└─`, generando la linea duplicada observada debajo de cada combo.
+- **Correccion:** se conserva `combo_items` para checkout, PDF e impresion, pero la tarjeta usa una sola representacion visible de `detalles`.
+- **Cache:** se incremento el import de `products.js` a `v22`.
+
+## 2026-09-20 - Carrito consolidado por producto
+
+> Estado posterior: esta mejora queda revertida temporalmente por decision funcional. Se mantiene el combo separado del producto individual hasta una futura iteracion.
+
+- El carrito conserva internamente las unidades originales para no perder el precio cerrado de cada combo.
+- La vista del carrito agrupa componentes de combos con productos independientes mediante claves normalizadas y alias de productos comunes.
+- Un componente incluido en un combo y el mismo producto añadido individualmente ahora aparecen como una sola linea con la cantidad acumulada.
+- Los imports de `cart.js` se actualizaron a `v21` para invalidar la cache del navegador.
+- El boton `+` de un componente incluido en un combo agrega una unidad individual del catalogo; ya no incrementa el combo completo.
+- Si el componente no tiene un producto individual disponible, la accion no modifica el carrito ni altera el precio del combo.
+
+## 2026-09-20 - Recargos de entrega, auditoria APK y expansion de combos
+
+### Alcance activo
+- Flujo 1: localizaciones y recargos de entrega administrables desde la APK, con tabla `precios_localizacion`, API backend, cache del frontend y aviso de cambios.
+- Flujo 2: auditoria de `APK_ADMINISTRACION`, correccion de su URL por defecto para apuntar al backend productivo y expansion de los productos contenidos en combos en ordenes, PDF descargable y PDF de impresion.
+
+### Estado al iniciar
+- La APK tenia como URL por defecto `http://192.168.1.106:3100`; debe usar `https://readyexpressnowbackend.versabold.com/api`.
+- El backend ya enriquecia algunos combos para PDF, pero los detalles se mostraban como pares `clave: valor` y el frontend no conservaba todos los componentes estructurados del payload.
+- La impresion usa `sendPrintableOrderEmail` y `generatePDF`, por lo que la expansion debe ser compartida por ambos caminos.
+
+### Criterios de verificacion
+- Revisar rutas backend y agregar pruebas de las nuevas rutas/normalizacion.
+- Ejecutar `npm test` en `backend`.
+- Validar sintaxis y bundle de la APK.
+- Levantar el frontend local y probar checkout con Playwright/agent-browser, incluyendo selector de municipio, recalculo y flujo de PDF cuando sea posible.
+- Registrar aqui el resultado final y cualquier limitacion externa (Supabase productivo, credenciales, impresora o navegador).
+
 ## 2026-07-24
 
 ### Backend
@@ -106,3 +142,11 @@
 - Backend: `npm.cmd test` paso con 64 pruebas aprobadas.
 - APK: parseo Babel de `App.js`, `app.json` y `package.json` correcto.
 - APK: `npx.cmd expo export --platform android` correcto.
+## 2026-09-20 - Actualizacion APK Administracion a Expo SDK 57 y auditoria de notificaciones
+
+- `APK_ADMINISTRACION` actualizado a Expo SDK 57, React Native 0.86.3 y React 19.2.3.
+- `expo-doctor` completado sin incidencias: 21/21 comprobaciones correctas.
+- `google-services.json`, `expo-device`, el canal Android y el `projectId` de EAS ya estaban configurados correctamente.
+- Corregido un bug en `App.js`: la app ya no marca el push como `Activo` cuando el backend devuelve un error al registrar el token.
+- El proyecto Expo autenticado es `@versaboldinnovationss-team/readyexpressnow`; las builds Android existentes consultadas todavia son SDK 54, por lo que hace falta instalar una nueva build SDK 57 para validar push remoto.
+- Expo Go queda limitado a SSE/local para notificaciones remotas; la prueba real requiere APK/development build en dispositivo fisico.

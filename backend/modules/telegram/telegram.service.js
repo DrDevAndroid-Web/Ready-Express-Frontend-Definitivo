@@ -82,6 +82,8 @@ async function sendTelegramMessage(text) {
 
 export async function notifyNewOrder(order) {
   const items = await enrichComboItems(normalizeItems(order.items));
+  const deliverySurcharge = Number(order.delivery_surcharge || 0);
+  const productsSubtotal = Number(order.products_subtotal ?? (Number(order.total || 0) - deliverySurcharge));
   const lines = [];
 
   lines.push(`🛒 *Nueva Orden* \`${escape(shortId(order.id))}\``);
@@ -92,6 +94,7 @@ export async function notifyNewOrder(order) {
   lines.push(`📦 *Destinatario:* ${escape(order.receiver_name || "-")}`);
   lines.push(`📞 ${escape(formatPhone(order.receiver_phone))}`);
   lines.push(`🏠 ${escape(order.customer_address || "-")}`);
+  lines.push(`📍 Municipio: ${escape(order.delivery_municipality || "-")}`);
 
   if (order.delivery_notes) {
     lines.push(`📝 ${escape(order.delivery_notes)}`);
@@ -121,6 +124,8 @@ export async function notifyNewOrder(order) {
   }
 
   lines.push("");
+  lines.push(`🧮 Subtotal productos: \\$${escape(productsSubtotal.toFixed(2))}`);
+  lines.push(`🚚 Recargo de entrega: ${deliverySurcharge > 0 ? `\\$${escape(deliverySurcharge.toFixed(2))}` : "Sin recargo"}`);
   lines.push(`💰 *Total: \\$${escape(Number(order.total).toFixed(2))}*`);
   lines.push(`📅 ${escape(formatDate(order.created_at))}`);
 

@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Envía comida a tu familia en Guantánamo desde el exterior. Combos de alimentos esenciales con entrega garantizada. Pagos seguros con Zelle o Tocopay." />
-  <meta name="keywords" content="envio comida Guantánamo, combos comida Cuba, envio alimentos Guantánamo, comida Cuba exterior" />
   <title>Ready Express Now - Envío de Comida a Guantánamo</title>
   <link rel="canonical" href="https://www.readyexpressnow.com/" />
 
@@ -14,7 +13,8 @@
   <meta property="og:title" content="Ready Express Now — Envío de comida a Guantánamo" />
   <meta property="og:description" content="Envía combos de alimentos a tu familia en Guantánamo. Pago seguro con Zelle o Tocopay. Entrega garantizada en 24–72h." />
   <meta property="og:image" content="https://www.readyexpressnow.com/images/hero-main.jpg" />
-  <meta property="og:locale" content="es_ES" />
+  <meta property="og:locale" content="es_CU" />
+  <meta property="og:image:alt" content="Productos y combos de alimentos para enviar a Guantánamo" />
   <meta property="og:site_name" content="Ready Express Now" />
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
@@ -51,11 +51,11 @@
       <a href="#productos-varios">Productos Varios</a>
       <a href="#como-funciona">¿Cómo funciona?</a>
       <a href="#faq">FAQ</a>
-      <a href="/quienes-somos">Quiénes somos</a>
+      <a href="./quienes-somos.html">Quiénes somos</a>
       <a href="#contacto">Contacto</a>
     </div>
     <div class="navbar-actions">
-      <a href="/ayuda" class="payment-help-btn" aria-label="Ayuda importante sobre pagos y comprobantes">
+      <a href="./ayuda.html" class="payment-help-btn" aria-label="Ayuda importante sobre pagos y comprobantes">
         <span>!</span>
         Ayuda de pago
       </a>
@@ -88,12 +88,12 @@
     <a href="#alimentos">Arma tu pedido</a>
     <a href="#productos-varios">Productos Varios</a>
     <a href="#como-funciona">¿Cómo funciona?</a>
-    <a href="/ayuda">Ayuda de pago</a>
+    <a href="./ayuda.html">Ayuda de pago</a>
     <a href="#faq">FAQ</a>
     <a href="#contacto">Contacto</a>
     <hr style="margin:8px 0; border: none; border-top: 1px solid rgba(255,255,255,0.2);">
-    <a href="/terminos" style="font-size:0.9rem;">Términos y Condiciones</a>
-    <a href="/politica-privacidad" style="font-size:0.9rem;">Política de Privacidad</a>
+    <a href="./terminos.html" style="font-size:0.9rem;">Términos y Condiciones</a>
+    <a href="./politica-privacidad.html" style="font-size:0.9rem;">Política de Privacidad</a>
   </nav>
 
   <!-- Hero -->
@@ -278,7 +278,7 @@
         <div class="step">
           <div class="step-icon">3</div>
           <h3>Nosotros entregamos</h3>
-          <p>Tu pedido llega directamente a la dirección de tu familia en Guantánamo.</p>
+          <p>Tu pedido llega directamente a la dirección de tu familia en Guantánamo. Para otros municipios de la provincia puede aplicarse un ajuste de entrega, visible antes de confirmar el pago.</p>
         </div>
         <div class="step">
           <div class="step-icon">4</div>
@@ -336,6 +336,13 @@
           <p>El tiempo de entrega varía entre 24 y 72 horas dependiendo de la disponibilidad y la zona en Guantánamo.</p>
         </details>
         <details class="faq-item">
+          <summary>¿Cuánto cuesta la entrega según el municipio?</summary>
+          <p>La entrega dentro de la ciudad de Guantánamo no tiene recargo. Para otros municipios, el importe adicional se muestra antes de confirmar el pedido y se actualiza automáticamente según la tarifa vigente:</p>
+          <div class="faq-locations" id="faq-delivery-locations" aria-live="polite">
+            <span class="faq-locations-loading">Cargando municipios y tarifas...</span>
+          </div>
+        </details>
+        <details class="faq-item">
           <summary>¿Qué métodos de pago aceptan?</summary>
           <p>Aceptamos Zelle y Tocopay con comprobante en la plataforma. También tenemos pagos asistidos desde Mexico, Brazil e IBAN Europa; en esos casos el equipo te contacta por WhatsApp para darte los datos y validar el comprobante manualmente.</p>
         </details>
@@ -374,15 +381,15 @@
           <li><a href="#alimentos">Arma tu pedido</a></li>
           <li><a href="#productos-varios">Productos Varios</a></li>
           <li><a href="#como-funciona">¿Cómo funciona?</a></li>
-          <li><a href="/ayuda">Ayuda de pago</a></li>
+          <li><a href="./ayuda.html">Ayuda de pago</a></li>
           <li><a href="#faq">FAQ</a></li>
         </ul>
       </div>
       <div>
         <h4>Legal</h4>
         <ul>
-          <li><a href="/terminos">Términos y Condiciones</a></li>
-          <li><a href="/politica-privacidad">Política de Privacidad</a></li>
+          <li><a href="./terminos.html">Términos y Condiciones</a></li>
+          <li><a href="./politica-privacidad.html">Política de Privacidad</a></li>
         </ul>
       </div>
       <div>
@@ -408,7 +415,7 @@
       >
         <span>Sitio creado y gestionado técnicamente por</span>
         <img
-          src="./images/versabold-innovations.png"
+          src="./images/versabold-innovations.ico"
           alt="VersaBold Innovations"
         >
         <span>VersaBold Innovations</span>
@@ -538,8 +545,27 @@
           </div>
 
           <div class="form-group">
+            <label for="delivery_municipality">
+              Municipio de entrega
+              <span class="required">*</span>
+            </label>
+            <select id="delivery_municipality" name="delivery_municipality" required>
+              <option value="">Cargando municipios...</option>
+            </select>
+            <input type="hidden" id="delivery_location_id" name="delivery_location_id">
+            <p class="field-error" id="error-delivery_municipality"></p>
+            <div class="delivery-pricing-card" id="delivery-pricing-card" aria-live="polite">
+              <div class="delivery-pricing-heading">
+                <span>Recargo de entrega</span>
+                <strong id="delivery-surcharge-amount">Calculando...</strong>
+              </div>
+              <p id="delivery-surcharge-note">Selecciona un municipio para ver el importe.</p>
+            </div>
+          </div>
+
+          <div class="form-group">
             <label for="customer_address">
-              Dirección de entrega en Guantánamo
+              Dirección de entrega
               <span class="required">*</span>
             </label>
             <input
@@ -839,6 +865,14 @@
       },
       {
         "@type": "Question",
+        "name": "¿Cuánto cuesta la entrega según el municipio?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "La entrega dentro de la ciudad de Guantánamo no tiene recargo. Para otros municipios, el importe adicional se muestra antes de confirmar el pedido y se actualiza según la tarifa vigente."
+        }
+      },
+      {
+        "@type": "Question",
         "name": "¿Qué métodos de pago aceptan?",
         "acceptedAnswer": {
           "@type": "Answer",
@@ -857,7 +891,7 @@
   }
   </script>
 
-  <script type="module" src="./js/app.js?v21"></script>
+  <script type="module" src="./js/app.js?v23"></script>
   <script>
     document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
       document.getElementById('cart-btn')?.click();

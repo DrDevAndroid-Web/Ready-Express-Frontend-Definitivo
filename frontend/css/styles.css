@@ -604,6 +604,17 @@ a:focus,
 .faq-item summary::after { content: '+'; font-size: 1.4rem; color: var(--green); font-weight: 700; flex-shrink: 0; }
 .faq-item[open] summary::after { content: '−'; }
 .faq-item p { padding: 0 24px 20px; color: var(--gray-dark); font-size: 0.98rem; line-height: 1.7; }
+.faq-locations { margin: -4px 24px 20px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--gray-light); }
+.faq-location-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--gray-dark); font-size: 0.94rem; }
+.faq-location-row:last-child { border-bottom: 0; }
+.faq-location-row strong { color: var(--navy); white-space: nowrap; }
+.faq-locations-loading, .faq-locations-empty { display: block; padding: 12px 14px; color: var(--gray-dark); font-size: 0.9rem; }
+.delivery-pricing-card { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--green); border-radius: 8px; background: var(--green-pale); }
+.delivery-pricing-card.has-surcharge { border-color: var(--orange); background: #fff8ed; }
+.delivery-pricing-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--navy); }
+.delivery-pricing-heading strong { color: var(--green); font-size: 1.05rem; white-space: nowrap; }
+.delivery-pricing-card.has-surcharge .delivery-pricing-heading strong { color: #b45309; }
+.delivery-pricing-card p { margin: 5px 0 0; color: var(--gray-dark); font-size: 0.9rem; line-height: 1.45; }
 
 /* ── CTA Banner ── */
 .cta-banner {
@@ -684,6 +695,10 @@ footer ul li a:hover { color: var(--orange-light); }
 .img-placeholder-sm { width: 100%; height: 100%; background: var(--border); border-radius: var(--radius-sm); }
 .cart-item-info { flex: 1; min-width: 0; }
 .cart-item-name { font-size: 0.85rem; font-weight: 600; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cart-item-components { margin-top: 4px; color: var(--muted); font-size: 0.76rem; line-height: 1.35; }
+.cart-item-components-label { display: block; color: var(--green); font-weight: 700; margin-bottom: 2px; }
+.cart-item-components ul { margin: 0; padding-left: 16px; list-style: disc; }
+.cart-item-components li { overflow-wrap: anywhere; }
 .cart-item-price { font-size: 0.88rem; color: var(--orange); font-weight: 700; }
 .cart-item-qty { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .qty-btn {
@@ -2849,6 +2864,11 @@ body.modal-open .cart-panel {
   min-height: 0;
 }
 .field-error:not(:empty) { display: block; }
+.field-help {
+  color: var(--gray);
+  font-size: 0.78rem;
+  margin: 6px 0 0;
+}
 .form-group input.input-error,
 .form-group textarea.input-error {
   border-color: #c62828 !important;

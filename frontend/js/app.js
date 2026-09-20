@@ -1,8 +1,9 @@
-import { initCart, getCart } from "./cart.js?v20";
-import { initProducts } from "./products.js?v20";
-import { initCheckout, openCheckoutAtSavedStep, hasSavedCheckoutStep } from "./checkout.js?v21";
+import { initCart, getCart } from "./cart.js?v23";
+import { initProducts } from "./products.js?v22";
+import { initCheckout, openCheckoutAtSavedStep, hasSavedCheckoutStep } from "./checkout.js?v22";
 import { redirectToPendingPayment } from "./payment.js?v20";
 import { inicializarMetodosPago } from "./payment-methods.js?v20";
+import { getLocalizaciones } from "./api.js?v21";
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (redirectToPendingPayment()) return;
@@ -20,6 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAccessibility();
   initMobileNav();
   initWhatsAppModal();
+  initDeliveryLocationsFaq();
 
   // Smooth scroll for nav links
   document.querySelectorAll('a[href^="#"]').forEach((link) => {
@@ -32,6 +34,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 });
+
+async function initDeliveryLocationsFaq() {
+  const container = document.getElementById("faq-delivery-locations");
+  if (!container) return;
+  try {
+    const response = await getLocalizaciones();
+    const locations = Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response) ? response : [];
+    if (!locations.length) {
+      container.innerHTML = '<span class="faq-locations-empty">Las tarifas se confirmarán durante el checkout.</span>';
+      return;
+    }
+    container.innerHTML = locations.map(location => {
+      const surcharge = Number(location.recargo || 0);
+      const amount = surcharge > 0 ? `+$${surcharge.toFixed(2)}` : "Sin recargo";
+      return `<div class="faq-location-row"><span>${escapeHtml(location.municipio || "Municipio")}</span><strong>${amount}</strong></div>`;
+    }).join("");
+  } catch (error) {
+    container.innerHTML = '<span class="faq-locations-empty">Las tarifas se mostrarán automáticamente durante el checkout.</span>';
+    console.warn("[faq:localizaciones]", error);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+  }[char]));
+}
 
 // Accessibility improvements
 function initAccessibility() {

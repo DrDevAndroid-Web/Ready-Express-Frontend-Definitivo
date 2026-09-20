@@ -1,8 +1,8 @@
-import { API_BASE, createOrder } from "./api.js?v19";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v19";
+import { API_BASE, createOrder, getLocalizaciones } from "./api.js?v21";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v23";
 import { savePendingPayment } from "./payment.js?v19";
 import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED } from "./payment-methods.js?v19";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v19";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v21";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -15,6 +15,10 @@ let currentSelectedMethodFlow = "proof_upload";
 let currentPaymentMethods = [];
 let currentOrderReceiptData = null;
 let checkoutStep = 1;
+let deliveryLocations = [];
+let deliveryLocationsLoaded = false;
+let locationEvents = null;
+const DELIVERY_LOCATIONS_CACHE_KEY = "ren_delivery_locations";
 
 function storageGet(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -26,6 +30,99 @@ function storageRemove(key) {
   try { localStorage.removeItem(key); } catch {}
 }
 
+function getDeliverySubtotal() {
+  return getTotal();
+}
+
+function getSelectedLocation(form) {
+  const id = fieldValue(form, "delivery_location_id");
+  return deliveryLocations.find(location => String(location.id) === String(id)) || null;
+}
+
+function calculateCheckoutTotal(form) {
+  return getDeliverySubtotal() + Number(getSelectedLocation(form)?.recargo || 0);
+}
+
+function renderDeliveryLocations(form, selectedId = "") {
+  const select = form?.elements?.delivery_municipality;
+  const hidden = form?.elements?.delivery_location_id;
+  if (!select || !hidden) return;
+  const previous = selectedId || hidden.value || storageGet("ren_delivery_location_id") || "";
+  select.innerHTML = '<option value="">Selecciona un municipio</option>' + deliveryLocations.map(location =>
+    `<option value="${escapeHtml(String(location.id))}">${escapeHtml(location.municipio)}</option>`
+  ).join("");
+  const selected = deliveryLocations.find(location => String(location.id) === String(previous))
+    || deliveryLocations.find(location => location.es_base)
+    || deliveryLocations[0];
+  if (selected) {
+    select.value = selected.id;
+    hidden.value = selected.id;
+    storageSet("ren_delivery_location_id", String(selected.id));
+  }
+  updateDeliveryPricing(form);
+}
+
+function updateDeliveryPricing(form) {
+  const selected = getSelectedLocation(form);
+  const surcharge = Number(selected?.recargo || 0);
+  const note = document.getElementById("delivery-surcharge-note");
+  const amount = document.getElementById("delivery-surcharge-amount");
+  const card = document.getElementById("delivery-pricing-card");
+  if (amount) amount.textContent = surcharge > 0 ? `+$${surcharge.toFixed(2)}` : "$0.00";
+  if (note) note.textContent = selected
+    ? (surcharge > 0
+      ? `${selected.municipio}: este importe se suma al subtotal de tus productos.`
+      : `${selected.municipio}: entrega dentro de la ciudad sin recargo adicional.`)
+    : "Selecciona un municipio para ver el importe.";
+  card?.classList.toggle("has-surcharge", surcharge > 0);
+  currentTotal = calculateCheckoutTotal(form);
+  renderMiniSummary();
+  renderCheckoutReview();
+}
+
+async function loadDeliveryLocations(form, force = false) {
+  if (deliveryLocationsLoaded && !force) return;
+  if (!force) {
+    try {
+      const cached = JSON.parse(storageGet(DELIVERY_LOCATIONS_CACHE_KEY) || "null");
+      if (Array.isArray(cached?.items) && cached.items.length) {
+        deliveryLocations = cached.items;
+        renderDeliveryLocations(form);
+      }
+    } catch {}
+  }
+  try {
+    const data = await getLocalizaciones();
+    deliveryLocations = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+    deliveryLocationsLoaded = true;
+    storageSet(DELIVERY_LOCATIONS_CACHE_KEY, JSON.stringify({ items: deliveryLocations, updatedAt: new Date().toISOString() }));
+    renderDeliveryLocations(form);
+  } catch (error) {
+    console.warn("[checkout:localizaciones]", error);
+    if (!deliveryLocations.length && form?.elements?.delivery_municipality) {
+      form.elements.delivery_municipality.innerHTML = '<option value="">No se pudieron cargar los municipios</option>';
+    }
+  }
+}
+
+function subscribeToLocationEvents() {
+  if (locationEvents || typeof EventSource === "undefined") return;
+  locationEvents = new EventSource(`${API_BASE}/localizaciones/events`);
+  locationEvents.onmessage = event => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload.type === "localizaciones_updated") {
+        deliveryLocationsLoaded = false;
+        loadDeliveryLocations(document.getElementById("checkout-form"), true);
+      }
+    } catch {}
+  };
+  locationEvents.onerror = () => {
+    try { locationEvents.close(); } catch {}
+    locationEvents = null;
+  };
+}
+
 const CHECKOUT_STEP_KEY = "ren_checkout_step";
 const CHECKOUT_FORM_KEY = "ren_checkout_form_data";
 
@@ -35,7 +132,9 @@ const FORM_FIELDS = [
   "receiver_name",
   "customer_address",
   "receiver_phone",
-  "delivery_notes"
+  "delivery_notes",
+  "delivery_location_id",
+  "delivery_municipality"
 ];
 
 // ── Persistencia ──────────────────────────────────────────────
@@ -104,7 +203,7 @@ function renderMiniSummary() {
   const cart = getCart();
   const el = document.getElementById("checkout-mini-summary");
   if (!el) return;
-  const total = getTotal();
+  const total = currentTotal || getTotal();
   const count = cart.reduce((s, i) => s + i.qty, 0);
   el.innerHTML = `
     <span class="mini-summary-items">${count} producto${count !== 1 ? "s" : ""}</span>
@@ -159,7 +258,7 @@ function validateCheckoutStep(step) {
   if (!stepEl) return true;
 
   let valid = true;
-  stepEl.querySelectorAll("input[required], textarea[required]").forEach(field => {
+  stepEl.querySelectorAll("input[required], textarea[required], select[required]").forEach(field => {
     if (!field.checkValidity()) {
       showFieldError(field.name, field.validationMessage);
       valid = false;
@@ -217,7 +316,9 @@ export function showCheckoutModal() {
   const form = document.getElementById("checkout-form");
   if (form) restoreFormData(form);
 
-  currentTotal = getTotal();
+  currentTotal = calculateCheckoutTotal(form);
+  loadDeliveryLocations(form);
+  subscribeToLocationEvents();
   openModal("checkout-modal");
   let savedStep = getCheckoutStep();
   if (savedStep === 3 && !currentOrderReceiptData) {
@@ -233,7 +334,21 @@ export function showCheckoutModal() {
 // ── Inicialización ────────────────────────────────────────────
 export function initCheckout() {
   const form = document.getElementById("checkout-form");
-  if (form) setupBlurValidation(form);
+  if (form) {
+    setupBlurValidation(form);
+    loadDeliveryLocations(form);
+    subscribeToLocationEvents();
+    form.elements.delivery_municipality?.addEventListener("change", () => {
+      const selected = deliveryLocations.find(location => String(location.id) === String(form.elements.delivery_municipality.value));
+      form.elements.delivery_location_id.value = selected?.id || "";
+      storageSet("ren_delivery_location_id", selected?.id || "");
+      updateDeliveryPricing(form);
+      saveFormData(form);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) loadDeliveryLocations(form, true);
+    });
+  }
 
   document.getElementById("checkout-btn")?.addEventListener("click", showCheckoutModal);
   document.getElementById("cart-checkout-btn")?.addEventListener("click", showCheckoutModal);
@@ -501,7 +616,11 @@ async function submitOrder(form) {
     sender_name:      senderName,
     sender_phone:     senderPhone,
     receiver_name:    fieldValue(form, "receiver_name"),
-    receiver_phone:   fieldValue(form, "receiver_phone"),
+      receiver_phone:   fieldValue(form, "receiver_phone"),
+    delivery_location_id: fieldValue(form, "delivery_location_id"),
+    delivery_municipality: fieldValue(form, "delivery_municipality"),
+    products_subtotal: getDeliverySubtotal(),
+    delivery_surcharge: Number(getSelectedLocation(form)?.recargo || 0),
     delivery_notes:   buildDeliveryNotes(fieldValue(form, "delivery_notes")),
     items: cart.map(i => ({
       id:          i.id,
@@ -510,17 +629,19 @@ async function submitOrder(form) {
       cantidad:    i.qty,
       precio_total: i.precio * i.qty,
       category:    i.category,
+      combo_items: i.combo_items || [],
     })),
-    total:  getTotal(),
+    total:  currentTotal,
     status: currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED ? "awaiting_manual_payment" : "pending",
   };
 
   try {
     const order = await createOrder(orderData);
     currentOrderId = order.id;
-    currentTotal   = orderData.total;
+    currentTotal   = Number(order.total ?? orderData.total);
     currentOrderReceiptData = {
       ...orderData,
+      ...order,
       id: order.id,
       created_at: order.created_at || new Date().toISOString()
     };
@@ -616,8 +737,10 @@ function renderCheckoutReview() {
   const receiver = fieldValue(form, "receiver_name") || "Por completar";
   const address = fieldValue(form, "customer_address") || "Por completar";
   el.innerHTML = `
-    <div class="checkout-review-row"><span>Total</span><strong>$${getTotal().toFixed(2)}</strong></div>
-    <div class="checkout-review-row"><span>Productos</span><strong>${count}</strong></div>
+    <div class="checkout-review-row"><span>Productos</span><strong>$${getDeliverySubtotal().toFixed(2)}</strong></div>
+    <div class="checkout-review-row"><span>Entrega</span><strong>$${Number(getSelectedLocation(form)?.recargo || 0).toFixed(2)}</strong></div>
+    <div class="checkout-review-row total-row"><span>Total</span><strong>$${calculateCheckoutTotal(form).toFixed(2)}</strong></div>
+    <div class="checkout-review-row"><span>Cantidad de productos</span><strong>${count}</strong></div>
     <div class="checkout-review-row"><span>Recibe</span><strong>${escapeHtml(receiver)}</strong></div>
     <div class="checkout-review-row"><span>Dirección</span><strong>${escapeHtml(address)}</strong></div>
     <div class="checkout-review-row"><span>Método</span><strong>${escapeHtml(currentSelectedMethod || "Selecciona uno")}</strong></div>

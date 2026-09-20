@@ -1,6 +1,6 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v19";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v21";
 import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v19";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v19";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v21";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -443,7 +443,7 @@ async function downloadReceipt() {
 
     const orderData = {
       id: pendingOrderId,
-      total: Number(pendingTotal || orderFromBackend?.total || 0),
+      total: Number(orderFromBackend?.total ?? pendingTotal ?? 0),
       sender_name: checkoutFormData.sender_name || orderFromBackend?.sender_name || orderFromBackend?.customer_name || "-",
       sender_phone: checkoutFormData.sender_phone || orderFromBackend?.sender_phone || orderFromBackend?.customer_phone || "-",
       customer_name: checkoutFormData.sender_name || orderFromBackend?.customer_name || orderFromBackend?.sender_name || "-",
@@ -452,6 +452,9 @@ async function downloadReceipt() {
       receiver_name: checkoutFormData.receiver_name || orderFromBackend?.receiver_name || "-",
       receiver_phone: checkoutFormData.receiver_phone || orderFromBackend?.receiver_phone || "-",
       customer_address: checkoutFormData.customer_address || orderFromBackend?.customer_address || "-",
+      delivery_municipality: checkoutFormData.delivery_municipality || orderFromBackend?.delivery_municipality || "-",
+      delivery_surcharge: Number(orderFromBackend?.delivery_surcharge ?? checkoutFormData.delivery_surcharge ?? 0),
+      products_subtotal: Number(orderFromBackend?.products_subtotal ?? checkoutFormData.products_subtotal ?? 0),
       delivery_notes: checkoutFormData.delivery_notes || orderFromBackend?.delivery_notes || "",
       items
     };

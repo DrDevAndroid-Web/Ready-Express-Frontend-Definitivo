@@ -53,7 +53,7 @@ export async function generarPDFRecibo(order, metodoPago, comprobanteLogo, compr
     doc.setFont(undefined, "normal");
     doc.text(`Orden: #${order.id || "-"}`, margin, yPosition);
     yPosition += 8;
-    doc.text(`Monto: $${order.total?.toFixed(2) || "0.00"}`, margin, yPosition);
+    doc.text(`Monto total: $${formatMoney(order.total)}`, margin, yPosition);
     yPosition += 8;
     yPosition = addWrappedText(`Metodo: ${metodoPago || "-"}`, margin, yPosition, contentWidth);
     yPosition += 12;
@@ -84,6 +84,7 @@ export async function generarPDFRecibo(order, metodoPago, comprobanteLogo, compr
     yPosition = addWrappedText(`Nombre: ${order.receiver_name || "-"}`, margin, yPosition, contentWidth);
     yPosition = addWrappedText(`Telefono: ${order.receiver_phone || "-"}`, margin, yPosition, contentWidth);
     yPosition = addWrappedText(`Direccion: ${order.customer_address || "-"}`, margin, yPosition, contentWidth);
+    yPosition = addWrappedText(`Municipio: ${order.delivery_municipality || "-"}`, margin, yPosition, contentWidth);
     yPosition += 8;
 
     // Items
@@ -105,6 +106,12 @@ export async function generarPDFRecibo(order, metodoPago, comprobanteLogo, compr
         const texto = `${cantidad}x ${nombre} - $${subtotal.toFixed(2)}`;
         ensurePageRoom(12);
         yPosition = addWrappedText(texto, margin + 5, yPosition, contentWidth - 5);
+        const components = Array.isArray(item.combo_items) ? item.combo_items : [];
+        components.forEach(component => {
+          const componentQty = Number(component.cantidad || component.quantity || 1) * Number(cantidad || 1);
+          ensurePageRoom(8);
+          yPosition = addWrappedText(`  Producto: ${componentQty}x ${component.nombre || component.name || component.item || "-"}`, margin + 10, yPosition, contentWidth - 10, 5);
+        });
       });
     } else {
       doc.text("Sin productos disponibles en el recibo.", margin + 5, yPosition);
@@ -113,11 +120,19 @@ export async function generarPDFRecibo(order, metodoPago, comprobanteLogo, compr
 
     yPosition += 6;
 
+    const deliverySurcharge = Number(order.delivery_surcharge || 0);
+    const productsSubtotal = Number(order.products_subtotal ?? (Number(order.total || 0) - deliverySurcharge));
+    ensurePageRoom(28);
+    doc.setFont(undefined, "normal");
+    yPosition = addWrappedText(`Subtotal de productos: $${formatMoney(productsSubtotal)}`, margin, yPosition, contentWidth);
+    yPosition = addWrappedText(`Entrega (${order.delivery_municipality || "municipio no indicado"}): ${deliverySurcharge > 0 ? `+$${formatMoney(deliverySurcharge)}` : "sin recargo"}`, margin, yPosition, contentWidth);
+    yPosition += 4;
+
     // Total
     ensurePageRoom(20);
     doc.setFont(undefined, "bold");
     doc.setFontSize(12);
-    doc.text(`TOTAL: $${order.total?.toFixed(2) || "0.00"}`, margin, yPosition);
+    doc.text(`TOTAL: $${formatMoney(order.total)}`, margin, yPosition);
     yPosition += 12;
 
     // Comprobante de pago
@@ -154,6 +169,11 @@ export async function generarPDFRecibo(order, metodoPago, comprobanteLogo, compr
     console.error("Error generando PDF:", err);
     throw err;
   }
+}
+
+function formatMoney(value) {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) ? amount.toFixed(2) : "0.00";
 }
 
 export function cargarLibreriasPDF() {

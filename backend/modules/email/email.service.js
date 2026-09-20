@@ -114,6 +114,9 @@ export async function sendCancelledOrderEmail(order) {
 
 export async function buildOrderEmail(order) {
   const items = await enrichComboItems(normalizeItems(order.items));
+  const deliverySurcharge = Number(order.delivery_surcharge || 0);
+  const productsSubtotal = Number(order.products_subtotal ?? (Number(order.total || 0) - deliverySurcharge));
+  const deliveryCharge = deliverySurcharge > 0 ? `$${formatNumber(deliverySurcharge)}` : "Sin recargo";
   const text = [
     "READY EXPRESS NOW",
     "NUEVA ORDEN",
@@ -131,11 +134,14 @@ export async function buildOrderEmail(order) {
     `Nombre: ${order.receiver_name || "-"}`,
     `Telefono: ${order.receiver_phone || "-"}`,
     `Direccion: ${order.customer_address || "-"}`,
+    `Municipio: ${order.delivery_municipality || "-"}`,
     ...(order.delivery_notes ? [`Notas: ${order.delivery_notes}`] : []),
     "",
     "ITEMS",
     ...formatItemsText(items),
     "",
+    `Subtotal productos: $${formatNumber(productsSubtotal)}`,
+    `Recargo de entrega: ${deliveryCharge}`,
     `TOTAL: $${formatNumber(order.total)}`,
     "=============================="
   ].join("\n");
@@ -149,6 +155,8 @@ export async function buildOrderEmail(order) {
     ${buildInfoTable([
       ["Orden", order.id || "-"],
       ["Estado", order.status || "-"],
+      ["Subtotal productos", `$${formatNumber(productsSubtotal)}`],
+      ["Recargo de entrega", deliveryCharge],
       ["Total", `$${formatNumber(order.total)}`]
     ])}
     <h3>Cliente / remitente</h3>
@@ -162,6 +170,7 @@ export async function buildOrderEmail(order) {
       ["Nombre", order.receiver_name || "-"],
       ["Telefono", order.receiver_phone || "-"],
       ["Direccion", order.customer_address || "-"],
+      ["Municipio", order.delivery_municipality || "-"],
       ...(order.delivery_notes ? [["Notas", order.delivery_notes]] : [])
     ])}
     <h3>Items</h3>

@@ -11,24 +11,66 @@ function storageSet(key, value) {
 }
 
 function loadCart() {
-  try {
-    return JSON.parse(storageGet(STORAGE_KEY)) || [];
-  } catch {
-    return [];
-  }
+  try { return JSON.parse(storageGet(STORAGE_KEY)) || []; }
+  catch { return []; }
 }
 
 function saveCart() {
   storageSet(STORAGE_KEY, JSON.stringify(cart));
 }
 
+function parseComponentQuantity(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  const match = String(value ?? "").match(/^\s*(\d+(?:[.,]\d+)?)/);
+  return match ? Number(match[1].replace(",", ".")) : 1;
+}
+
+function getComboComponents(item) {
+  const raw = item?.combo_items || item?.items || item?.productos || item?.componentes;
+  if (Array.isArray(raw)) {
+    return raw.map(component => ({
+      nombre: component.nombre || component.name || component.item || component.producto || "",
+      cantidad: parseComponentQuantity(component.cantidad ?? component.quantity ?? component.qty ?? 1),
+    })).filter(component => component.nombre && component.cantidad > 0);
+  }
+
+  if (item?.detalles && typeof item.detalles === "object" && !Array.isArray(item.detalles)) {
+    return Object.entries(item.detalles).map(([nombre, cantidad]) => ({
+      nombre,
+      cantidad: parseComponentQuantity(cantidad),
+    })).filter(component => component.nombre);
+  }
+
+  return [];
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderComboDetails(item) {
+  const components = getComboComponents(item);
+  if (!components.length) return "";
+
+  return `
+    <div class="cart-item-components">
+      <span class="cart-item-components-label">Incluido en el combo:</span>
+      <ul>${components.map(component => `
+        <li>${escapeHtml(component.nombre)} <strong>×${component.cantidad}</strong></li>
+      `).join("")}</ul>
+    </div>`;
+}
+
 export function addItem(product, qty = 1) {
   const existing = cart.find((i) => String(i.id) === String(product.id) && i.category === product.category);
-  if (existing) {
-    existing.qty += qty;
-  } else {
-    cart.push({ ...product, qty });
-  }
+  if (existing) existing.qty += qty;
+  else cart.push({ ...product, qty });
   saveCart();
   renderCart();
   updateCartBadge();
@@ -62,18 +104,16 @@ export function clearCart() {
 }
 
 export function getCart() {
-  if (!cart.length) {
-    cart = loadCart();
-  }
+  if (!cart.length) cart = loadCart();
   return cart;
 }
 
 export function getTotal() {
-  return cart.reduce((sum, i) => sum + i.precio * i.qty, 0);
+  return cart.reduce((sum, item) => sum + Number(item.precio || 0) * Number(item.qty || 0), 0);
 }
 
 export function getItemCount() {
-  return cart.reduce((sum, i) => sum + i.qty, 0);
+  return cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
 }
 
 function updateCartBadge() {
@@ -103,7 +143,6 @@ export function renderCart() {
   const totalEl = document.getElementById("cart-total");
   const emptyMsg = document.getElementById("cart-empty");
   const checkoutBtn = document.getElementById("cart-checkout-btn");
-
   if (!list) return;
 
   if (cart.length === 0) {
@@ -117,16 +156,15 @@ export function renderCart() {
   if (emptyMsg) emptyMsg.style.display = "none";
   if (checkoutBtn) checkoutBtn.disabled = false;
 
-  list.innerHTML = cart
-    .map(
-      (item, index) => `
+  list.innerHTML = cart.map((item, index) => `
     <div class="cart-item" data-index="${index}">
       <div class="cart-item-img">
-        ${item.imagen ? `<img src="${item.imagen}" alt="">` : `<div class="img-placeholder-sm"></div>`}
+        ${item.imagen ? `<img src="${escapeHtml(item.imagen)}" alt="">` : `<div class="img-placeholder-sm"></div>`}
       </div>
       <div class="cart-item-info">
-        <p class="cart-item-name">${item.nombre}</p>
-        <p class="cart-item-price">$${(item.precio * item.qty).toFixed(2)}</p>
+        <p class="cart-item-name">${escapeHtml(item.nombre)}</p>
+        ${renderComboDetails(item)}
+        <p class="cart-item-price">$${(Number(item.precio || 0) * Number(item.qty || 0)).toFixed(2)}</p>
       </div>
       <div class="cart-item-qty">
         <button class="qty-btn" data-index="${index}" data-delta="-1">−</button>
@@ -135,20 +173,18 @@ export function renderCart() {
       </div>
       <button class="cart-item-remove" data-index="${index}">✕</button>
     </div>
-  `
-    )
-    .join("");
+  `).join("");
 
   list.querySelectorAll(".qty-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const item = cart[parseInt(btn.dataset.index)];
-      if (item) updateQty(item.id, item.category, parseInt(btn.dataset.delta));
+      const item = cart[parseInt(btn.dataset.index, 10)];
+      if (item) updateQty(item.id, item.category, parseInt(btn.dataset.delta, 10));
     });
   });
 
   list.querySelectorAll(".cart-item-remove").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const item = cart[parseInt(btn.dataset.index)];
+      const item = cart[parseInt(btn.dataset.index, 10)];
       if (item) removeItem(item.id, item.category);
     });
   });
@@ -183,5 +219,3 @@ export function closeCart() {
     document.body.classList.remove("modal-open");
   }
 }
-
-
