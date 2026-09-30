@@ -482,7 +482,7 @@ git push origin master
 
 ## Estado del trabajo (sesión 2026-09-30) — leer antes de desplegar
 
-Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `master` intacto). Backend `npm test`: 190/190.
+Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `master` intacto). Backend `npm test`: 213/213.
 
 **Hecho y probado (no rehacer):**
 - Base (sesión 2026-09-23): `requireAdmin`, `checkout_token`, precios en servidor, bucket `payments` privado, rate limits, CSP, webhook TropiPay firmado, datos del pagador, avisos al confirmar (`notifyConfirmedOrder`), checkout en 2 pasos, "Mi cuenta", renovación de sesión.
@@ -494,6 +494,7 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
   - Crear el pago admite al dueño por sesión; los intentos tras uno fallido llevan sufijo `-R<n>` (antes chocaba con el índice único).
   - URLs de retorno: carpeta de la página de origen solo si está en `CORS_ORIGINS` y es **https no local** (TropiPay rechaza `http://localhost` con `INVALID_PARAM`); si no, `FRONTEND_PUBLIC_URL`. Sin `estado=` en la URL.
   - Frontend: `js/payment-return.js` (usado por `pago-confirmado.html`, `pago-rechazado.html` y "Mi cuenta"): consulta el estado ~30 s, estados verificando/rechazado/pendiente/pagado/sin sesión, acciones reintentar/otro método/WhatsApp/pedidos. `pago-confirmado.html?payment=manual` sigue mostrando "Pedido recibido". Login con `?return=` a páginas de pago. Subida de comprobante con sesión. Cache-buster `?v27`.
+- **Datos de facturación en el registro** (2026-09-30): el registro pide país, dirección de facturación, ciudad, estado, código postal, fecha de nacimiento (18+) y términos de TropiPay (`js/billing-fields.js`, también en "Mi cuenta" → Perfil). El checkout los muestra como resumen con "Cambiar"; cuentas antiguas los rellenan en el checkout y se guardan en el perfil. El pedido guarda `payer_details.birth_date` y el enlace envía `client.dateOfBirth` (verificado en sandbox: `birthDate`/`birthdate` se ignoran) → la pasarela ya no pide fecha ni código postal. **Migración pendiente de ejecutar en Supabase: `backend/migrations/20260930_customer_billing_profile.sql`** (sin ella el registro guarda el perfil sin facturación y "Mi cuenta" da error al guardarla).
 - `MUTE_NOTIFICATIONS=sms,email,print` en el `.env` **local** silencia SMS, emails e impresión (Telegram y APK siguen). No definir en producción.
 
 **Pendiente — paso 7 (despliegue), requiere permiso del usuario:**
@@ -507,7 +508,7 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
 - El test Android (`readyexpressnow-android-compat.mjs`) busca el antiguo modal de checkout y su mock rompe el `EventSource`: 5 fallos ajenos a los cambios.
 
 **Datos de prueba en producción** (borrar cuando el usuario lo indique):
-- Órdenes `REN-260923-03A8`, `REN-260923-515C`, `REN-260923-7845` y `REN-260930-3BF8` (pagada en sandbox por conciliación, `printed_at` marcado sin imprimir, "PRUEBA QA - NO ENTREGAR").
+- Órdenes `REN-260923-03A8`, `REN-260923-515C`, `REN-260923-7845`, `REN-260930-3223` (pendiente, enlace sandbox sin pagar) y `REN-260930-3BF8` (pagada en sandbox por conciliación, `printed_at` marcado sin imprimir, "PRUEBA QA - NO ENTREGAR").
 - Cuentas `qa.tropipay@readyexpressnow.test` y `qa.cliente@versabold.com` (creada por API admin, email confirmado).
 
 **Pruebas locales:** el backend local usa la base de Supabase de **producción** y TropiPay **sandbox**. Con Playwright, lanzar Chromium con `--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests`. Tarjetas de prueba (Trust Payments): `4111110000000211` aprobada, `4000000000000812` rechazada; la pasarela pide fecha de nacimiento.

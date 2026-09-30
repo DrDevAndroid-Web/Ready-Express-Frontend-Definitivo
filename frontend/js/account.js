@@ -1,9 +1,10 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v27";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v27";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v27";
+} from "./auth.js?v28";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v28";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v28";
+import { renderBillingFields } from "./billing-fields.js?v28";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -107,8 +108,11 @@ function setupTabs() {
 }
 
 // ── Perfil ──
+let billingFields = null;
+
 async function loadProfile() {
   const profile = await getMyProfile();
+  billingFields?.fill(profile);
   const form = $("#profile-form");
   for (const key of ["nombre", "apellidos", "telefono"]) form.elements[key].value = profile?.[key] || "";
   const email = profile?.email || getCurrentUser()?.email || "";
@@ -117,6 +121,29 @@ async function loadProfile() {
   const firstName = profile?.nombre || "";
   $("#account-title").textContent = firstName ? `Hola, ${firstName}` : "Mi cuenta";
   $("#account-avatar").textContent = (firstName || email || "?").trim().charAt(0).toUpperCase();
+}
+
+// Datos de facturación de TropiPay: formulario aparte para que editar el perfil no los exija
+function setupBillingForm() {
+  const form = $("#billing-form");
+  const message = $("#billing-message");
+  billingFields = renderBillingFields($("#billing-fields"));
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    billingFields.syncValidity();
+    if (!focusFirstInvalid(form)) return showMessage(message, "Completa los campos marcados.", "error");
+    const button = form.querySelector("[type=submit]");
+    showMessage(message, "");
+    setLoading(button, true, "Guardando...");
+    try {
+      await updateMyProfile(Object.fromEntries(new FormData(form)));
+      toast("Datos de facturación guardados");
+    } catch (error) {
+      handleError(error, message);
+    } finally {
+      setLoading(button, false);
+    }
+  });
 }
 
 function setupProfileForm() {
@@ -454,6 +481,7 @@ function init() {
 
   setupTabs();
   setupProfileForm();
+  setupBillingForm();
   setupAddresses();
   setupOrders();
   $("#logout").addEventListener("click", () => {

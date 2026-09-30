@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v27";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v27";
+import { API_BASE } from "./config.js?v28";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v28";
 const ACCESS_KEY = "ren_access_token";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
 export function getCurrentUser() { try { return JSON.parse(localStorage.getItem("ren_user") || "null"); } catch { return null; } }

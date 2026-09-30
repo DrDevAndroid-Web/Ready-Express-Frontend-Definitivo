@@ -1,7 +1,27 @@
 import { supabase, supabaseAuth } from "../../config/supabase.js";
 import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
+import { parseBirthDate, parseCountryIso } from "../../utils/billing.js";
 
-export async function registerCustomer({ email, password, nombre, apellidos, telefono = null, documento_identidad = null }) {
+// Columnas de 20260930_customer_billing_profile.sql
+export const BILLING_COLUMNS = ["pais_iso", "direccion_facturacion", "ciudad", "estado_region", "codigo_postal", "fecha_nacimiento", "terminos_tropipay_at"];
+
+// Datos de facturación para TropiPay: se piden en el registro para no repetirlos en cada pago
+export function normalizeBilling(input = {}) {
+  if (input.acepta_terminos_tropipay !== true && input.acepta_terminos_tropipay !== "on" && input.acepta_terminos_tropipay !== "true") {
+    throw createBadRequest("Debes aceptar los terminos y condiciones de TropiPay");
+  }
+  return {
+    pais_iso: parseCountryIso(input.pais_iso, "El pais de residencia es requerido"),
+    direccion_facturacion: requireText(input.direccion_facturacion, "La direccion de facturacion es requerida"),
+    ciudad: requireText(input.ciudad, "La ciudad es requerida"),
+    estado_region: optionalText(input.estado_region),
+    codigo_postal: requireText(input.codigo_postal, "El codigo postal es requerido"),
+    fecha_nacimiento: parseBirthDate(input.fecha_nacimiento),
+    terminos_tropipay_at: new Date().toISOString()
+  };
+}
+
+export async function registerCustomer({ email, password, nombre, apellidos, telefono = null, documento_identidad = null, ...billingInput }) {
   const normalizedEmail = requireText(email, "El email es requerido").toLowerCase();
   const normalizedPassword = requireText(password, "La contraseña es requerida");
   const firstName = requireText(nombre, "El nombre es requerido");
@@ -10,6 +30,8 @@ export async function registerCustomer({ email, password, nombre, apellidos, tel
   if (normalizedPassword.length < 8) {
     throw createBadRequest("La contraseña debe tener al menos 8 caracteres");
   }
+  // Se valida antes de crear el usuario para no dejar cuentas a medias
+  const billing = normalizeBilling(billingInput);
 
   const { data: authData, error: authError } = await supabaseAuth.auth.signUp({
     email: normalizedEmail,
@@ -27,18 +49,23 @@ export async function registerCustomer({ email, password, nombre, apellidos, tel
   const user = authData?.user;
   if (!user?.id) throw new Error("Supabase no devolvió el usuario creado");
 
-  const { data: profile, error: profileError } = await supabase
-    .from("customer_profiles")
-    .insert({
-      auth_user_id: user.id,
-      nombre: firstName,
-      apellidos: lastName,
-      email: normalizedEmail,
-      telefono: optionalText(telefono),
-      documento_identidad: optionalText(documento_identidad)
-    })
-    .select()
-    .single();
+  const profileRow = {
+    auth_user_id: user.id,
+    nombre: firstName,
+    apellidos: lastName,
+    email: normalizedEmail,
+    telefono: optionalText(telefono),
+    documento_identidad: optionalText(documento_identidad),
+    ...billing
+  };
+  let { data: profile, error: profileError } = await supabase.from("customer_profiles").insert(profileRow).select().single();
+
+  // Red de seguridad si el backend se despliega antes que 20260930_customer_billing_profile.sql
+  if (profileError?.code === "PGRST204" && BILLING_COLUMNS.some(column => profileError.message?.includes(column))) {
+    console.error("[customers] Falta la migración de facturación; el perfil se guarda sin esos datos");
+    BILLING_COLUMNS.forEach(column => delete profileRow[column]);
+    ({ data: profile, error: profileError } = await supabase.from("customer_profiles").insert(profileRow).select().single());
+  }
 
   throwIfSupabaseError(profileError, "No se pudo crear el perfil del cliente");
 
@@ -75,6 +102,8 @@ export async function updateCustomerProfile(userId, input = {}) {
   if (input.apellidos !== undefined) patch.apellidos = requireText(input.apellidos, "Los apellidos son requeridos");
   if (input.telefono !== undefined) patch.telefono = optionalText(input.telefono);
   if (input.documento_identidad !== undefined) patch.documento_identidad = optionalText(input.documento_identidad);
+  // Los datos de facturación se actualizan juntos (TropiPay los necesita completos)
+  if (input.pais_iso !== undefined) Object.assign(patch, normalizeBilling(input));
   if (!Object.keys(patch).length) throw createBadRequest("No hay datos de perfil para actualizar");
   patch.updated_at = new Date().toISOString();
 

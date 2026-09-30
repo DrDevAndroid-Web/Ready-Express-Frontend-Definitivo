@@ -190,7 +190,7 @@ describe("POST /api/orders — datos del pagador para TropiPay", () => {
     sender_last_name: "Perez",
     payment_flow: "tropipay",
     customer_email: "juan@example.com",
-    payer: { country_iso: "US", address: "123 Main St", city: "Miami", terms_accepted: true }
+    payer: { country_iso: "US", address: "123 Main St", city: "Miami", post_code: "33101", birth_date: "1990-01-15", terms_accepted: true }
   };
 
   it("rechaza TropiPay sin email", async () => {

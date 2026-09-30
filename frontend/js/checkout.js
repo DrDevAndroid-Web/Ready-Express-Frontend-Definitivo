@@ -1,11 +1,12 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v27";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v27";
-import { savePendingPayment } from "./payment.js?v27";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v27";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v27";
-import { getAccessToken, getCurrentUser, getMyProfile } from "./auth.js?v27";
-import { setupCountrySelect } from "./country-select.js?v27";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v27";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v28";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v28";
+import { savePendingPayment } from "./payment.js?v28";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v28";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v28";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v28";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v28";
+import { setupCountrySelect } from "./country-select.js?v28";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v28";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -301,32 +302,83 @@ function validatePaymentStep() {
 
 let countrySelect = null;
 let profilePrefillDone = false;
+let customerProfile = null;
 
-// Rellena solo campos vacíos con el perfil del cliente con sesión iniciada
+// Rellena solo campos vacíos con el perfil del cliente con sesión iniciada. Si el perfil
+// ya tiene los datos de facturación (se piden en el registro), el bloque de TropiPay
+// se reduce a un resumen: el cliente no vuelve a escribirlos.
 async function prefillSenderFromProfile(form) {
   if (profilePrefillDone || !getAccessToken() || !form) return;
   profilePrefillDone = true;
+  // Puede llegar al entrar en el paso 2, antes de elegir TropiPay: el selector de país debe existir ya
+  setupTropipayPayerFields(form);
   try {
     const profile = await getMyProfile();
+    customerProfile = profile;
     const email = profile?.email || getCurrentUser()?.email || "";
     const values = {
       sender_first_name: profile?.nombre,
       sender_last_name: profile?.apellidos,
       sender_phone: profile?.telefono,
-      customer_email: email
+      customer_email: email,
+      payer_address: profile?.direccion_facturacion,
+      payer_city: profile?.ciudad,
+      payer_state: profile?.estado_region,
+      payer_postcode: profile?.codigo_postal,
+      payer_birth_date: profile?.fecha_nacimiento
     };
     Object.entries(values).forEach(([name, value]) => {
       const field = form.elements[name];
       if (field && !field.value.trim() && value) field.value = value;
     });
+    if (profile?.pais_iso && !form.elements.payer_country_iso?.value) countrySelect?.select(profile.pais_iso, { silent: true });
+    if (billingComplete(profile)) {
+      // Lo enviado debe ser lo que dice el resumen, aunque hubiera datos de un intento anterior
+      for (const name of ["payer_address", "payer_city", "payer_state", "payer_postcode", "payer_birth_date"]) form.elements[name].value = values[name] || "";
+      countrySelect?.select(profile.pais_iso, { silent: true });
+      form.elements.payer_terms.checked = true;
+      showPayerSummary(profile);
+    }
     saveFormData(form);
   } catch (err) {
     console.warn("[checkout:perfil]", err.message);
   }
 }
 
+function showPayerSummary(profile) {
+  const summary = document.getElementById("tropipay-payer-summary");
+  const inputs = document.getElementById("tropipay-payer-inputs");
+  if (!summary || !inputs) return;
+  document.getElementById("tropipay-payer-summary-text").textContent = billingSummary(profile);
+  summary.hidden = false;
+  inputs.hidden = true;
+  const edit = document.getElementById("tropipay-payer-edit");
+  edit.setAttribute("aria-expanded", "false");
+  edit.onclick = () => {
+    summary.hidden = true;
+    inputs.hidden = false;
+    edit.setAttribute("aria-expanded", "true");
+    document.getElementById("payer_address")?.focus();
+  };
+}
+
+// Cuentas antiguas sin datos de facturación: se guardan en el perfil para el próximo pago
+function saveBillingToProfile(payer) {
+  if (!customerProfile || billingComplete(customerProfile)) return Promise.resolve();
+  return updateMyProfile({
+    pais_iso: payer.country_iso,
+    direccion_facturacion: payer.address,
+    ciudad: payer.city,
+    estado_region: payer.state,
+    codigo_postal: payer.post_code,
+    fecha_nacimiento: payer.birth_date,
+    acepta_terminos_tropipay: payer.terms_accepted
+  }).catch(err => console.warn("[checkout:facturacion]", err.message));
+}
+
 function setupTropipayPayerFields(form) {
   if (countrySelect || !form) return;
+  document.getElementById("payer_birth_date")?.setAttribute("max", maxBirthDate());
   countrySelect = setupCountrySelect({
     input: document.getElementById("payer_country"),
     hidden: document.getElementById("payer_country_iso"),
@@ -800,6 +852,7 @@ async function submitOrder(form) {
       city:        fieldValue(form, "payer_city"),
       state:       fieldValue(form, "payer_state"),
       post_code:   fieldValue(form, "payer_postcode"),
+      birth_date:  fieldValue(form, "payer_birth_date"),
       terms_accepted: Boolean(form.elements.payer_terms?.checked)
     } : undefined,
     sender_phone:     senderPhone,
@@ -844,7 +897,10 @@ async function submitOrder(form) {
     const reference = order.order_reference || order.id;
     if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY) {
       btn.innerHTML = '<span class="spinner"></span> Redirigiendo a TropiPay...';
-      const payment = await createTropipayPayment(order.id, order.checkout_token);
+      const [payment] = await Promise.all([
+        createTropipayPayment(order.id, order.checkout_token),
+        saveBillingToProfile(orderData.payer)
+      ]);
       if (!payment?.payment_url) throw new Error("TropiPay no devolvió un enlace de pago");
       window.location.href = payment.payment_url;
       return;
@@ -860,7 +916,7 @@ async function submitOrder(form) {
       errorEl.style.display = "block";
     }
     btn.disabled = false;
-    btn.textContent = "Confirmar pedido →";
+    updateSubmitButton();
   }
 }
 

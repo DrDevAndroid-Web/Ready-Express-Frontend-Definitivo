@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v27">
+  <link rel="stylesheet" href="./css/styles.css?v28">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -21,7 +21,7 @@
   <main class="auth-main" id="main">
     <section class="auth-card auth-card--wide" aria-labelledby="page-title">
       <h1 id="page-title">Crear cuenta</h1>
-      <p class="auth-lead">Completa estos datos para coordinar tus entregas y pagos TropiPay. Los campos con <span class="auth-required" aria-hidden="true">*</span> son obligatorios.</p>
+      <p class="auth-lead">Completa estos datos una sola vez: así tus entregas y tus pagos con tarjeta van sin repetir nada. Los campos con <span class="auth-required" aria-hidden="true">*</span> son obligatorios.</p>
       <form id="form" class="auth-form" novalidate>
         <div class="auth-row">
           <div class="auth-field"><label for="nombre">Nombre<span class="auth-required" aria-hidden="true">*</span></label><input id="nombre" name="nombre" autocomplete="given-name" required></div>
@@ -49,6 +49,7 @@
           </div>
           <div class="auth-field"><label for="referencia">Referencia</label><input id="referencia" name="referencia" placeholder="Ej.: frente al parque"></div>
         </fieldset>
+        <div id="billing-fields"></div>
         <p id="error" class="auth-msg" role="alert"></p>
         <button type="submit" class="auth-btn">Registrarme</button>
       </form>
@@ -57,13 +58,16 @@
       </nav>
     </section>
   <script type="module">
-    import { registerCustomer, createMyAddress } from './js/auth.js?v27';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v27';
+    import { registerCustomer, createMyAddress } from './js/auth.js?v28';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v28';
+    import { renderBillingFields } from './js/billing-fields.js?v28';
     bindPasswordToggles();
+    const billing = renderBillingFields(document.querySelector('#billing-fields'));
     const form = document.querySelector('#form');
     const message = document.querySelector('#error');
     form.addEventListener('submit', async e => {
       e.preventDefault();
+      billing.syncValidity();
       if (!focusFirstInvalid(form)) return showMessage(message, 'Revisa el campo marcado: es obligatorio o tiene un formato inválido.', 'error');
       const button = form.querySelector('[type=submit]');
       const data = Object.fromEntries(new FormData(form));

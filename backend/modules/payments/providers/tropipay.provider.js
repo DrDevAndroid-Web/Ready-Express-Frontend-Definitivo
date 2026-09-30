@@ -71,6 +71,8 @@ export function buildTropipayClient(order) {
   if (payer.city) client.city = String(payer.city).trim();
   if (payer.state) client.state = String(payer.state).trim();
   if (payer.post_code) client.postCode = String(payer.post_code).trim();
+  // Verificado en sandbox: con dateOfBirth la pasarela ya no pide la fecha (birthDate/birthdate se ignoran)
+  if (payer.birth_date) client.dateOfBirth = String(payer.birth_date).trim();
   return client;
 }
 

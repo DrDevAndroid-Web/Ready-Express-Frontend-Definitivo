@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>Finalizar pedido | Ready Express Now</title>
-  <link rel="stylesheet" href="./css/styles.css?v27">
+  <link rel="stylesheet" href="./css/styles.css?v28">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
   <style>
@@ -71,6 +71,11 @@
             <fieldset class="checkout-form-section tropipay-payer" id="tropipay-payer-fields" hidden disabled aria-describedby="tropipay-payer-help">
               <legend>Datos para pagar con TropiPay</legend>
               <p class="tropipay-payer-help" id="tropipay-payer-help">TropiPay pide los datos de quien paga (tu país y dirección, no la de Guantánamo) para validar la tarjeta.</p>
+              <div class="tropipay-payer-summary" id="tropipay-payer-summary" hidden>
+                <p>Pagarás con los datos de facturación de tu cuenta:<br><strong id="tropipay-payer-summary-text"></strong></p>
+                <button type="button" id="tropipay-payer-edit" aria-controls="tropipay-payer-inputs">Cambiar</button>
+              </div>
+              <div id="tropipay-payer-inputs">
               <div class="form-group"><label for="customer_email">Email <span class="required">*</span></label><input type="email" id="customer_email" name="customer_email" placeholder="tu@email.com" required autocomplete="email" inputmode="email" aria-describedby="error-customer_email"><p class="field-error" id="error-customer_email" role="alert"></p></div>
               <div class="form-group country-select">
                 <label for="payer_country" id="payer_country-label">País de residencia <span class="required">*</span></label>
@@ -87,10 +92,14 @@
                 <div class="form-group"><label for="payer_city">Ciudad <span class="required">*</span></label><input type="text" id="payer_city" name="payer_city" required autocomplete="billing address-level2" aria-describedby="error-payer_city"><p class="field-error" id="error-payer_city" role="alert"></p></div>
                 <div class="form-group"><label for="payer_state">Estado / provincia</label><input type="text" id="payer_state" name="payer_state" autocomplete="billing address-level1"></div>
               </div>
-              <div class="form-group"><label for="payer_postcode">Código postal</label><input type="text" id="payer_postcode" name="payer_postcode" autocomplete="billing postal-code" aria-describedby="payer_postcode-hint"><small class="field-hint" id="payer_postcode-hint">Si tu país lo usa, ayuda a que el banco apruebe el pago.</small></div>
+              <div class="form-row">
+                <div class="form-group"><label for="payer_postcode">Código postal <span class="required">*</span></label><input type="text" id="payer_postcode" name="payer_postcode" required autocomplete="billing postal-code" aria-describedby="payer_postcode-hint error-payer_postcode"><small class="field-hint" id="payer_postcode-hint">Si tu país no usa, escribe 00000.</small><p class="field-error" id="error-payer_postcode" role="alert"></p></div>
+                <div class="form-group"><label for="payer_birth_date">Fecha de nacimiento <span class="required">*</span></label><input type="date" id="payer_birth_date" name="payer_birth_date" required autocomplete="bday" min="1900-01-01" aria-describedby="error-payer_birth_date"><p class="field-error" id="error-payer_birth_date" role="alert"></p></div>
+              </div>
               <div class="form-group checkbox-group">
                 <label class="checkbox-label" for="payer_terms"><input type="checkbox" id="payer_terms" name="payer_terms" required aria-describedby="error-payer_terms"><span>Acepto los <a href="https://www.tropipay.com/terms" target="_blank" rel="noopener">términos y condiciones de TropiPay</a> <span class="required">*</span></span></label>
                 <p class="field-error" id="error-payer_terms" role="alert"></p>
+              </div>
               </div>
             </fieldset>
             <div class="checkout-review-card" id="checkout-review-card"></div>
@@ -104,7 +113,7 @@
     </section>
   </main>
   <script type="module">
-    import { initCheckout } from "./js/checkout.js?v27";
+    import { initCheckout } from "./js/checkout.js?v28";
     initCheckout();
   </script>
 </body>

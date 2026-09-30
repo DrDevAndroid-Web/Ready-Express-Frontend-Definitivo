@@ -3469,3 +3469,33 @@ body.modal-open .cart-panel {
 .payment-return-methods { padding-top: 16px; border-top: 1px solid var(--border); }
 .payment-return-methods-title { font-weight: 600; color: var(--gray-dark); margin: 0; }
 .payment-return-methods small { font-weight: 400; margin-left: 4px; }
+
+/* ── Datos de facturación (registro, Mi cuenta) y resumen en el checkout ── */
+.auth-field .country-select-control input { padding-right: 48px; }
+.auth-check { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; color: var(--gray-dark); cursor: pointer; }
+.auth-check input { width: 22px; height: 22px; margin-top: 1px; flex-shrink: 0; accent-color: var(--navy); }
+.auth-check a { color: var(--navy); text-decoration: underline; }
+.tropipay-payer-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--gray-light);
+}
+.tropipay-payer-summary[hidden] { display: none; }
+.tropipay-payer-summary p { margin: 0; color: var(--gray-dark); }
+.tropipay-payer-summary button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--navy);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--navy);
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}

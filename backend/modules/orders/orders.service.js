@@ -8,6 +8,7 @@ import { notifyOrderSMS } from "../sms/sms.service.js";
 import { getDeliveryLocation } from "../locations/locations.service.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { priceItemsFromCatalog } from "./pricing.js";
+import { parseBirthDate } from "../../utils/billing.js";
 
 export async function createOrder(data, customerId = null) {
   const orderInput = await normalizeOrderInput(data, customerId);
@@ -174,7 +175,10 @@ export function normalizePayer(data = {}) {
       address: requireText(payer.address, "La direccion del pagador es requerida para TropiPay"),
       city: requireText(payer.city, "La ciudad del pagador es requerida para TropiPay"),
       state: optionalText(payer.state),
-      post_code: optionalText(payer.post_code),
+      // El formulario de tarjeta de TropiPay exige código postal y fecha de nacimiento;
+      // enviarlos evita que el cliente tenga que escribirlos en la pasarela
+      post_code: requireText(payer.post_code, "El codigo postal del pagador es requerido para TropiPay"),
+      birth_date: parseBirthDate(payer.birth_date),
       terms_accepted_at: new Date().toISOString()
     }
   };

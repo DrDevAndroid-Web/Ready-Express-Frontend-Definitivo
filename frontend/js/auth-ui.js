@@ -37,7 +37,8 @@ export function bindPasswordToggles(root = document) {
 
 // Marca como inválido el primer campo que falle la validación nativa y le da foco
 export function focusFirstInvalid(form) {
-  const invalid = form.querySelector(":invalid");
+  // Solo controles: un <fieldset> con campos inválidos también casa con :invalid y no recibe foco
+  const invalid = form.querySelector("input:invalid, select:invalid, textarea:invalid");
   form.querySelectorAll("[aria-invalid]").forEach(el => el.removeAttribute("aria-invalid"));
   if (invalid) {
     invalid.setAttribute("aria-invalid", "true");
