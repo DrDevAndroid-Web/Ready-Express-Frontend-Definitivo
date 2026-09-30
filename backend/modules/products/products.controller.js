@@ -1,6 +1,25 @@
 import * as service from "./products.service.js";
 import { createBadRequest, sendError } from "../../utils/http-error.js";
 import { getCached, invalidateCache, PUBLIC_CACHE_KEYS, sendPublicJson } from "../../utils/public-cache.js";
+import { withStorePrices } from "../../utils/store-pricing.js";
+import { getPricingSettings } from "../settings/pricing-settings.service.js";
+import { ADMIN_ROLES, getUserRoles } from "../../middlewares/auth.js";
+
+// La tienda ve el precio final (con recargo). La APK y el dashboard piden ?precios=base
+// para editar el precio configurado; solo se atiende a administradores.
+async function wantsBasePrices(req) {
+  if (req.query.precios !== "base" || !req.user?.id) return false;
+  const roles = await getUserRoles(req.user.id).catch(() => []);
+  return roles.some(role => ADMIN_ROLES.includes(role));
+}
+
+async function sendCatalogRows(req, res, rows, cacheOptions) {
+  if (await wantsBasePrices(req)) {
+    res.set("Cache-Control", "private, no-store");
+    return res.json(rows);
+  }
+  return sendPublicJson(req, res, withStorePrices(rows, await getPricingSettings()), cacheOptions);
+}
 
 function parseDetails(value) {
   if (value === undefined || value === null || value === "") return {};
@@ -42,7 +61,7 @@ export async function getFoodCombos(req, res) {
       return result;
     }, 60_000);
     if (error) throw error;
-    sendPublicJson(req, res, data || [], { maxAge: 60, staleWhileRevalidate: 300 });
+    await sendCatalogRows(req, res, data || [], { maxAge: 60, staleWhileRevalidate: 300 });
   } catch (err) {
     sendError(res, err);
   }
@@ -105,7 +124,7 @@ export async function getProductos(req, res) {
       return result;
     }, 60_000);
     if (error) throw error;
-    sendPublicJson(req, res, data ?? [], { maxAge: 60, staleWhileRevalidate: 300 });
+    await sendCatalogRows(req, res, data ?? [], { maxAge: 60, staleWhileRevalidate: 300 });
   } catch (err) {
     sendError(res, err);
   }
@@ -167,7 +186,7 @@ export async function getElectro(req, res) {
       return result;
     }, 60_000);
     if (error) throw error;
-    sendPublicJson(req, res, data ?? [], { maxAge: 60, staleWhileRevalidate: 300 });
+    await sendCatalogRows(req, res, data ?? [], { maxAge: 60, staleWhileRevalidate: 300 });
   } catch (err) {
     sendError(res, err);
   }
@@ -176,7 +195,13 @@ export async function getElectro(req, res) {
 export async function getCatalog(req, res) {
   try {
     const catalog = await getCached(PUBLIC_CACHE_KEYS.catalog, service.getPublicCatalog, 60_000);
-    sendPublicJson(req, res, catalog, { maxAge: 60, staleWhileRevalidate: 300 });
+    const settings = await getPricingSettings();
+    sendPublicJson(req, res, {
+      ...catalog,
+      combos: withStorePrices(catalog.combos, settings),
+      productos: withStorePrices(catalog.productos, settings),
+      electrodomesticos: withStorePrices(catalog.electrodomesticos, settings)
+    }, { maxAge: 60, staleWhileRevalidate: 300 });
   } catch (err) {
     sendError(res, err);
   }

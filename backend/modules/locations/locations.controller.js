@@ -1,15 +1,19 @@
 import * as service from "./locations.service.js";
 import { sendError } from "../../utils/http-error.js";
 import { getCached, invalidateCache, PUBLIC_CACHE_KEYS, sendPublicJson } from "../../utils/public-cache.js";
+import { withStorePrices } from "../../utils/store-pricing.js";
+import { getPricingSettings } from "../settings/pricing-settings.service.js";
 
 export async function getLocationsController(req, res) {
   try {
-    const includeInactive = req.query.includeInactive === "true" || Boolean(req.user && req.path.endsWith("/admin"));
+    // Solo /localizaciones/admin (protegida por requireAdmin) ve inactivas y recargos base
+    const includeInactive = Boolean(req.user && req.path.endsWith("/admin"));
     const locations = includeInactive
       ? await service.listLocations({ includeInactive: true })
       : await getCached(PUBLIC_CACHE_KEYS.locations, () => service.listLocations({ includeInactive: false }), 300_000);
+    // La APK edita el recargo configurado; la tienda recibe el recargo de entrega final
     if (includeInactive) return res.json(locations);
-    sendPublicJson(req, res, locations, { maxAge: 300, staleWhileRevalidate: 600 });
+    sendPublicJson(req, res, withStorePrices(locations, await getPricingSettings(), "recargo"), { maxAge: 300, staleWhileRevalidate: 600 });
   } catch (err) {
     sendError(res, err);
   }

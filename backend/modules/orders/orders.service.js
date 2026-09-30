@@ -9,6 +9,8 @@ import { getDeliveryLocation } from "../locations/locations.service.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { priceItemsFromCatalog } from "./pricing.js";
 import { parseBirthDate } from "../../utils/billing.js";
+import { applyStoreMarkup } from "../../utils/store-pricing.js";
+import { getPricingSettings } from "../settings/pricing-settings.service.js";
 
 export async function createOrder(data, customerId = null) {
   const orderInput = await normalizeOrderInput(data, customerId);
@@ -207,11 +209,14 @@ async function normalizeOrderInput(data = {}, customerId = null) {
   const receiverPhone = requireText(data.receiver_phone, "El telefono del receptor es requerido");
   const address = requireText(data.customer_address, "La direccion de entrega es requerida");
   // Precios, nombres y componentes salen del catálogo; el total enviado por el navegador se ignora
-  const normalizedItems = await priceItemsFromCatalog(items.map(normalizeItem));
+  // Mismo recargo que muestra la tienda (catálogo y entrega), igual para todos los métodos de pago
+  const requestedItems = items.map(normalizeItem); // valida antes de consultar nada
+  const pricing = await getPricingSettings();
+  const normalizedItems = await priceItemsFromCatalog(requestedItems, { pricing });
   const productsSubtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + item.precio_total, 0));
   let location = null;
   if (data.delivery_location_id) location = await getDeliveryLocation(data.delivery_location_id);
-  const deliverySurcharge = roundMoney(location?.es_base ? 0 : Number(location?.recargo || 0));
+  const deliverySurcharge = roundMoney(location?.es_base ? 0 : applyStoreMarkup(Number(location?.recargo || 0), pricing));
   const total = roundMoney(productsSubtotal + deliverySurcharge);
 
   const status = data.status === "awaiting_manual_payment" ? "awaiting_manual_payment" : "pending";

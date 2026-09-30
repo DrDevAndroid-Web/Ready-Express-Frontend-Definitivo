@@ -2,6 +2,8 @@ import { supabase } from "../../config/supabase.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { notifyChatStartedTelegram } from "../telegram/telegram.service.js";
 import { isMuted } from "../../utils/mute.js";
+import { DEFAULT_PRICING, withStorePrices } from "../../utils/store-pricing.js";
+import { getPricingSettings } from "../settings/pricing-settings.service.js";
 
 const AI_API_URL = "https://hostingclan.com/api/ai/chat/completions";
 const AI_MODEL = "openai/gpt-5-nano";
@@ -218,8 +220,10 @@ async function buildProductContext() {
     supabase.from("informacion_cambiante").select("*").limit(1).single()
   ]);
 
-  const combos = combosRes.status === "fulfilled" ? (combosRes.value.data ?? []) : [];
-  const productos = productosRes.status === "fulfilled" ? (productosRes.value.data ?? []) : [];
+  // El asistente cita el precio final de la tienda (con recargo), no el configurado
+  const pricing = await getPricingSettings().catch(() => DEFAULT_PRICING);
+  const combos = withStorePrices(combosRes.status === "fulfilled" ? (combosRes.value.data ?? []) : [], pricing);
+  const productos = withStorePrices(productosRes.status === "fulfilled" ? (productosRes.value.data ?? []) : [], pricing);
   const info = infoRes.status === "fulfilled" ? infoRes.value.data : {};
 
   const combosText = combos.map(c => {

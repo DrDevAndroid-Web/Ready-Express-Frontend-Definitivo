@@ -28,13 +28,18 @@ export function mostrarModalCrearProducto(section, apiFetch, recargar) {
   mostrarModalCrearItemProducto(config, apiFetch, recargar);
 }
 
+// El dashboard edita el precio configurado; la tienda muestra el final (con recargo)
+function conPreciosBase(path) {
+  return `${path}${path.includes('?') ? '&' : '?'}precios=base`;
+}
+
 async function cargarCombos(apiFetch, path, idContenedor) {
   const el = document.getElementById(idContenedor);
   const fragment = document.createDocumentFragment();
   el.innerHTML = '<div class="cargando">Cargando combos</div>';
 
   try {
-    const data = await apiFetch(path);
+    const data = await apiFetch(conPreciosBase(path));
     if (!data || !data.length) {
       el.innerHTML = '<div class="vacio vacio-compacto">Sin combos</div>';
       return;
@@ -404,7 +409,7 @@ async function cargarListaProductos(apiFetch, path, idContenedor, onCategoriasPr
   el.innerHTML = '<div class="cargando">Cargando...</div>';
 
   try {
-    const data = await apiFetch(path);
+    const data = await apiFetch(conPreciosBase(path));
     const esProductos = path.includes('/api/productos');
     if (esProductos && typeof onCategoriasProductos === 'function') {
       onCategoriasProductos(data || []);

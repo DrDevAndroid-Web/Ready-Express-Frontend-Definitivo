@@ -68,9 +68,13 @@ function authErrorMessage(error) {
 import { registerCustomer, getCustomerProfile, updateCustomerProfile, listCustomerAddresses, createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from "../modules/customers/customer.service.js";
 import { createTropipayPaymentController, getTropipayStatusController, retryTropipayPaymentController, tropipayWebhookController, tropipayConfigurationController } from "../modules/payments/tropipay.controller.js";
 import { listAdminTransactions, getAdminTransactionEvents, retryAdminPrint } from "../modules/payments/admin-payments.controller.js";
+import { getFeesReportController, getPricingSettingsController, updatePricingSettingsController } from "../modules/settings/settings.controller.js";
 import { uploadDeliveryConfirmationController, getDeliveryConfirmationController, getPaymentDeliveryConfirmationController, updateDeliveryConfirmationController } from "../modules/media/media.controller.js";
 
 const router = express.Router();
+
+// Solo ?precios=base (APK/dashboard) necesita identificar al usuario; la tienda no paga esa consulta
+const basePriceViewer = (req, res, next) => (req.query.precios === "base" ? optionalSupabaseUser(req, res, next) : next());
 
 // AUTH CONFIG
 router.get("/auth/config", (_req, res) => {
@@ -216,6 +220,10 @@ router.post("/payments/tropipay/:id/retry", paymentLimiter, optionalSupabaseUser
 router.post("/payments/tropipay/webhook", tropipayWebhookController);
 router.get("/admin/tropipay/configuration", requireSupabaseUser, requireAdmin, tropipayConfigurationController);
 router.get("/admin/payments", requireSupabaseUser, requireAdmin, listAdminTransactions);
+// Recargo de precios de la tienda e informe de tarifas (APK → Configuración)
+router.get("/admin/configuracion/precios", requireSupabaseUser, requireAdmin, getPricingSettingsController);
+router.put("/admin/configuracion/precios", requireSupabaseUser, requireAdmin, updatePricingSettingsController);
+router.get("/admin/reporte-tarifas", requireSupabaseUser, requireAdmin, getFeesReportController);
 router.get("/admin/payments/:id/events", requireSupabaseUser, requireAdmin, getAdminTransactionEvents);
 router.get("/admin/payments/:id/evidence-url", requireSupabaseUser, requireAdmin, getPaymentDeliveryConfirmationController);
 router.post("/admin/orders/:orderId/retry-print", requireSupabaseUser, requireAdmin, retryAdminPrint);
@@ -237,17 +245,17 @@ router.patch("/account/addresses/:id", requireSupabaseUser, async (req, res, nex
 router.delete("/account/addresses/:id", requireSupabaseUser, async (req, res, next) => { try { res.json(await deleteCustomerAddress(req.user.id, req.params.id)); } catch (err) { next(err); } });
 
 // PRODUCTS
-router.get("/food-combos", getFoodCombos);
+router.get("/food-combos", basePriceViewer, getFoodCombos);
 router.get("/catalog", getCatalog);
-router.get("/combos-comida", getFoodCombos);
+router.get("/combos-comida", basePriceViewer, getFoodCombos);
 router.post("/combos-comida", requireSupabaseUser, requireAdmin, upload.single("imagen"), createFoodCombo);
 router.delete("/combos-comida/:id", requireSupabaseUser, requireAdmin, deleteFoodCombo);
 router.put("/combos-comida/:id", requireSupabaseUser, requireAdmin, upload.single("imagen"), updateFoodCombo);
-router.get("/productos", getProductos);
+router.get("/productos", basePriceViewer, getProductos);
 router.post("/productos", requireSupabaseUser, requireAdmin, upload.single("imagen"), createProducto);
 router.delete("/productos/:id", requireSupabaseUser, requireAdmin, deleteProducto);
 router.put("/productos/:id", requireSupabaseUser, requireAdmin, upload.single("imagen"), updateProducto);
-router.get("/electrodomesticos", getElectro);
+router.get("/electrodomesticos", basePriceViewer, getElectro);
 router.post("/electrodomesticos", requireSupabaseUser, requireAdmin, upload.single("imagen"), createElectro);
 router.delete("/electrodomesticos/:id", requireSupabaseUser, requireAdmin, deleteElectro);
 router.put("/electrodomesticos/:id", requireSupabaseUser, requireAdmin, upload.single("imagen"), updateElectro);

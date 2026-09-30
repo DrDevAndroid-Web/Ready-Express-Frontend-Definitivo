@@ -1,5 +1,6 @@
 import { supabase } from "../../config/supabase.js";
 import { createBadRequest, throwIfSupabaseError } from "../../utils/http-error.js";
+import { applyStoreMarkup, DEFAULT_PRICING } from "../../utils/store-pricing.js";
 
 // El precio, el nombre y los componentes de cada artículo salen del catálogo,
 // nunca del navegador: el cliente solo decide qué artículo y cuántas unidades.
@@ -58,7 +59,9 @@ async function fetchCatalogRows(source, ids) {
 
 const roundMoney = value => Math.round(Number(value) * 100) / 100;
 
-export async function priceItemsFromCatalog(items, { fetchRows = fetchCatalogRows } = {}) {
+// `pricing`: recargo de la tienda (configuracion_precios). El precio cobrado es el mismo
+// precio final que muestra el catálogo, para todos los métodos de pago.
+export async function priceItemsFromCatalog(items, { fetchRows = fetchCatalogRows, pricing = DEFAULT_PRICING } = {}) {
   const lookups = items.map(item => ({ item, ...candidateSources(item) }));
 
   // Una consulta por tabla con todos los ids que podrían estar en ella
@@ -93,10 +96,11 @@ export async function priceItemsFromCatalog(items, { fetchRows = fetchCatalogRow
     if (row.disponible === false) {
       throw createBadRequest(`"${SOURCES[source].name(row)}" ya no está disponible. Quítalo del carrito para continuar.`);
     }
-    const precio = Number(row.precio);
-    if (!Number.isFinite(precio) || precio <= 0) {
+    const basePrice = Number(row.precio);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
       throw createBadRequest(`"${SOURCES[source].name(row)}" no tiene precio disponible. Contáctanos por WhatsApp.`);
     }
+    const precio = applyStoreMarkup(basePrice, pricing);
 
     const priced = {
       ...item,
