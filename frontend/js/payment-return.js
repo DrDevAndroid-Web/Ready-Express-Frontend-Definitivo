@@ -229,7 +229,11 @@ async function checkStatus(paymentId, { poll = true } = {}) {
   if (!status) return renderUnknown(paymentId);
   if (status.status === "successful" || status.order_status === "paid") return renderPaid();
   if (failedRequest && (status.status === "pending" || status.status === "processing")) return renderUnknown(paymentId);
-  return renderUnpaid(paymentId, status, { stillPending: status.status === "pending" || status.status === "processing" });
+  // Llegar por pago-rechazado solo cambia el texto (el aviso de TropiPay puede no haber llegado);
+  // confirmar un pago lo decide siempre el backend
+  const cameFromRejection = location.pathname.includes("pago-rechazado");
+  const open = status.status === "pending" || status.status === "processing";
+  return renderUnpaid(paymentId, status, { stillPending: open && !cameFromRejection });
 }
 
 export async function initPaymentReturn() {

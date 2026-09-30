@@ -81,9 +81,9 @@ export function missingTropipayClientFields(client) {
 }
 
 // Base de las URLs de retorno. `returnOrigin` es la carpeta de la página que inició
-// el pago (p. ej. http://localhost:5500/frontend/): solo se usa si su origen está en
-// CORS_ORIGINS, para que las pruebas en local vuelvan a local y nadie pueda desviar
-// al cliente a otro dominio. Si no, FRONTEND_PUBLIC_URL.
+// el pago (p. ej. la preview de Vercel): solo se usa si su origen está en CORS_ORIGINS,
+// para que nadie pueda desviar al cliente a otro dominio, y si es https público,
+// porque TropiPay rechaza (INVALID_PARAM) las URLs http o de localhost. Si no, FRONTEND_PUBLIC_URL.
 export function resolveReturnBase(returnOrigin) {
   const fallback = String(process.env.FRONTEND_PUBLIC_URL || "https://www.readyexpressnow.com").replace(/\/$/, "");
   if (!returnOrigin) return fallback;
@@ -91,6 +91,7 @@ export function resolveReturnBase(returnOrigin) {
     const url = new URL(returnOrigin);
     const allowed = String(process.env.CORS_ORIGINS || "").split(",").map(o => o.trim().replace(/\/$/, "")).filter(Boolean);
     if (!allowed.includes(url.origin)) return fallback;
+    if (url.protocol !== "https:" || ["localhost", "127.0.0.1"].includes(url.hostname)) return fallback;
     return `${url.origin}${url.pathname.replace(/\/[^/]*$/, "")}`;
   } catch {
     return fallback;

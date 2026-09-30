@@ -362,11 +362,18 @@ describe("POST reintento TropiPay", () => {
 });
 
 describe("Crear pago TropiPay — acceso", () => {
-  it("el dueño con sesión puede pagar sin checkout_token", async () => {
+  it("el dueño con sesión puede pagar sin checkout_token (primer intento: referencia de la orden)", async () => {
     const { state, deps } = setup({ txStatus: "cancelled" });
+    deps.paymentRepository.countByOrder = async () => 0;
     const result = await createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps);
     assert.equal(result.payment_url, "https://tpp.me/new-1");
     assert.equal(state.links[0].reference, "REN-1");
+  });
+
+  it("si un intento anterior falló, el nuevo enlace lleva sufijo y no choca con la referencia única", async () => {
+    const { state, deps } = setup({ txStatus: "failed" });
+    await createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps);
+    assert.equal(state.links[0].reference, "REN-1-R2");
   });
 
   it("otro cliente sin token → 404", async () => {
@@ -382,10 +389,17 @@ describe("Crear pago TropiPay — acceso", () => {
 
 describe("URLs de retorno según el entorno", () => {
   it("usa la carpeta de la página de origen si su dominio está en CORS_ORIGINS", () => {
-    process.env.CORS_ORIGINS = "https://readyexpressnow.versabold.com,http://localhost:5500";
-    assert.equal(resolveReturnBase("http://localhost:5500/frontend/checkout.html"), "http://localhost:5500/frontend");
-    assert.equal(resolveReturnBase("http://localhost:5500/frontend/"), "http://localhost:5500/frontend");
-    assert.equal(resolveReturnBase("http://localhost:5500"), "http://localhost:5500");
+    process.env.CORS_ORIGINS = "https://readyexpressnow.versabold.com, https://preview.vercel.app";
+    assert.equal(resolveReturnBase("https://preview.vercel.app/checkout.html"), "https://preview.vercel.app");
+    assert.equal(resolveReturnBase("https://preview.vercel.app/frontend/"), "https://preview.vercel.app/frontend");
+    assert.equal(resolveReturnBase("https://preview.vercel.app"), "https://preview.vercel.app");
+  });
+
+  it("localhost o http vuelven a FRONTEND_PUBLIC_URL (TropiPay las rechaza)", () => {
+    process.env.CORS_ORIGINS = "http://localhost:5173, https://localhost:5173";
+    process.env.FRONTEND_PUBLIC_URL = "https://readyexpressnow.versabold.com";
+    assert.equal(resolveReturnBase("http://localhost:5173/checkout.html"), "https://readyexpressnow.versabold.com");
+    assert.equal(resolveReturnBase("https://localhost:5173/checkout.html"), "https://readyexpressnow.versabold.com");
   });
 
   it("un dominio que no está en CORS_ORIGINS vuelve a FRONTEND_PUBLIC_URL", () => {

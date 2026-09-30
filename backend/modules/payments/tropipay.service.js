@@ -35,7 +35,10 @@ export async function createTropipayPaymentForOrder({ orderId, checkoutToken = n
   assertPayableWithTropipay(order);
 
   if (existing?.payment_url) return existing;
-  return openTropipayLink(order, { reference: order.order_reference, customerId, returnOrigin }, deps);
+  // La referencia es única por enlace: si un intento anterior falló, el nuevo lleva sufijo
+  const attempts = await deps.paymentRepository.countByOrder(order.id);
+  const reference = attempts ? `${order.order_reference}-R${attempts + 1}` : order.order_reference;
+  return openTropipayLink(order, { reference, customerId, returnOrigin }, deps);
 }
 
 function assertPayableWithTropipay(order) {
