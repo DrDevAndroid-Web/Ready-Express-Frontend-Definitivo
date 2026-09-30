@@ -28,6 +28,18 @@ async function request(path, options) {
   return fetch(`${baseUrl}${path}`, options);
 }
 
+describe("health checks", () => {
+  for (const path of ["/", "/health"]) {
+    it(`responds 200 on ${path}`, async () => {
+      const response = await request(path);
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(body, { status: "ok" });
+    });
+  }
+});
+
 describe("admin endpoint surface", () => {
   it("exposes Supabase auth config for the dashboard", async () => {
     const response = await request("/api/auth/config");

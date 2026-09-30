@@ -8,6 +8,12 @@ const app = express();
 
 app.set("trust proxy", 1);
 
+// Los orquestadores suelen comprobar `/` para decidir si el contenedor está sano.
+// Estas rutas no dependen de servicios externos y deben responder inmediatamente.
+const health = (_req, res) => res.status(200).json({ status: "ok" });
+app.get("/", health);
+app.get("/health", health);
+
 const corsOrigins = process.env.CORS_ORIGINS
   ?.split(',')
   .map(url => url.trim())

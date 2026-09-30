@@ -5,4 +5,4 @@ nixPkgs = ["nodejs_22"]
 cmds = ["npm ci --omit=dev"]
 
 [start]
-cmd = "npm start"
+cmd = "node server.js"
