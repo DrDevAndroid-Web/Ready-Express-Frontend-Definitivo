@@ -1,6 +1,7 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v21";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v19";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v21";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v26";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v26";
+import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v26";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v26";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -20,7 +21,7 @@ function storageRemove(key) {
   try { localStorage.removeItem(key); } catch {}
 }
 
-export function savePendingPayment(orderId, total, items = [], methodName = "") {
+export function savePendingPayment(orderId, total, items = [], methodName = "", checkoutToken = "") {
   storageSet(
     PENDING_PAYMENT_KEY,
     JSON.stringify({
@@ -28,6 +29,7 @@ export function savePendingPayment(orderId, total, items = [], methodName = "") 
       total,
       items,
       methodName,
+      checkoutToken,
       createdAt: new Date().toISOString(),
     })
   );
@@ -104,7 +106,8 @@ export async function initPaymentPage() {
 }
 
 async function renderizarMetodosPago() {
-  const metodos = await cargarMetodosPago();
+  // En pago.html solo tienen sentido los métodos en los que el cliente sube un comprobante
+  const metodos = (await cargarMetodosPago()).filter(m => (m.payment_flow || "proof_upload") === "proof_upload");
   const contenedor = document.getElementById("metodos-pago-container");
 
   if (!contenedor) return;
@@ -117,7 +120,7 @@ async function renderizarMetodosPago() {
   contenedor.innerHTML = metodos.map(metodo => `
     <div class="method-card" data-method="${metodo.id}" data-method-name="${metodo.method_name}" data-ejemplo="${getImagenEjemplo(metodo.method_name)}">
       <div class="method-content">
-        ${metodo.image_url ? `<img src="${metodo.image_url}" alt="${metodo.method_name}" class="method-image">` : `<div class="method-icon">${getIconoMetodo(metodo.method_name)}</div>`}
+        ${methodLogoHtml(metodo)}
         <div class="method-info">
           <strong>${metodo.method_name}</strong>
           ${metodo.account_number ? `<small>${metodo.account_number}</small>` : ''}
@@ -125,6 +128,8 @@ async function renderizarMetodosPago() {
       </div>
     </div>
   `).join('');
+
+  bindMethodLogoFallback(contenedor);
 
   // Agregar event listeners para mostrar imagen de ejemplo
   document.querySelectorAll(".method-card").forEach(card => {
@@ -138,20 +143,10 @@ async function renderizarMetodosPago() {
   });
 }
 
-function getIconoMetodo(nombre) {
-  const iconos = {
-    'zelle': '💳',
-    'tocopay': '💰',
-    'paypal': '🅿️',
-    'stripe': '💸'
-  };
-  return iconos[nombre.toLowerCase()] || '💵';
-}
-
 function getImagenEjemplo(nombreMetodo) {
   const mapeo = {
-    'zelle': './images/ejemplo-zelle.png',
-    'tocopay': './images/ejemplo-tocopay.png'
+    'zelle': './images/ejemplo-zelle.webp',
+    'tocopay': './images/ejemplo-tocopay.webp'
   };
   return mapeo[nombreMetodo.toLowerCase()] || '';
 }
@@ -166,11 +161,11 @@ function bindPaymentEvents() {
       // Mostrar imagen de ejemplo del método seleccionado
       if (window.currentPaymentMethod) {
         const mapeoEjemplos = {
-          'zelle': './images/ejemplo-zelle.png',
-          'tocopay': './images/ejemplo-tocopay.png'
+          'zelle': './images/ejemplo-zelle.webp',
+          'tocopay': './images/ejemplo-tocopay.webp'
         };
         const key = window.currentPaymentMethod.method_name.toLowerCase();
-        const ejemploSrc = mapeoEjemplos[key] || './images/ejemplo-zelle.png';
+        const ejemploSrc = mapeoEjemplos[key] || './images/ejemplo-zelle.webp';
         document.getElementById("proof-example-1").src = ejemploSrc;
       }
     }
@@ -197,7 +192,7 @@ function bindPaymentEvents() {
     const pending = getPendingPayment();
     if (pending?.orderId) {
       try {
-        await cancelOrder(pending.orderId);
+        await cancelOrder(pending.orderId, pending.checkoutToken);
       } catch (err) {
         console.warn("[cancel] No se pudo notificar al servidor:", err.message);
       }
@@ -227,7 +222,7 @@ function resetPaymentForm() {
 
   const preview = document.getElementById("file-preview");
   if (preview) {
-    preview.src = "";
+    preview.removeAttribute("src");
     preview.style.display = "none";
   }
 
@@ -329,6 +324,7 @@ async function submitPayment(form) {
   formData.append("order_id", pendingOrderId);
   formData.append("method", method);
   formData.append("amount", pendingTotal.toString());
+  if (pending?.checkoutToken) formData.append("checkout_token", pending.checkoutToken);
 
   try {
     await uploadPayment(formData);
@@ -428,7 +424,10 @@ async function downloadReceipt() {
     let orderFromBackend = null;
     if (pendingOrderId) {
       try {
-        const res = await fetch(`${API_BASE}/orders/${pendingOrderId}`);
+        const checkoutToken = pendingPayment?.checkoutToken;
+        const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(pendingOrderId)}`, {
+          headers: checkoutToken ? { "X-Checkout-Token": checkoutToken } : {}
+        });
         if (res.ok) {
           orderFromBackend = await res.json();
         }
@@ -464,11 +463,11 @@ async function downloadReceipt() {
     const preview = document.getElementById("file-preview");
     const comprobanteImage = preview?.src || null;
 
-    const logoImg = document.querySelector(".navbar-logo img");
+    // PNG dedicado: jsPDF no admite el WebP del logo del menú
     let logo = null;
-    if (logoImg?.src) {
+    {
       try {
-        const response = await fetch(logoImg.src);
+        const response = await fetch("./images/logo-pdf.png");
         const blob = await response.blob();
         logo = await new Promise(resolve => {
           const reader = new FileReader();

@@ -12,6 +12,8 @@ import {
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { sendError } from "../../utils/http-error.js";
 
+const MAX_CHAT_MESSAGE_LENGTH = 1000;
+
 // POST /api/chat/session — cliente inicia una nueva sesión
 export async function startSessionController(req, res) {
   try {
@@ -36,6 +38,9 @@ export async function clientMessageController(req, res) {
     const { sessionId, message, context } = req.body;
     if (!sessionId || !message?.trim()) {
       return res.status(400).json({ error: "sessionId y message son requeridos" });
+    }
+    if (String(message).length > MAX_CHAT_MESSAGE_LENGTH) {
+      return res.status(400).json({ error: `El mensaje es demasiado largo (máximo ${MAX_CHAT_MESSAGE_LENGTH} caracteres)` });
     }
 
     const result = await processMessage(sessionId, message.trim(), context);

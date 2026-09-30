@@ -1,5 +1,5 @@
-import { addItem } from "./cart.js?v23";
-import { API_BASE } from "./api.js?v21";
+import { addItem } from "./cart.js?v26";
+import { API_BASE } from "./api.js?v26";
 
 const CHAT_API = API_BASE;
 let productCache = null;
@@ -63,8 +63,8 @@ async function getProductCatalog() {
     fetch(`${CHAT_API}/productos`).then(r => r.json()).catch(() => [])
   ]);
   productCache = [
-    ...(Array.isArray(combosRes) ? combosRes : []).map(c => ({ ...c, category: "combo", imagen: c.img ?? c.imagen })),
-    ...(Array.isArray(productosRes) ? productosRes : []).map(p => ({ ...p, category: "producto", imagen: p.img ?? p.imagen }))
+    ...(Array.isArray(combosRes) ? combosRes : []).map(c => ({ ...c, source: "combo", category: "combo", imagen: c.img ?? c.imagen })),
+    ...(Array.isArray(productosRes) ? productosRes : []).map(p => ({ ...p, source: "producto", category: "producto", imagen: p.img ?? p.imagen }))
   ];
   return productCache;
 }
@@ -111,9 +111,15 @@ async function apiSendMessage(text) {
 }
 
 // ─── SSE (solo para respuestas del admin en handoff) ─────────────────────────
+let sseSessionId = null;
+
 function connectSSE() {
-  if (sseSource) return;
-  sseSource = new EventSource(`${CHAT_API}/notifications/subscribe`);
+  if (!sessionId) return;
+  if (sseSource && sseSessionId === sessionId) return;
+  sseSource?.close();
+  // El backend solo reenvía a este canal los eventos de esta sesión de chat
+  sseSessionId = sessionId;
+  sseSource = new EventSource(`${CHAT_API}/notifications/subscribe?chatSessionId=${encodeURIComponent(sessionId)}`);
   sseSource.addEventListener("message", e => {
     try {
       const n = JSON.parse(e.data);
@@ -123,8 +129,10 @@ function connectSSE() {
       }
     } catch { }
   });
-  sseSource.addEventListener("error", () => {
-    sseSource.close();
+  const source = sseSource;
+  source.addEventListener("error", () => {
+    source.close();
+    if (sseSource !== source) return;
     sseSource = null;
     setTimeout(connectSSE, 10000);
   });

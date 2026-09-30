@@ -477,3 +477,63 @@ git merge preview/descripcion-del-cambio
 git push origin master
 # → Vercel despliega automáticamente a readyexpressnow.versabold.com
 ```
+
+---
+
+## Estado del trabajo (sesión 2026-09-23) — leer antes de desplegar
+
+Todo lo siguiente está **en el working tree, sin commit** y probado (backend `npm test`: 151/151).
+
+**Ya hecho (no rehacer):**
+- Seguridad: `requireAdmin` en rutas de admin; SSE `/notifications/subscribe` solo admin o `?chatSessionId=`; `checkout_token` para leer/cancelar órdenes y subir comprobantes; precios recalculados en el servidor (`backend/modules/orders/pricing.js`, cada artículo del carrito lleva `source`: `combo|producto|electro`); bucket `payments` privado con URLs firmadas (`getPaymentImageUrl`); rate limits (`middlewares/rate-limits.js`, desactivados bajo `node --test`); errores 5xx sin detalles internos; CSP y cabeceras en `vercel.json`; dashboard escapado (`escapeHtml`).
+- TropiPay: datos del pagador (`sender_first_name`, `sender_last_name`, `payer_details`), `client` real en `buildTropipayClient`, webhook con verificación de importe y sin retroceder un pago confirmado. **Las órdenes TropiPay no avisan (APK/email/Telegram/SMS) al crearse; avisan e imprimen cuando el webhook confirma** (`notifyConfirmedOrder`).
+- Frontend: checkout en 2 pasos (Quién recibe → Quién paga y cómo, con bloque TropiPay y selector de países), "Mi cuenta" rediseñada (`js/account.js`), renovación automática del token (`js/session.js`, `js/config.js`), páginas de login/registro/recuperación/pago rediseñadas, iconos de métodos (`js/method-icons.js`), imágenes optimizadas (`logo-100.webp`, `favicon-32.png`…).
+- Migraciones **ya ejecutadas en Supabase**: `20260923_order_sender_split_payer_details.sql`, `20260924_private_payments_bucket.sql`.
+
+**Bloqueante para producción:** `frontend/checkout.html`, `cuenta.html`, `pago-confirmado.html`, `pago-rechazado.html`, `reset-password.html`, `login-v25.html`, `registro-v25.html`, `recuperar-password.html` y los módulos `js/session.js`, `js/config.js`, `js/account.js`, `js/auth.js`, `js/auth-ui.js`, `js/country-select.js`, `js/method-icons.js` **no están en git** (por eso producción da 404 en `/pago-rechazado`). Incluirlos en la rama `preview/...`. Desplegar **primero el backend** (el de producción aún responde 404 en `/api/payments/tropipay/webhook`).
+
+**Datos de prueba en producción:** órdenes `REN-260923-03A8` (pagada e impresa, "NO ENTREGAR"), `REN-260923-515C` (pendiente), `REN-260923-7845` (pendiente, rechazada en TropiPay sandbox, sin webhook); cuenta `qa.tropipay@readyexpressnow.test`. Borrar cuando el usuario lo indique.
+
+**Pruebas locales:** el backend local usa la base de Supabase de **producción** y TropiPay **sandbox**. Aprobar un pago imprime en la impresora real. Con Playwright sirviendo páginas por intercepción, lanzar Chromium con `--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests` o Chrome bloquea las llamadas a `localhost:3000`.
+
+---
+
+## PLAN PENDIENTE — Retorno de TropiPay (pago rechazado / confirmado)
+
+> Aprobado por el usuario para ejecutarse en otra sesión. Implementar los pasos 1-6, luego preparar la rama `preview/...` (paso 7). No tocar `master` sin permiso.
+
+### Diagnóstico (caso real `REN-260923-7845`, pago `bc4d73cf-1ac7-4c76-8523-6740d4489bed`)
+URL de retorno recibida: `/pago-rechazado?order=REN-…&payment=<id transacción>&estado=rechazado&bankOrderCode=…&reference=…&state=4`.
+1. La página daba **404** en producción: no está en git (ver bloqueante arriba).
+2. Probando en local, TropiPay devolvió a producción porque `urlSuccess`/`urlFailed` usan `FRONTEND_PUBLIC_URL` fijo.
+3. El webhook no llegó (backend de producción sin la ruta): la base quedó en `pending/processing`.
+4. La página actual solo muestra texto; "Intentar de nuevo" va a `checkout.html` pero el carrito ya se vació → redirige a la tienda. `pago-confirmado` muestra "Pago confirmado" solo porque lo dice la URL (manipulable).
+5. `GET` del paymentcard en la API de TropiPay (`getTropipayPayment`) devuelve `paymentInfo: { paid, paymentsCount, lastPaymentAt }` y `state` del **enlace** (1 = activo). Tras un rechazo el enlace sigue activo y sin pagar → se puede **reutilizar para reintentar**. **Nunca decidir con `state`/`bankOrderCode`/`estado` de la URL.**
+
+### Paso 1 — Backend: estado verificado
+- `GET /api/payments/tropipay/:id/status`: responder solo `{ status, order_reference, total, currency, can_retry, retry_url?, order_status }` (hoy devuelve la transacción completa con `raw_payload`: sanear). Permiso: dueño por sesión (`customer_id`), `checkout_token` (`?checkout_token=` o `X-Checkout-Token`) o admin.
+- **Conciliación**: si la transacción está `pending/processing`, consultar `getTropipayPayment(provider_payment_id)`. Si `paymentInfo.paid === true` e importe (`amount` en centavos) coincide con la orden → procesar igual que el webhook exitoso (reutilizar la lógica de `processTropipayWebhook`: marcar pagada, `notifyConfirmedOrder`, imprimir una sola vez con `printed_at`, registrar evento `payment_successful` con origen "poll"). Idempotente. **Verificar primero en sandbox** cómo queda `paymentInfo` tras un pago aprobado.
+
+### Paso 2 — Backend: reintento sobre la misma orden
+- `POST /api/payments/tropipay/:id/retry`: si el enlace sigue activo y `paid === false` → devolver el mismo `payment_url`; si caducó/falló → crear uno nuevo para la **misma orden** (`createTropipayPaymentForOrder`). Rechazar si la orden está pagada o cancelada (409).
+- Permitir al dueño por sesión además de `checkout_token` (hoy `createTropipayPaymentForOrder` exige token y el frontend no lo guarda para TropiPay).
+
+### Paso 3 — Backend: URLs de retorno por entorno
+- En `tropipay.provider.js`, construir `urlSuccess`/`urlFailed` con el `Origin` de la petición si está en `CORS_ORIGINS`; si no, `FRONTEND_PUBLIC_URL`. Así `localhost:5500` vuelve a local.
+
+### Paso 4 — Frontend: `pago-rechazado.html` y `pago-confirmado.html` (lógica común, p. ej. `js/payment-return.js`)
+- Leer `payment` y `order`; llamar al endpoint de estado con `authorizedFetch` (session.js); reintentar cada ~3 s durante ~30 s (TropiPay puede redirigir antes que el webhook).
+- Estados: **verificando** (spinner) · **rechazado/sin pagar** (motivo genérico: fondos, verificación 3DS, datos de tarjeta; sin códigos) · **pagado** (mostrar confirmado aunque se llegue por "rechazado") · **sin sesión/ajeno** (mensaje genérico + login que vuelve a la página).
+- Acciones en rechazado: 1) **Reintentar con TropiPay** (paso 2, sin carrito); 2) **Pagar con otro método**: Zelle/TocoPay → `savePendingPayment(orderId, total, items, método)` y `pago.html` (la subida ya acepta al dueño por sesión), asistidos → WhatsApp; 3) **WhatsApp** con la referencia prellenada; 4) **Ver mis pedidos**.
+- `pago-confirmado` deja de fiarse de `estado=`.
+- Mantener el diseño `auth-page`/`auth-card` y escapar todo; incrementar `?vN`.
+
+### Paso 5 — "Mi cuenta"
+- En pedidos TropiPay no pagados: botones "Reintentar pago" (paso 2) y "Pagar con otro método".
+
+### Paso 6 — Pruebas
+- Unitarias: saneado del estado, permisos (dueño/token/ajeno), no reintentar pagadas, conciliación solo con `paid: true` + importe correcto, idempotencia con el webhook.
+- Playwright (sandbox): rechazo (webhook `KO` firmado simulado) → reintento con el mismo enlace; pago conciliado sin webhook; cambio a Zelle; URL manipulada (`estado=confirmado` sin pagar → no muestra confirmado). Ejecutar también `node test-android-compat` (su prueba del modal de checkout está desactualizada: el checkout ahora es `checkout.html`).
+
+### Paso 7 — Despliegue
+- Rama `preview/...` con todos los archivos sin seguimiento listados arriba; backend primero; confirmar en el panel de TropiPay de producción la URL de notificación `https://readyexpressnowbackend.versabold.com/api/payments/tropipay/webhook`.

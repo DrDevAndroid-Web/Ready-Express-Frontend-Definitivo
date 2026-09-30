@@ -92,7 +92,8 @@ describe("sendError", () => {
     const res = makeFakeRes();
     sendError(res, new Error("error genérico"));
     assert.equal(res.statusCode, 500);
-    assert.equal(res.jsonBody.error, "error genérico");
+    // Un error inesperado no expone su mensaje interno al cliente
+    assert.equal(res.jsonBody.error, "Error interno del servidor");
   });
 
   it("incluye details en el JSON cuando existen", () => {

@@ -86,7 +86,7 @@ export async function notifyNewOrder(order) {
   const productsSubtotal = Number(order.products_subtotal ?? (Number(order.total || 0) - deliverySurcharge));
   const lines = [];
 
-  lines.push(`🛒 *Nueva Orden* \`${escape(shortId(order.id))}\``);
+  lines.push(`🛒 *Nueva Orden* \`${escape(order.order_reference || shortId(order.id))}\``);
   lines.push("");
   lines.push(`👤 *Remitente:* ${escape(order.sender_name || order.customer_name || "-")}`);
   lines.push(`📞 ${escape(formatPhone(order.sender_phone || order.customer_phone))}`);

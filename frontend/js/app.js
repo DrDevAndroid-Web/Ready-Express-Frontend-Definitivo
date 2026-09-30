@@ -1,9 +1,9 @@
-import { initCart, getCart } from "./cart.js?v23";
-import { initProducts } from "./products.js?v22";
-import { initCheckout, openCheckoutAtSavedStep, hasSavedCheckoutStep } from "./checkout.js?v22";
-import { redirectToPendingPayment } from "./payment.js?v20";
-import { inicializarMetodosPago } from "./payment-methods.js?v20";
-import { getLocalizaciones } from "./api.js?v21";
+import { initCart, getCart } from "./cart.js?v26";
+import { initProducts } from "./products.js?v26";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v26";
+import { redirectToPendingPayment } from "./payment.js?v26";
+import { inicializarMetodosPago } from "./payment-methods.js?v26";
+import { getLocalizaciones } from "./api.js?v26";
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (redirectToPendingPayment()) return;
@@ -13,8 +13,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initProducts();
   initCheckout();
 
-  // Restaurar checkout si hay paso guardado y carrito con items
-  if (hasSavedCheckoutStep() && getCart().length > 0) {
+  // El progreso del checkout se conserva, pero solo se reabre si se pide explícitamente
+  // (?checkout=1). Reabrirlo solo impedía volver a la tienda desde checkout.html.
+  if (new URLSearchParams(location.search).get("checkout") === "1" && getCart().length > 0) {
     setTimeout(() => openCheckoutAtSavedStep(), 500);
   }
 

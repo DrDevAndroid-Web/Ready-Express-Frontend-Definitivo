@@ -1,8 +1,11 @@
-import { API_BASE, createOrder, getLocalizaciones } from "./api.js?v21";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v23";
-import { savePendingPayment } from "./payment.js?v19";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED } from "./payment-methods.js?v19";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v21";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v26";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v26";
+import { savePendingPayment } from "./payment.js?v26";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v26";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v26";
+import { getAccessToken, getCurrentUser, getMyProfile } from "./auth.js?v26";
+import { setupCountrySelect } from "./country-select.js?v26";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v26";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -95,12 +98,14 @@ async function loadDeliveryLocations(form, force = false) {
     const data = await getLocalizaciones();
     deliveryLocations = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
     deliveryLocationsLoaded = true;
+    document.getElementById("retry-delivery-locations")?.setAttribute("hidden", "");
     storageSet(DELIVERY_LOCATIONS_CACHE_KEY, JSON.stringify({ items: deliveryLocations, updatedAt: new Date().toISOString() }));
     renderDeliveryLocations(form);
   } catch (error) {
     console.warn("[checkout:localizaciones]", error);
     if (!deliveryLocations.length && form?.elements?.delivery_municipality) {
       form.elements.delivery_municipality.innerHTML = '<option value="">No se pudieron cargar los municipios</option>';
+      document.getElementById("retry-delivery-locations")?.removeAttribute("hidden");
     }
   }
 }
@@ -127,8 +132,15 @@ const CHECKOUT_STEP_KEY = "ren_checkout_step";
 const CHECKOUT_FORM_KEY = "ren_checkout_form_data";
 
 const FORM_FIELDS = [
-  "sender_name",
+  "sender_first_name",
+  "sender_last_name",
   "sender_phone",
+  "customer_email",
+  "payer_country_iso",
+  "payer_address",
+  "payer_city",
+  "payer_state",
+  "payer_postcode",
   "receiver_name",
   "customer_address",
   "receiver_phone",
@@ -148,6 +160,8 @@ function saveFormData(form) {
     const field = form.elements[fieldName];
     if (field) data[fieldName] = field.value;
   });
+  // Nombre completo para pago.html y el PDF del comprobante, que siguen leyendo sender_name
+  data.sender_name = [data.sender_first_name, data.sender_last_name].map(v => (v || "").trim()).filter(Boolean).join(" ");
   storageSet(CHECKOUT_FORM_KEY, JSON.stringify(data));
 }
 
@@ -156,6 +170,12 @@ function restoreFormData(form) {
   if (!saved) return;
   try {
     const data = JSON.parse(saved);
+    // Datos guardados antes de separar nombre y apellidos
+    if (data.sender_name && !data.sender_first_name) {
+      const [first, ...rest] = String(data.sender_name).trim().split(/\s+/);
+      data.sender_first_name = first || "";
+      data.sender_last_name = rest.join(" ");
+    }
     FORM_FIELDS.forEach(fieldName => {
       const field = form.elements[fieldName];
       if (field && data[fieldName] !== undefined) field.value = data[fieldName];
@@ -195,7 +215,12 @@ function clearCheckoutPersistence({ keepSelectedPayment = false } = {}) {
 }
 
 export function openCheckoutAtSavedStep() {
-  if (hasSavedCheckoutStep()) showCheckoutModal();
+  if (!hasSavedCheckoutStep()) return;
+  if (document.body?.dataset.checkoutPage !== "true") {
+    window.location.href = "./checkout.html";
+    return;
+  }
+  showCheckoutModal();
 }
 
 // ── Mini-resumen sticky ───────────────────────────────────────
@@ -240,10 +265,10 @@ function validateField(field) {
 }
 
 function setupBlurValidation(form) {
-  FORM_FIELDS.forEach(fieldName => {
-    const field = form.elements[fieldName];
-    if (!field) return;
-    field.addEventListener("blur", () => {
+  Array.from(form.elements).forEach(field => {
+    if (!field.name || field.type === "hidden" || field.type === "submit" || field.type === "button") return;
+    const event = field.type === "checkbox" ? "change" : "blur";
+    field.addEventListener(event, () => {
       if (field.required || field.value.trim()) validateField(field);
     });
     field.addEventListener("input", () => {
@@ -253,6 +278,97 @@ function setupBlurValidation(form) {
 }
 
 // ── Validación por paso ───────────────────────────────────────
+// Paso de pago: remitente siempre; datos del pagador solo si el bloque TropiPay está activo
+// (un <fieldset disabled> queda fuera de la validación nativa).
+function validatePaymentStep() {
+  const stepEl = document.getElementById("checkout-payment-step");
+  if (!stepEl) return true;
+  countrySelect?.syncValidity();
+  let firstInvalid = null;
+  stepEl.querySelectorAll("input[required], textarea[required], select[required]").forEach(field => {
+    if (field.disabled) return;
+    if (!field.checkValidity()) {
+      showFieldError(field.name, field.type === "checkbox" ? "Debes aceptar los términos para pagar con TropiPay" : field.validationMessage);
+      firstInvalid ||= field;
+    }
+  });
+  if (firstInvalid) {
+    firstInvalid.focus();
+    firstInvalid.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }
+  return !firstInvalid;
+}
+
+let countrySelect = null;
+let profilePrefillDone = false;
+
+// Rellena solo campos vacíos con el perfil del cliente con sesión iniciada
+async function prefillSenderFromProfile(form) {
+  if (profilePrefillDone || !getAccessToken() || !form) return;
+  profilePrefillDone = true;
+  try {
+    const profile = await getMyProfile();
+    const email = profile?.email || getCurrentUser()?.email || "";
+    const values = {
+      sender_first_name: profile?.nombre,
+      sender_last_name: profile?.apellidos,
+      sender_phone: profile?.telefono,
+      customer_email: email
+    };
+    Object.entries(values).forEach(([name, value]) => {
+      const field = form.elements[name];
+      if (field && !field.value.trim() && value) field.value = value;
+    });
+    saveFormData(form);
+  } catch (err) {
+    console.warn("[checkout:perfil]", err.message);
+  }
+}
+
+function setupTropipayPayerFields(form) {
+  if (countrySelect || !form) return;
+  countrySelect = setupCountrySelect({
+    input: document.getElementById("payer_country"),
+    hidden: document.getElementById("payer_country_iso"),
+    listbox: document.getElementById("payer_country-listbox"),
+    toggle: document.getElementById("payer_country-toggle"),
+    onChange: () => {
+      showFieldError("payer_country", "");
+      saveFormData(form);
+    }
+  });
+}
+
+// DNS + TLS hacia la pasarela por adelantado: la redirección llega antes
+let tropipayPreconnected = false;
+function preconnectTropipay() {
+  if (tropipayPreconnected) return;
+  tropipayPreconnected = true;
+  ["https://tppay.me", "https://www.tropipay.com", "https://sandbox.tropipay.me"].forEach(href => {
+    const link = Object.assign(document.createElement("link"), { rel: "preconnect", href, crossOrigin: "anonymous" });
+    document.head.appendChild(link);
+  });
+}
+
+function toggleTropipayPayerFields(show) {
+  const fieldset = document.getElementById("tropipay-payer-fields");
+  if (!fieldset) return;
+  const wasHidden = fieldset.hidden;
+  fieldset.hidden = !show;
+  fieldset.disabled = !show;
+  if (show) {
+    preconnectTropipay();
+    // El bloque está debajo de todos los métodos: llevarlo a la vista al elegir TropiPay
+    if (wasHidden) {
+      const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      requestAnimationFrame(() => fieldset.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" }));
+    }
+    const form = document.getElementById("checkout-form");
+    setupTropipayPayerFields(form);
+    prefillSenderFromProfile(form);
+  }
+}
+
 function validateCheckoutStep(step) {
   const stepEl = document.querySelector(`[data-checkout-step="${step}"]`);
   if (!stepEl) return true;
@@ -289,6 +405,7 @@ async function goToCheckoutStep(step, validate = true) {
     const stepEl = document.querySelector(`[data-checkout-step="${step}"]`);
     if (stepEl) stepEl.style.display = "block";
   } else if (step === 2) {
+    prefillSenderFromProfile(form);
     await renderPaymentMethods();
     renderCheckoutReview();
     if (paymentStep) paymentStep.style.display = "block";
@@ -297,7 +414,7 @@ async function goToCheckoutStep(step, validate = true) {
   }
 
   // Scroll al inicio del modal body (fallback para iOS Safari que no soporta smooth)
-  const modalBody = document.querySelector("#checkout-modal .modal-body");
+  const modalBody = document.querySelector("#checkout-modal .modal-body") || document.getElementById("checkout-page-main");
   if (modalBody) {
     try { modalBody.scrollTo({ top: 0, behavior: "smooth" }); }
     catch { modalBody.scrollTop = 0; }
@@ -333,10 +450,15 @@ export function showCheckoutModal() {
 
 // ── Inicialización ────────────────────────────────────────────
 export function initCheckout() {
+  const isCheckoutPage = document.body?.dataset.checkoutPage === "true";
   const form = document.getElementById("checkout-form");
   if (form) {
     setupBlurValidation(form);
     loadDeliveryLocations(form);
+    document.getElementById("retry-delivery-locations")?.addEventListener("click", () => {
+      document.getElementById("retry-delivery-locations")?.setAttribute("hidden", "");
+      loadDeliveryLocations(form, true);
+    });
     subscribeToLocationEvents();
     form.elements.delivery_municipality?.addEventListener("change", () => {
       const selected = deliveryLocations.find(location => String(location.id) === String(form.elements.delivery_municipality.value));
@@ -351,7 +473,22 @@ export function initCheckout() {
   }
 
   document.getElementById("checkout-btn")?.addEventListener("click", showCheckoutModal);
-  document.getElementById("cart-checkout-btn")?.addEventListener("click", showCheckoutModal);
+  document.getElementById("cart-checkout-btn")?.addEventListener("click", () => {
+    if (getCart().length) window.location.href = "./checkout.html";
+  });
+
+  if (isCheckoutPage) {
+    if (!getCart().length) {
+      window.location.href = "./index.html";
+      return;
+    }
+    if (form) restoreFormData(form);
+    currentTotal = calculateCheckoutTotal(form);
+    loadDeliveryLocations(form);
+    subscribeToLocationEvents();
+    const savedStep = getCheckoutStep();
+    goToCheckoutStep(savedStep === 3 ? 1 : savedStep, false);
+  }
 
   document.getElementById("checkout-close")?.addEventListener("click", () => {
     if (checkoutStep === 3) {
@@ -425,9 +562,16 @@ async function renderPaymentMethods() {
       return;
     }
 
-    const directMethods = metodos.filter(m => (m.payment_flow || "proof_upload") !== PAYMENT_FLOW_ASSISTED);
-    const assistedMethods = metodos.filter(m => (m.payment_flow || "proof_upload") === PAYMENT_FLOW_ASSISTED);
+    const flowOf = m => m.payment_flow || "proof_upload";
+    const cardMethods = metodos.filter(m => flowOf(m) === PAYMENT_FLOW_TROPIPAY);
+    const directMethods = metodos.filter(m => flowOf(m) === "proof_upload");
+    const assistedMethods = metodos.filter(m => flowOf(m) === PAYMENT_FLOW_ASSISTED);
     container.innerHTML = `
+      ${renderPaymentGroup(
+        "Pagar ahora con tarjeta",
+        "Pago seguro en línea; tu pedido se confirma al instante.",
+        cardMethods
+      )}
       ${renderPaymentGroup(
         "Pago ahora y subo comprobante",
         "Crea tu pedido y luego adjunta la captura del pago.",
@@ -446,8 +590,14 @@ async function renderPaymentMethods() {
       if (prevCard) selectPaymentMethod(prevCard);
     }
 
+    bindMethodLogoFallback(container);
     container.querySelectorAll(".method-card").forEach(card => {
       card.addEventListener("click", () => selectPaymentMethod(card));
+      card.addEventListener("keydown", event => {
+        if (event.target !== card || (event.key !== "Enter" && event.key !== " ")) return;
+        event.preventDefault();
+        selectPaymentMethod(card);
+      });
     });
 
     container.querySelectorAll(".btn-copy-account").forEach(btn => {
@@ -471,28 +621,27 @@ function renderPaymentGroup(title, description, methods) {
         <h5>${title}</h5>
         <p>${description}</p>
       </div>
-      <div class="checkout-method-list">
+      <div class="checkout-method-list" role="radiogroup" aria-label="${title}">
         ${methods.map(m => `
-      <div class="method-card" data-method="${m.method_name}" data-method-id="${m.id}"
+      <div class="method-card" role="radio" tabindex="0" aria-checked="false" data-method="${escapeHtml(m.method_name)}" data-method-id="${escapeHtml(String(m.id))}"
            data-payment-flow="${m.payment_flow || "proof_upload"}"
            data-instructions="${escapeHtml(m.instructions || "")}"
            data-account="${escapeHtml(m.account_number || "")}">
         <div class="method-content">
-          ${m.image_url
-            ? `<img src="${m.image_url}" alt="${m.method_name}" class="method-image">`
-            : `<div class="method-icon">${getIconoMetodo(m.method_name)}</div>`}
+          ${methodLogoHtml(m)}
           <div class="method-info">
-            <strong>${m.method_name}</strong>
-            ${m.account_number ? `<small class="method-account">${m.account_number}</small>` : ""}
+            <strong>${escapeHtml(m.method_name)}</strong>
+            ${m.account_number ? `<small class="method-account">${escapeHtml(m.account_number)}</small>` : ""}
             ${m.payment_flow === PAYMENT_FLOW_ASSISTED ? `<small class="method-account">Contacto por WhatsApp</small>` : ""}
+            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY ? `<small class="method-account">Visa, Mastercard y saldo TropiPay${getAccessToken() ? "" : " · requiere iniciar sesión"}</small>` : ""}
           </div>
         </div>
         <div class="method-instructions" style="display:none">
           ${m.account_number ? `
             <div class="method-account-copy">
-              <span class="account-number-text">${m.account_number}</span>
+              <span class="account-number-text">${escapeHtml(m.account_number)}</span>
               <button type="button" class="btn-copy-account" data-account="${escapeHtml(m.account_number)}" aria-label="Copiar número">
-                📋 Copiar
+                ${svgIcon("copy", 16)} Copiar
               </button>
             </div>` : ""}
           <div class="instructions-text"></div>
@@ -511,20 +660,34 @@ function buildTocopayNotice(account) {
     ? `Usa esta cuenta/tarjeta: ${account}`
     : "Usa la cuenta/tarjeta que aparece en este metodo de pago.";
 
-  return `Para pagar por Tocopay:\n\n1. Entra a tocopay.com e inicia sesion o crea tu cuenta.\n2. Anade como beneficiario a Ernesto, gerente de ventas.\n3. ${accountLine}\n4. Completa el pago en Tocopay y toma una captura clara del comprobante.\n5. Vuelve a Ready Express Now y sube esa captura para validar tu pedido.\n\nTocopay es una plataforma externa e independiente. Ready Express Now no esta afiliada ni asociada a Tocopay; solo usamos tu comprobante para validar el pago de tu pedido.`;
+  return `Para pagar por TocoPay:\n\n1. Entra a tocopay.com e inicia sesión o crea tu cuenta.\n2. Añade como beneficiario a Ernesto, gerente de ventas.\n3. ${accountLine}\n4. Completa el pago en TocoPay y toma una captura clara del comprobante.\n5. Vuelve a Ready Express Now y sube esa captura para validar tu pedido.\n\nTocoPay es una plataforma externa e independiente. Ready Express Now no está afiliada ni asociada a TocoPay; solo usamos tu comprobante para validar el pago de tu pedido.`;
 }
 
 function selectPaymentMethod(card) {
+  const requestedFlow = card.dataset.paymentFlow || "proof_upload";
+  if (requestedFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken()) {
+    const errorEl = document.getElementById("checkout-error");
+    if (errorEl) {
+      errorEl.innerHTML = 'Para pagar con TropiPay debes iniciar sesión. <a href="./login-v25.html?return=checkout">Iniciar sesión</a>';
+      errorEl.style.display = "block";
+    }
+    storageSet("ren_checkout_auth_return", "checkout");
+    return;
+  }
+
   document.querySelectorAll(".method-card").forEach(c => {
     c.classList.remove("selected");
+    c.setAttribute("aria-checked", "false");
     const instr = c.querySelector(".method-instructions");
     if (instr) instr.style.display = "none";
   });
 
   card.classList.add("selected");
+  card.setAttribute("aria-checked", "true");
   currentSelectedMethod = card.dataset.method;
   currentSelectedMethodId = card.dataset.methodId || null;
   currentSelectedMethodFlow = card.dataset.paymentFlow || "proof_upload";
+  toggleTropipayPayerFields(currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY);
 
   const instrEl = card.querySelector(".method-instructions");
   const instrText = card.querySelector(".instructions-text");
@@ -602,18 +765,43 @@ async function submitOrder(form) {
     return;
   }
 
+  if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken()) {
+    const errorEl = document.getElementById("checkout-error");
+    if (errorEl) {
+      errorEl.innerHTML = 'Tu sesión es necesaria para TropiPay. <a href="./login-v25.html?return=checkout">Iniciar sesión</a>';
+      errorEl.style.display = "block";
+    }
+    return;
+  }
+
+  if (!validatePaymentStep()) return;
+
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Creando pedido...';
 
-  const senderName  = fieldValue(form, "sender_name");
+  const senderFirstName = fieldValue(form, "sender_first_name");
+  const senderLastName  = fieldValue(form, "sender_last_name");
+  const senderName  = `${senderFirstName} ${senderLastName}`.trim();
   const senderPhone = fieldValue(form, "sender_phone");
+  const isTropipay  = currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY;
 
   const orderData = {
     customer_name:    senderName,
     customer_phone:   senderPhone,
     customer_address: fieldValue(form, "customer_address"),
-    customer_email:   fieldValue(form, "customer_email"),
+    customer_email:   isTropipay ? fieldValue(form, "customer_email") : "",
     sender_name:      senderName,
+    sender_first_name: senderFirstName,
+    sender_last_name:  senderLastName,
+    payment_flow:     currentSelectedMethodFlow,
+    payer: isTropipay ? {
+      country_iso: fieldValue(form, "payer_country_iso"),
+      address:     fieldValue(form, "payer_address"),
+      city:        fieldValue(form, "payer_city"),
+      state:       fieldValue(form, "payer_state"),
+      post_code:   fieldValue(form, "payer_postcode"),
+      terms_accepted: Boolean(form.elements.payer_terms?.checked)
+    } : undefined,
     sender_phone:     senderPhone,
     receiver_name:    fieldValue(form, "receiver_name"),
       receiver_phone:   fieldValue(form, "receiver_phone"),
@@ -624,6 +812,7 @@ async function submitOrder(form) {
     delivery_notes:   buildDeliveryNotes(fieldValue(form, "delivery_notes")),
     items: cart.map(i => ({
       id:          i.id,
+      source:      i.source,
       nombre:      i.nombre,
       precio:      i.precio,
       cantidad:    i.qty,
@@ -646,13 +835,23 @@ async function submitOrder(form) {
       created_at: order.created_at || new Date().toISOString()
     };
 
-    if (currentSelectedMethodFlow !== PAYMENT_FLOW_ASSISTED) {
-      savePendingPayment(currentOrderId, currentTotal, orderData.items);
+    if (currentSelectedMethodFlow !== PAYMENT_FLOW_ASSISTED && !isTropipay) {
+      savePendingPayment(currentOrderId, currentTotal, orderData.items, "", order.checkout_token);
     }
     clearCart();
     clearCheckoutStep();
 
-    showSuccessOverlay(currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED, order);
+    const reference = order.order_reference || order.id;
+    if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY) {
+      btn.innerHTML = '<span class="spinner"></span> Redirigiendo a TropiPay...';
+      const payment = await createTropipayPayment(order.id, order.checkout_token);
+      if (!payment?.payment_url) throw new Error("TropiPay no devolvió un enlace de pago");
+      window.location.href = payment.payment_url;
+      return;
+    }
+
+    const state = currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED ? "revision" : "revision";
+    window.location.href = `./pago-confirmado.html?order=${encodeURIComponent(reference)}&estado=${state}&payment=manual`;
 
   } catch (err) {
     const errorEl = document.getElementById("checkout-error");
@@ -702,11 +901,6 @@ function showSuccessOverlay(isAssisted = false) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-function getIconoMetodo(nombre) {
-  const iconos = { zelle: "💳", tocopay: "💰", paypal: "🅿️", stripe: "💸" };
-  return iconos[nombre.toLowerCase()] || "💵";
-}
-
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
@@ -724,9 +918,11 @@ function updateSubmitButton() {
     btn.textContent = "Selecciona un método";
     return;
   }
-  btn.textContent = currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED
-    ? "Crear pedido y recibir ayuda"
-    : "Crear pedido y subir comprobante";
+  btn.textContent = currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY
+    ? "Pagar con TropiPay →"
+    : currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED
+      ? "Crear pedido y recibir ayuda"
+      : "Crear pedido →";
 }
 
 function renderCheckoutReview() {
@@ -735,12 +931,14 @@ function renderCheckoutReview() {
   if (!el || !form) return;
   const count = getCart().reduce((s, i) => s + i.qty, 0);
   const receiver = fieldValue(form, "receiver_name") || "Por completar";
+  const sender = `${fieldValue(form, "sender_first_name")} ${fieldValue(form, "sender_last_name")}`.trim() || "Por completar";
   const address = fieldValue(form, "customer_address") || "Por completar";
   el.innerHTML = `
     <div class="checkout-review-row"><span>Productos</span><strong>$${getDeliverySubtotal().toFixed(2)}</strong></div>
     <div class="checkout-review-row"><span>Entrega</span><strong>$${Number(getSelectedLocation(form)?.recargo || 0).toFixed(2)}</strong></div>
     <div class="checkout-review-row total-row"><span>Total</span><strong>$${calculateCheckoutTotal(form).toFixed(2)}</strong></div>
     <div class="checkout-review-row"><span>Cantidad de productos</span><strong>${count}</strong></div>
+    <div class="checkout-review-row"><span>Envía</span><strong>${escapeHtml(sender)}</strong></div>
     <div class="checkout-review-row"><span>Recibe</span><strong>${escapeHtml(receiver)}</strong></div>
     <div class="checkout-review-row"><span>Dirección</span><strong>${escapeHtml(address)}</strong></div>
     <div class="checkout-review-row"><span>Método</span><strong>${escapeHtml(currentSelectedMethod || "Selecciona uno")}</strong></div>
@@ -792,10 +990,9 @@ async function downloadCheckoutReceipt(btn) {
 }
 
 async function loadCheckoutLogo() {
-  const logoImg = document.querySelector(".navbar-logo img");
-  if (!logoImg?.src) return null;
   try {
-    const response = await fetch(logoImg.src);
+    // PNG dedicado: jsPDF no admite el WebP del logo del menú
+    const response = await fetch("./images/logo-pdf.png");
     const blob = await response.blob();
     return await new Promise(resolve => {
       const reader = new FileReader();
@@ -820,11 +1017,21 @@ function setupCheckoutAssistant() {
 
   form?.addEventListener("submit", async (e) => {
     e.preventDefault();
+    await submitCheckoutAssistantQuestion();
+  });
+
+  document.getElementById("checkout-ai-submit")?.addEventListener("click", async () => {
+    await submitCheckoutAssistantQuestion();
+  });
+}
+
+async function submitCheckoutAssistantQuestion() {
+  const input = document.getElementById("checkout-ai-input");
+  if (!input) return;
     const question = input?.value?.trim();
     if (!question) return;
     input.value = "";
     await askCheckoutAssistant(question);
-  });
 }
 
 async function askCheckoutAssistant(question) {

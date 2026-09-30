@@ -119,7 +119,7 @@ describe("GET /api/info — información del negocio", () => {
 // POST /orders — crear orden (público)
 // ---------------------------------------------------------------------------
 const validOrder = {
-  items: [{ nombre: "Combo Familiar", precio: 45, cantidad: 2 }],
+  items: [{ id: "combo-familiar", source: "combo", nombre: "Combo Familiar", precio: 45, cantidad: 2 }],
   total: 90,
   sender_name: "Juan Pérez",
   sender_phone: "+1 305 555 0000",
@@ -391,6 +391,7 @@ describe("POST /api/payments/upload — subir comprobante", () => {
     form.set("order_id", "orden-abc");
     form.set("method", "Zelle");
     form.set("amount", "65");
+    form.set("checkout_token", "token-de-prueba");
 
     const res = await req("/payments/upload", { method: "POST", body: form });
     const body = await res.json();
@@ -403,6 +404,7 @@ describe("POST /api/payments/upload — subir comprobante", () => {
     form.set("order_id", "orden-abc");
     form.set("method", "TocoPay");
     form.set("amount", "65");
+    form.set("checkout_token", "token-de-prueba");
 
     const res = await req("/payments/upload", { method: "POST", body: form });
     const body = await res.json();
@@ -512,12 +514,17 @@ describe("Escritura en /api/payment-methods — requiere autenticación", () => 
 });
 
 // ---------------------------------------------------------------------------
-// SSE /notifications/subscribe — sin auth (público)
+// SSE /notifications/subscribe — admin (token) o cliente del chat (chatSessionId)
 // ---------------------------------------------------------------------------
-describe("GET /api/notifications/subscribe — SSE público", () => {
-  it("responde con Content-Type text/event-stream", async () => {
+describe("GET /api/notifications/subscribe — SSE", () => {
+  it("rechaza con 401 sin token de admin ni chatSessionId", async () => {
+    const res = await req("/notifications/subscribe");
+    assert.equal(res.status, 401);
+  });
+
+  it("responde con Content-Type text/event-stream para un cliente del chat", async () => {
     const controller = new AbortController();
-    const res = await req("/notifications/subscribe", {
+    const res = await req("/notifications/subscribe?chatSessionId=test-chat-id", {
       signal: controller.signal
     }).catch(() => null);
 

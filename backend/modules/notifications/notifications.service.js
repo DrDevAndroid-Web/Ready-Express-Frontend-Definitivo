@@ -4,9 +4,18 @@ import { sendAdminPushNotification } from "./push.service.js";
 const connectedClients = new Map();
 const locationClients = new Map();
 
+// Eventos que un cliente del chat (no admin) puede recibir, siempre filtrados por su sessionId
+const CUSTOMER_CHAT_EVENTS = new Set(["chat_admin_reply", "chat_agent_joined", "chat_resolved", "chat_bot_resumed"]);
+
+export function canReceive(client, type, data) {
+  if (client.admin) return true;
+  return CUSTOMER_CHAT_EVENTS.has(type) && Boolean(client.chatSessionId) && data?.sessionId === client.chatSessionId;
+}
+
 export class NotificationManager {
-  static addClient(clientId, res) {
-    connectedClients.set(clientId, res);
+  // scope: { admin: true } recibe todo; { chatSessionId } solo eventos de ese chat
+  static addClient(clientId, res, scope = {}) {
+    connectedClients.set(clientId, { res, admin: Boolean(scope.admin), chatSessionId: scope.chatSessionId || null });
     console.log(`[SSE] Cliente conectado: ${clientId}. Total: ${connectedClients.size}`);
   }
 
@@ -25,9 +34,10 @@ export class NotificationManager {
     const sseData = `data: ${JSON.stringify(message)}\n\n`;
     let sentCount = 0;
 
-    connectedClients.forEach((res, clientId) => {
+    connectedClients.forEach((client, clientId) => {
+      if (!canReceive(client, type, data)) return;
       try {
-        res.write(sseData);
+        client.res.write(sseData);
         sentCount++;
       } catch (err) {
         console.error(`[SSE] Error enviando a ${clientId}:`, err.message);

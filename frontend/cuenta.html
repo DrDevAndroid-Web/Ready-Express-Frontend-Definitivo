@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>Mi cuenta | Ready Express Now</title>
+  <meta name="robots" content="noindex">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="./css/styles.css?v26">
+  <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
+  <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
+</head>
+<body class="auth-page account-page">
+  <a href="#main" class="skip-link">Ir al contenido principal</a>
+  <header class="auth-header">
+    <div class="auth-header-inner">
+      <a class="auth-brand" href="./index.html"><img src="./images/logo-100.webp" alt="" width="36" height="36">Ready Express Now</a>
+      <a class="auth-back" href="./index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Tienda</a>
+    </div>
+  </header>
+
+  <main class="account-main" id="main">
+    <!-- Sin sesión -->
+    <section class="auth-card auth-card--center" id="auth-required" aria-labelledby="auth-required-title" hidden>
+      <div class="status-icon" aria-hidden="true"><i class="fa-solid fa-user"></i></div>
+      <h1 id="auth-required-title">Accede a tu cuenta</h1>
+      <p class="auth-lead" id="auth-required-text">Inicia sesión para ver tus pedidos, pagos y comprobantes, y guardar las direcciones de tu familia.</p>
+      <div class="auth-actions">
+        <a class="auth-btn" href="./login-v25.html?return=account">Iniciar sesión</a>
+        <a class="auth-btn auth-btn--secondary" href="./registro-v25.html">Crear una cuenta</a>
+      </div>
+    </section>
+
+    <!-- Con sesión -->
+    <div id="account-content" hidden>
+      <section class="account-hero" aria-labelledby="account-title">
+        <div class="account-avatar" id="account-avatar" aria-hidden="true"></div>
+        <div class="account-hero-text">
+          <h1 id="account-title">Mi cuenta</h1>
+          <p id="account-email" class="account-email"></p>
+        </div>
+        <button type="button" class="account-logout" id="logout"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Cerrar sesión</button>
+      </section>
+
+      <nav class="account-tabs" role="tablist" aria-label="Secciones de mi cuenta">
+        <button type="button" role="tab" id="tab-pedidos" aria-controls="panel-pedidos" aria-selected="true"><i class="fa-solid fa-box" aria-hidden="true"></i>Pedidos</button>
+        <button type="button" role="tab" id="tab-direcciones" aria-controls="panel-direcciones" aria-selected="false" tabindex="-1"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Direcciones</button>
+        <button type="button" role="tab" id="tab-perfil" aria-controls="panel-perfil" aria-selected="false" tabindex="-1"><i class="fa-solid fa-user-pen" aria-hidden="true"></i>Perfil</button>
+      </nav>
+
+      <!-- Pedidos -->
+      <section class="account-panel" role="tabpanel" id="panel-pedidos" aria-labelledby="tab-pedidos" tabindex="0">
+        <div class="account-panel-head">
+          <h2>Mis pedidos</h2>
+          <p>Estado del pago y de la entrega de cada envío.</p>
+        </div>
+        <div id="orders" aria-live="polite" aria-busy="true">
+          <div class="account-skeleton" aria-hidden="true"></div>
+          <div class="account-skeleton" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <!-- Direcciones -->
+      <section class="account-panel" role="tabpanel" id="panel-direcciones" aria-labelledby="tab-direcciones" tabindex="0" hidden>
+        <div class="account-panel-head account-panel-head--row">
+          <div>
+            <h2>Direcciones de entrega</h2>
+            <p>Guarda a quién le envías en Cuba para agilizar tus pedidos.</p>
+          </div>
+          <button type="button" class="auth-btn account-add-btn" id="add-address" aria-expanded="false" aria-controls="address-editor"><i class="fa-solid fa-plus" aria-hidden="true"></i>Añadir</button>
+        </div>
+
+        <div class="account-editor" id="address-editor" hidden>
+          <h3 id="address-editor-title">Nueva dirección</h3>
+          <form id="address-form" class="auth-form" novalidate aria-labelledby="address-editor-title">
+            <input type="hidden" name="id">
+            <div class="auth-field"><label for="alias">Alias<span class="auth-required" aria-hidden="true">*</span></label><input id="alias" name="alias" placeholder="Ej.: Casa de mamá" required></div>
+            <div class="auth-field"><label for="direccion">Dirección completa<span class="auth-required" aria-hidden="true">*</span></label><input id="direccion" name="direccion" autocomplete="street-address" placeholder="Calle, número, entre calles, reparto" required></div>
+            <div class="auth-row">
+              <div class="auth-field"><label for="provincia">Provincia</label><input id="provincia" name="provincia" value="Guantánamo"></div>
+              <div class="auth-field"><label for="municipio">Municipio</label><input id="municipio" name="municipio" value="Guantánamo"></div>
+            </div>
+            <div class="auth-row">
+              <div class="auth-field"><label for="telefono_contacto">Teléfono de contacto</label><input id="telefono_contacto" name="telefono_contacto" type="tel" inputmode="tel" placeholder="+53 5XXX XXXX"></div>
+              <div class="auth-field"><label for="referencia">Referencia</label><input id="referencia" name="referencia" placeholder="Ej.: frente al parque"></div>
+            </div>
+            <label class="account-check" for="es_predeterminada"><input type="checkbox" id="es_predeterminada" name="es_predeterminada"><span>Usar como dirección predeterminada</span></label>
+            <p id="address-message" class="auth-msg" role="alert"></p>
+            <div class="account-form-actions">
+              <button type="button" class="auth-btn auth-btn--secondary" id="cancel-address">Cancelar</button>
+              <button type="submit" class="auth-btn">Guardar dirección</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="addresses" aria-live="polite" aria-busy="true">
+          <div class="account-skeleton account-skeleton--short" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <!-- Perfil -->
+      <section class="account-panel" role="tabpanel" id="panel-perfil" aria-labelledby="tab-perfil" tabindex="0" hidden>
+        <div class="account-panel-head">
+          <h2>Datos personales</h2>
+          <p>Los usamos para prellenar el checkout como remitente.</p>
+        </div>
+        <form id="profile-form" class="auth-form account-card" novalidate>
+          <div class="auth-row">
+            <div class="auth-field"><label for="nombre">Nombre<span class="auth-required" aria-hidden="true">*</span></label><input id="nombre" name="nombre" autocomplete="given-name" required></div>
+            <div class="auth-field"><label for="apellidos">Apellidos<span class="auth-required" aria-hidden="true">*</span></label><input id="apellidos" name="apellidos" autocomplete="family-name" required></div>
+          </div>
+          <div class="auth-field"><label for="telefono">Teléfono / WhatsApp<span class="auth-required" aria-hidden="true">*</span></label><input id="telefono" name="telefono" type="tel" inputmode="tel" autocomplete="tel" required></div>
+          <div class="auth-field"><label for="profile-email">Email</label><input id="profile-email" type="email" readonly aria-describedby="profile-email-hint"><small id="profile-email-hint" class="auth-hint">El email es tu usuario de acceso y no se puede cambiar aquí.</small></div>
+          <p id="profile-message" class="auth-msg" role="alert"></p>
+          <button type="submit" class="auth-btn">Guardar cambios</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <div class="account-toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="./js/account.js?v26"></script>
+</body>
+</html>

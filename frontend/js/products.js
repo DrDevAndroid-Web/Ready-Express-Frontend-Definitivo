@@ -1,7 +1,17 @@
-import { getProductos, getInfo, getCombos, getElectrodomesticos } from "./api.js?v21";
-import { addItem } from "./cart.js?v23";
+import { getCatalog, getInfo } from "./api.js?v26";
+import { addItem } from "./cart.js?v26";
 
 const CONTACT_WHATSAPP = "5356189395";
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[character]));
+}
 
 const ICON_MAP = {
   // Combos
@@ -33,16 +43,16 @@ function getIcon(cat = "") {
 
 function parseDetalles(val) {
   if (!val) return "";
-  if (typeof val === "string") return val;
-  if (Array.isArray(val)) return val.join(" • ");
+  if (typeof val === "string") return escapeHtml(val);
+  if (Array.isArray(val)) return val.map(escapeHtml).join(" • ");
   if (typeof val === "object") {
     const items = Object.entries(val)
       .filter(([_, v]) => v)
-      .map(([k, v]) => `<li>${k} ${v}</li>`)
+      .map(([k, v]) => `<li>${escapeHtml(k)} ${escapeHtml(v)}</li>`)
       .join("");
     return items ? `<ul class="product-details-list">${items}</ul>` : "";
   }
-  return String(val);
+  return escapeHtml(String(val));
 }
 
 function parseComponentQuantity(value) {
@@ -77,7 +87,7 @@ function normalize(item, defaultCategory) {
     ? items.map(i => {
         const nombre = i.nombre || i.name || i.item || "";
         const cantidad = i.cantidad || i.qty || i.quantity || 1;
-        return `${cantidad}x ${nombre}`;
+        return escapeHtml(`${cantidad}x ${nombre}`);
       }).join(", ")
     : "";
 
@@ -111,17 +121,17 @@ function renderSkeleton(count = 6) {
 }
 
 function renderCard(product) {
-  const dataAttr = JSON.stringify(product).replace(/"/g, "&quot;");
+  const dataAttr = escapeHtml(JSON.stringify(product));
   const priceDisplay = product.precio > 0 ? `$${product.precio.toFixed(2)}` : "Consultar precio";
   return `
     <div class="product-card">
       <div class="product-img">
         ${product.imagen
-          ? `<img src="${product.imagen}" alt="${product.nombre}" loading="lazy">`
+          ? `<img src="${escapeHtml(product.imagen)}" alt="${escapeHtml(product.nombre)}" loading="lazy">`
           : `<div class="img-placeholder"><span>📦</span><small>Imagen próximamente</small></div>`}
       </div>
       <div class="product-info">
-        <h3 class="product-name">${product.nombre}</h3>
+        <h3 class="product-name">${escapeHtml(product.nombre)}</h3>
         ${product.descripcion ? `<div class="product-desc">${product.descripcion}</div>` : ""}
         <p class="product-price">${priceDisplay}</p>
         <div class="card-actions">
@@ -130,14 +140,14 @@ function renderCard(product) {
             <span class="qty-display">1</span>
             <button class="qty-btn-card" onclick="window.changeQty(this,1)" aria-label="Aumentar cantidad">+</button>
           </div>
-          <button class="add-btn" onclick="window.addToCart(${dataAttr},this)">Agregar</button>
+          <button class="add-btn" aria-label="Agregar ${escapeHtml(product.nombre || "producto")} al carrito" onclick="window.addToCart(${dataAttr},this)">Agregar</button>
         </div>
       </div>
     </div>`;
 }
 
 /* ════════ Combos section ════════ */
-async function loadCombos() {
+async function loadCombos(source = null) {
   const grid = document.getElementById("combos-grid");
   const errorEl = document.getElementById("combos-error");
   if (!grid) return;
@@ -146,9 +156,8 @@ async function loadCombos() {
   grid.innerHTML = renderSkeleton(4);
 
   try {
-    const raw = await getCombos();
-    const data = raw?.data ?? raw ?? [];
-    const items = data.map((i) => normalize(i, "Combos")).filter((i) => i.disponible);
+    const data = Array.isArray(source) ? source : [];
+    const items = data.map((i) => ({ ...normalize(i, "Combos"), source: "combo" })).filter((i) => i.disponible);
 
     if (!items.length) {
       grid.innerHTML = `<div class="empty-state"><span>🍱</span><p>No hay combos disponibles en este momento</p></div>`;
@@ -266,8 +275,8 @@ function buildTabs(cats) {
   if (!tabsEl || !cats.length) return;
 
   tabsEl.innerHTML = cats.map((cat, i) =>
-    `<button class="tab-btn${i === 0 ? " active" : ""}" data-category="${cat}">
-      ${getIcon(cat)} ${cat}
+    `<button class="tab-btn${i === 0 ? " active" : ""}" data-category="${escapeHtml(cat)}">
+      ${getIcon(cat)} ${escapeHtml(cat)}
     </button>`
   ).join("");
 
@@ -287,7 +296,7 @@ function buildTabs(cats) {
   });
 }
 
-async function loadProducts() {
+async function loadProducts(source = null) {
   const grid = document.getElementById("products-grid");
   const errorEl = document.getElementById("products-error");
   if (!grid) return;
@@ -296,9 +305,8 @@ async function loadProducts() {
   grid.innerHTML = renderSkeleton(6);
 
   try {
-    const raw = await getProductos();
-    const data = raw?.data ?? raw ?? [];
-    const items = data.map((i) => normalize(i)).filter((i) => i.disponible);
+    const data = Array.isArray(source) ? source : [];
+    const items = data.map((i) => ({ ...normalize(i), source: "producto" })).filter((i) => i.disponible);
 
     if (!items.length) {
       grid.innerHTML = `<div class="empty-state"><span>🛒</span><p>No hay productos disponibles en este momento</p></div>`;
@@ -341,7 +349,7 @@ async function loadInfoBanner() {
       if (info.anuncio || info.announcement) parts.push(`📢 ${info.anuncio || info.announcement}`);
       if (info.direccion || info.address) parts.push(`📍 ${info.direccion || info.address}`);
       if (parts.length) {
-        banner.innerHTML = parts.map((p) => `<span class="info-item">${p}</span>`).join("");
+        banner.innerHTML = parts.map((p) => `<span class="info-item">${escapeHtml(p)}</span>`).join("");
         banner.style.display = "flex";
       }
     }
@@ -359,7 +367,7 @@ async function loadInfoBanner() {
 }
 
 /* ════════ Productos Varios (Electrodomesticos) section ════════ */
-async function loadElectro() {
+async function loadElectro(source = null) {
   const grid = document.getElementById("electro-grid");
   const errorEl = document.getElementById("electro-error");
   if (!grid) return;
@@ -368,12 +376,12 @@ async function loadElectro() {
   grid.innerHTML = renderSkeleton(4);
 
   try {
-    const raw = await getElectrodomesticos();
-    const data = raw?.data ?? raw ?? [];
+    const data = Array.isArray(source) ? source : [];
     const items = data
       .filter((i) => i.disponible !== false)
       .map((i) => ({
         id: i.id,
+        source: "electro",
         category: "Productos Varios",
         nombre: [i.item, i.tipo].filter(Boolean).join(" — "),
         precio: parseFloat(i.precio || 0),
@@ -398,9 +406,31 @@ async function loadElectro() {
 
 export function initProducts() {
   loadInfoBanner();
-  loadCombos();
-  loadProducts();
-  loadElectro();
+  loadCatalog();
+}
+
+async function loadCatalog() {
+  try {
+    const raw = await getCatalog();
+    const catalog = raw?.data ?? raw ?? {};
+    await Promise.all([
+      loadCombos(catalog.combos),
+      loadProducts(catalog.productos),
+      loadElectro(catalog.electrodomesticos)
+    ]);
+  } catch {
+    ["combos-error", "products-error", "electro-error"].forEach(id => {
+      const node = document.getElementById(id);
+      if (node) {
+        node.style.display = "block";
+        node.textContent = "⚠️ No pudimos cargar el catálogo. Intenta nuevamente en unos momentos.";
+      }
+    });
+    ["combos-grid", "products-grid", "electro-grid"].forEach(id => {
+      const node = document.getElementById(id);
+      if (node) node.innerHTML = "";
+    });
+  }
 }
 
 /* ════════ Global helpers for inline onclick ════════ */

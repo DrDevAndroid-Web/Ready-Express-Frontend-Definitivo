@@ -123,3 +123,41 @@ describe("PATCH /api/payments/:id/verify", () => {
     assert.equal(res.status, 401);
   });
 });
+
+describe("POST /api/payments/upload — requiere ser dueño de la orden", () => {
+  it("rechaza un comprobante sin checkout_token ni sesión", async () => {
+    const form = new FormData();
+    form.append("image", new Blob([Buffer.from([0xff, 0xd8, 0xff, 0xe0])], { type: "image/jpeg" }), "c.jpg");
+    form.set("order_id", "orden-abc");
+    form.set("method", "Zelle");
+    form.set("amount", "65");
+    const res = await fetch(`${baseUrl}/api/payments/upload`, { method: "POST", body: form });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /checkout_token/i);
+  });
+});
+
+describe("proofMethodNames — métodos que aceptan comprobante", async () => {
+  const { proofMethodNames } = await import("../modules/payments/payments.service.js");
+
+  it("usa los métodos activos de la tabla, incluidos los nuevos", () => {
+    assert.deepEqual(proofMethodNames([
+      { method_name: "Zelle", is_active: true },
+      { method_name: "Bizum", is_active: true, payment_flow: "proof_upload" }
+    ]), ["Zelle", "Bizum"]);
+  });
+
+  it("excluye TropiPay, métodos asistidos e inactivos", () => {
+    assert.deepEqual(proofMethodNames([
+      { method_name: "TropiPay", is_active: true },
+      { method_name: "Transferencia México", is_active: true, payment_flow: "assisted" },
+      { method_name: "Viejo", is_active: false },
+      { method_name: "Zelle", is_active: true }
+    ]), ["Zelle"]);
+  });
+
+  it("sin datos usa los predeterminados", () => {
+    assert.deepEqual(proofMethodNames([]), ["Zelle", "TocoPay"]);
+  });
+});

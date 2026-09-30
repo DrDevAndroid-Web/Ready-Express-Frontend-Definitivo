@@ -1,9 +1,24 @@
 import * as service from "./products.service.js";
-import { sendError } from "../../utils/http-error.js";
+import { createBadRequest, sendError } from "../../utils/http-error.js";
+import { getCached, invalidateCache, PUBLIC_CACHE_KEYS, sendPublicJson } from "../../utils/public-cache.js";
+
+function parseDetails(value) {
+  if (value === undefined || value === null || value === "") return {};
+  if (typeof value === "object") return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+      throw new Error("detalles debe ser un objeto JSON");
+    }
+    return parsed;
+  } catch {
+    throw createBadRequest("El campo detalles debe contener un JSON valido");
+  }
+}
 
 export async function createFoodCombo(req, res) {
   try {
-    const detalles = JSON.parse(req.body.detalles || "{}");
+    const detalles = parseDetails(req.body.detalles);
     const combo = {
       nombre: req.body.nombre,
       precio: req.body.precio,
@@ -12,6 +27,7 @@ export async function createFoodCombo(req, res) {
     };
 
     const result = await service.createFoodCombo(combo, req.file);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.foodCombos);
     res.status(201).json(result);
   } catch (err) {
     sendError(res, err);
@@ -20,9 +36,13 @@ export async function createFoodCombo(req, res) {
 
 export async function getFoodCombos(req, res) {
   try {
-    const { data, error } = await service.getFoodCombos();
+    const { data, error } = await getCached(PUBLIC_CACHE_KEYS.foodCombos, async () => {
+      const result = await service.getFoodCombos();
+      if (result.error) throw result.error;
+      return result;
+    }, 60_000);
     if (error) throw error;
-    res.json(data);
+    sendPublicJson(req, res, data || [], { maxAge: 60, staleWhileRevalidate: 300 });
   } catch (err) {
     sendError(res, err);
   }
@@ -31,6 +51,7 @@ export async function getFoodCombos(req, res) {
 export async function deleteFoodCombo(req, res) {
   try {
     const result = await service.deleteFoodCombo(req.params.id);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.foodCombos);
     res.json(result);
   } catch (err) {
     sendError(res, err);
@@ -39,7 +60,7 @@ export async function deleteFoodCombo(req, res) {
 
 export async function updateFoodCombo(req, res) {
   try {
-    const detalles = JSON.parse(req.body.detalles || "{}");
+    const detalles = parseDetails(req.body.detalles);
     const combo = {
       nombre: req.body.nombre,
       precio: req.body.precio,
@@ -49,6 +70,7 @@ export async function updateFoodCombo(req, res) {
     };
 
     const result = await service.updateFoodCombo(req.params.id, combo, req.file);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.foodCombos);
     res.json(result);
   } catch (err) {
     sendError(res, err);
@@ -68,6 +90,7 @@ export async function createProducto(req, res) {
     };
 
     const result = await service.createProducto(producto, req.file);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.products);
     res.status(201).json(result);
   } catch (err) {
     sendError(res, err);
@@ -76,9 +99,13 @@ export async function createProducto(req, res) {
 
 export async function getProductos(req, res) {
   try {
-    const { data, error } = await service.getProductos();
+    const { data, error } = await getCached(PUBLIC_CACHE_KEYS.products, async () => {
+      const result = await service.getProductos();
+      if (result.error) throw result.error;
+      return result;
+    }, 60_000);
     if (error) throw error;
-    res.json(data ?? []);
+    sendPublicJson(req, res, data ?? [], { maxAge: 60, staleWhileRevalidate: 300 });
   } catch (err) {
     sendError(res, err);
   }
@@ -87,6 +114,7 @@ export async function getProductos(req, res) {
 export async function deleteProducto(req, res) {
   try {
     const result = await service.deleteProducto(req.params.id);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.products);
     res.json(result);
   } catch (err) {
     sendError(res, err);
@@ -107,6 +135,7 @@ export async function updateProducto(req, res) {
     };
 
     const result = await service.updateProducto(req.params.id, producto, req.file);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.products);
     res.json(result);
   } catch (err) {
     sendError(res, err);
@@ -123,6 +152,7 @@ export async function createElectro(req, res) {
     };
 
     const result = await service.createElectrodomestico(electrodomestico, req.file);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.appliances);
     res.status(201).json(result);
   } catch (err) {
     sendError(res, err);
@@ -131,9 +161,22 @@ export async function createElectro(req, res) {
 
 export async function getElectro(req, res) {
   try {
-    const { data, error } = await service.getElectrodomesticos();
+    const { data, error } = await getCached(PUBLIC_CACHE_KEYS.appliances, async () => {
+      const result = await service.getElectrodomesticos();
+      if (result.error) throw result.error;
+      return result;
+    }, 60_000);
     if (error) throw error;
-    res.json(data ?? []);
+    sendPublicJson(req, res, data ?? [], { maxAge: 60, staleWhileRevalidate: 300 });
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function getCatalog(req, res) {
+  try {
+    const catalog = await getCached(PUBLIC_CACHE_KEYS.catalog, service.getPublicCatalog, 60_000);
+    sendPublicJson(req, res, catalog, { maxAge: 60, staleWhileRevalidate: 300 });
   } catch (err) {
     sendError(res, err);
   }
@@ -142,6 +185,7 @@ export async function getElectro(req, res) {
 export async function deleteElectro(req, res) {
   try {
     const result = await service.deleteElectrodomestico(req.params.id);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.appliances);
     res.json(result);
   } catch (err) {
     sendError(res, err);
@@ -159,6 +203,7 @@ export async function updateElectro(req, res) {
     };
 
     const result = await service.updateElectrodomestico(req.params.id, electrodomestico, req.file);
+    invalidateCache(PUBLIC_CACHE_KEYS.catalog, PUBLIC_CACHE_KEYS.appliances);
     res.json(result);
   } catch (err) {
     sendError(res, err);
@@ -167,9 +212,13 @@ export async function updateElectro(req, res) {
 
 export async function getInfo(req, res) {
   try {
-    const { data, error } = await service.getInfo();
+    const { data, error } = await getCached(PUBLIC_CACHE_KEYS.info, async () => {
+      const result = await service.getInfo();
+      if (result.error) throw result.error;
+      return result;
+    }, 300_000);
     if (error) throw error;
-    res.json(data ?? []);
+    sendPublicJson(req, res, data ?? [], { maxAge: 300, staleWhileRevalidate: 600 });
   } catch (err) {
     sendError(res, err);
   }

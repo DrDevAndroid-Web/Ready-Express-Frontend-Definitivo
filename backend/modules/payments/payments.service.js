@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto, { randomUUID } from "crypto";
 import { compressImage } from "../../utils/image.js";
 import { uploadImage } from "../storage/storage.service.js";
 import { assertSupabaseServiceRole, supabase, supabaseKeyInfo } from "../../config/supabase.js";
@@ -6,27 +6,70 @@ import { sendPrintableOrderEmail } from "../email/resend.js";
 import { notifyPaymentReceived, notifyPaymentApproved, notifyPaymentRejected } from "../telegram/telegram.service.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
+import { assertOrderAccess } from "../orders/orders.service.js";
 
-const PAYMENT_METHODS = new Set(["Zelle", "TocoPay"]);
+// Estados en los que la orden acepta un comprobante (reintento tras un rechazo incluido)
+const ORDER_STATUSES_ACCEPTING_PROOF = ["pending", "payment_rejected"];
 
-export async function processPayment(file, orderId, method, expectedAmount) {
+// Métodos con subida de comprobante: los activos en la tabla payment_methods (el admin
+// puede crear nuevos desde el dashboard). Si la tabla no responde, se usan los históricos.
+const DEFAULT_PROOF_METHODS = ["Zelle", "TocoPay"];
+const PROOF_METHODS_TTL_MS = 60_000;
+let proofMethodsCache = { names: null, loadedAt: 0 };
+
+export function proofMethodNames(rows) {
+  const names = (rows || [])
+    .filter(row => row?.is_active !== false)
+    .filter(row => {
+      const flow = row?.payment_flow || "proof_upload";
+      return flow === "proof_upload" && !String(row?.method_name || "").toLowerCase().includes("tropipay");
+    })
+    .map(row => String(row.method_name || "").trim())
+    .filter(Boolean);
+  return names.length ? names : DEFAULT_PROOF_METHODS;
+}
+
+async function getAcceptedProofMethods() {
+  if (proofMethodsCache.names && Date.now() - proofMethodsCache.loadedAt < PROOF_METHODS_TTL_MS) return proofMethodsCache.names;
+  try {
+    const { data, error } = await supabase.from("payment_methods").select("*").eq("is_active", true);
+    if (error) throw error;
+    proofMethodsCache = { names: proofMethodNames(data), loadedAt: Date.now() };
+  } catch (err) {
+    console.error("[payments] No se pudieron cargar los métodos de pago; se usan los predeterminados:", err.message);
+    // También se cachea el fallo para no repetir una consulta lenta en cada subida
+    proofMethodsCache = { names: proofMethodsCache.names || DEFAULT_PROOF_METHODS, loadedAt: Date.now() };
+  }
+  return proofMethodsCache.names;
+}
+
+export async function processPayment(file, orderId, method, expectedAmount, access = {}) {
   if (!file?.buffer) throw createBadRequest("Debes adjuntar una imagen del comprobante");
   if (!orderId) throw createBadRequest("La orden es requerida");
 
   // Normalizar método (trim y validar)
   const normalizedMethod = method?.trim();
-  console.log("[payments:debug]", { method, normalizedMethod, valid: PAYMENT_METHODS.has(normalizedMethod) });
 
-  if (!normalizedMethod || !PAYMENT_METHODS.has(normalizedMethod)) {
-    throw createBadRequest(`Metodo de pago no valido. Metodos soportados: ${Array.from(PAYMENT_METHODS).join(", ")}`);
+  const acceptedMethods = await getAcceptedProofMethods();
+  const canonicalMethod = acceptedMethods.find(name => name.toLowerCase() === String(normalizedMethod || "").toLowerCase());
+  if (!canonicalMethod) {
+    throw createBadRequest(`Metodo de pago no valido. Metodos soportados: ${acceptedMethods.join(", ")}`);
   }
 
   if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
     throw createBadRequest("El monto del pago debe ser un numero mayor que cero");
   }
 
+  if (!access.checkoutToken && !access.customerId && !access.isAdmin) {
+    throw createBadRequest("Falta el codigo de tu pedido (checkout_token). Abre el pago desde el mismo navegador donde creaste el pedido.");
+  }
+
   const order = await getOrderByIdSafe(orderId);
-  if (!order) throw createNotFound("La orden indicada no existe");
+  // 404 también cuando no es tuyo, para no revelar qué órdenes existen
+  assertOrderAccess(order, access);
+  if (!ORDER_STATUSES_ACCEPTING_PROOF.includes(order.status)) {
+    throw createConflict("Esta orden ya no admite comprobantes: ya fue pagada, cancelada o esta en revision");
+  }
 
   const orderTotal = Number(order.total);
   if (!Number.isFinite(orderTotal) || Math.abs(orderTotal - expectedAmount) > 0.01) {
@@ -53,7 +96,8 @@ export async function processPayment(file, orderId, method, expectedAmount) {
   }
 
   // 4. Subir imagen a Supabase Storage
-  const path = await uploadImage(compressed, `${Date.now()}.jpg`);
+  // Nombre aleatorio: los comprobantes no deben poder adivinarse
+  const path = await uploadImage(compressed, `${randomUUID()}.jpg`);
 
   // 5 + 6. Insertar pago y actualizar orden en paralelo
   const [paymentResult, orderResult] = await Promise.all([
@@ -61,7 +105,7 @@ export async function processPayment(file, orderId, method, expectedAmount) {
       .from("payments")
       .insert({
         order_id: orderId,
-        method: normalizedMethod,
+        method: canonicalMethod,
         amount: expectedAmount,
         image_url: path,
         image_hash: hash,
@@ -73,6 +117,7 @@ export async function processPayment(file, orderId, method, expectedAmount) {
       .from("orders")
       .update({ status: "payment_review" })
       .eq("id", orderId)
+      .in("status", ORDER_STATUSES_ACCEPTING_PROOF)
   ]);
 
   throwIfSupabaseError(paymentResult.error, "No se pudo registrar el pago");
@@ -86,7 +131,7 @@ export async function processPayment(file, orderId, method, expectedAmount) {
       order_id: paymentResult.data.order_id,
       method: paymentResult.data.method,
       amount: paymentResult.data.amount,
-      image_url: paymentResult.data.image_url,
+      image_url: await getPaymentImageUrl(paymentResult.data.image_url),
       created_at: paymentResult.data.created_at,
       sender_name: order.sender_name || order.customer_name
     };
@@ -135,10 +180,7 @@ export async function getPendingPayments() {
 
   throwIfSupabaseError(error, "No se pudieron cargar los pagos pendientes");
   await logPaymentDiagnosticsIfEmpty("pending_review", data);
-  return (data ?? []).map(payment => ({
-    ...payment,
-    image_url: getPaymentImageUrl(payment.image_url)
-  }));
+  return withSignedPaymentImages(data);
 }
 
 export async function getApprovedPayments() {
@@ -174,21 +216,44 @@ export async function getApprovedPayments() {
 
   throwIfSupabaseError(error, "No se pudieron cargar los pagos aprobados");
   await logPaymentDiagnosticsIfEmpty("approved", data);
-  return (data ?? []).map(payment => ({
-    ...payment,
-    image_url: getPaymentImageUrl(payment.image_url)
-  }));
+  return withSignedPaymentImages(data);
 }
 
-export function getPaymentImageUrl(imageUrl) {
+const PAYMENTS_BUCKET = "payments";
+const PAYMENT_IMAGE_URL_TTL_SECONDS = 60 * 60;
+
+// Ruta dentro del bucket. Las filas antiguas guardaban la URL pública completa
+// (.../object/public/payments/<archivo>), que deja de funcionar con el bucket privado.
+export function paymentImagePath(imageUrl) {
   if (!imageUrl) return null;
-  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+  const value = String(imageUrl);
+  if (!/^https?:\/\//i.test(value)) return value.replace(/^\/+/, "");
+  const match = value.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/payments\/([^?#]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
-  const { data } = supabase.storage
-    .from("payments")
-    .getPublicUrl(imageUrl);
+// URL firmada de 1 hora; una URL externa que no es del bucket se devuelve tal cual
+export async function getPaymentImageUrl(imageUrl) {
+  if (!imageUrl) return null;
+  const path = paymentImagePath(imageUrl);
+  if (!path) return /^https?:\/\//i.test(String(imageUrl)) ? imageUrl : null;
 
-  return data.publicUrl;
+  const { data, error } = await supabase.storage
+    .from(PAYMENTS_BUCKET)
+    .createSignedUrl(path, PAYMENT_IMAGE_URL_TTL_SECONDS);
+
+  if (error) {
+    console.error("[payments] No se pudo firmar la imagen del comprobante:", error.message);
+    return null;
+  }
+  return data?.signedUrl || null;
+}
+
+async function withSignedPaymentImages(payments) {
+  return Promise.all((payments ?? []).map(async payment => ({
+    ...payment,
+    image_url: await getPaymentImageUrl(payment.image_url)
+  })));
 }
 
 async function logPaymentDiagnosticsIfEmpty(status, data) {
@@ -230,36 +295,47 @@ export async function verifyPayment(paymentId, action) {
   const validationStatus = action === "approve" ? "approved" : "rejected";
   const orderStatus = action === "approve" ? "paid" : "payment_rejected";
 
-  const { data: currentPayment, error: currentError } = await supabase
-    .from("payments")
-    .select("order_id, validation_status")
-    .eq("id", paymentId)
-    .single();
+  // Transiciones permitidas: un pago aprobado ya se imprimió y no puede volver atrás.
+  // Un rechazo por error sí puede aprobarse después.
+  const allowedFrom = action === "approve" ? "pending_review,rejected" : "pending_review";
 
-  throwIfSupabaseError(currentError, "No se pudo cargar el pago");
-  if (!currentPayment?.order_id) throw createNotFound("No se encontro la orden asociada al pago");
-
-  if (currentPayment.validation_status === validationStatus) {
-    return {
-      status: validationStatus,
-      message: action === "approve"
-        ? "El pago ya estaba aprobado; no se envio otra impresion"
-        : "El pago ya estaba rechazado",
-      printEmailSent: false,
-      printEmailError: null
-    };
-  }
-
-  // 1. Actualizar pago
-  const { data: payment, error } = await supabase
+  // 1. Actualizar pago de forma condicional: si dos admins aprueban a la vez,
+  //    solo una actualización coincide y solo esa envía la impresión.
+  const { data: updated, error } = await supabase
     .from("payments")
     .update({ validation_status: validationStatus })
     .eq("id", paymentId)
-    .select("order_id")
-    .single();
+    .or(`validation_status.is.null,validation_status.in.(${allowedFrom})`)
+    .select("order_id");
 
   throwIfSupabaseError(error, "No se pudo actualizar el pago");
-  if (!payment?.order_id) throw createNotFound("No se encontro la orden asociada al pago");
+  const payment = updated?.[0];
+
+  if (!payment) {
+    const { data: currentPayment, error: currentError } = await supabase
+      .from("payments")
+      .select("order_id, validation_status")
+      .eq("id", paymentId)
+      .maybeSingle();
+
+    throwIfSupabaseError(currentError, "No se pudo cargar el pago");
+    if (!currentPayment) throw createNotFound("Pago no encontrado");
+
+    if (currentPayment.validation_status === validationStatus) {
+      return {
+        status: validationStatus,
+        message: action === "approve"
+          ? "El pago ya estaba aprobado; no se envio otra impresion"
+          : "El pago ya estaba rechazado",
+        printEmailSent: false,
+        printEmailError: null
+      };
+    }
+
+    throw createConflict("El pago ya fue aprobado y enviado a imprimir; no se puede rechazar");
+  }
+
+  if (!payment.order_id) throw createNotFound("No se encontro la orden asociada al pago");
 
   // 2. Actualizar orden
   const { error: orderError } = await supabase
@@ -315,7 +391,7 @@ async function getOrderById(orderId) {
 async function getOrderByIdSafe(orderId) {
   const { data, error } = await supabase
     .from("orders")
-    .select("id,total,status,customer_name,sender_name")
+    .select("id,total,status,customer_name,sender_name,checkout_token,customer_id")
     .eq("id", orderId)
     .maybeSingle();
 

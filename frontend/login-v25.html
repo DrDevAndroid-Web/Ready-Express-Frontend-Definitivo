@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>Iniciar sesión | Ready Express Now</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="./css/styles.css?v26">
+  <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
+  <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
+</head>
+<body class="auth-page">
+  <header class="auth-header">
+    <div class="auth-header-inner">
+      <a class="auth-brand" href="./index.html"><img src="./images/logo-100.webp" alt="" width="36" height="36">Ready Express Now</a>
+      <a class="auth-back" href="./index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Tienda</a>
+    </div>
+  </header>
+  <main class="auth-main" id="main">
+    <section class="auth-card" aria-labelledby="page-title">
+      <h1 id="page-title">Iniciar sesión</h1>
+      <p class="auth-lead">Accede para ver tus pedidos y guardar tus direcciones.</p>
+      <form id="form" class="auth-form" novalidate>
+        <div class="auth-field">
+          <label for="email">Email<span class="auth-required" aria-hidden="true">*</span></label>
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required>
+        </div>
+        <div class="auth-field">
+          <label for="password">Contraseña<span class="auth-required" aria-hidden="true">*</span></label>
+          <div class="auth-password">
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button type="button" class="auth-password-toggle" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <p id="error" class="auth-msg" role="alert"></p>
+        <button type="submit" class="auth-btn">Entrar</button>
+      </form>
+      <nav class="auth-links" aria-label="Opciones de cuenta">
+        <a href="./recuperar-password.html">¿Olvidaste tu contraseña?</a>
+        <a href="./registro-v25.html">¿No tienes cuenta? Regístrate</a>
+      </nav>
+    </section>
+  <script type="module">
+    import { loginCustomer } from './js/auth.js?v26';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v26';
+    bindPasswordToggles();
+    const form = document.querySelector('#form');
+    const error = document.querySelector('#error');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!focusFirstInvalid(form)) return showMessage(error, 'Introduce tu email y contraseña.', 'error');
+      const button = form.querySelector('[type=submit]');
+      const data = Object.fromEntries(new FormData(form));
+      showMessage(error, '');
+      setLoading(button, true, 'Entrando...');
+      try {
+        await loginCustomer(data.email, data.password);
+        if (new URLSearchParams(location.search).get('return') !== 'checkout') location.href = './cuenta.html';
+      } catch (err) {
+        showMessage(error, err.message, 'error');
+        setLoading(button, false);
+      }
+    });
+  </script>
+  </main>
+</body>
+</html>

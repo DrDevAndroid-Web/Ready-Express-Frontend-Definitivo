@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Finalizar pedido | Ready Express Now</title>
+  <link rel="stylesheet" href="./css/styles.css?v26">
+  <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
+  <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
+  <style>
+    .checkout-page-shell { max-width: 920px; margin: 0 auto; padding: 32px 18px 64px; }
+    .checkout-page-header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; }
+    .checkout-page-header a { color:var(--navy); font-weight:700; text-decoration:none; }
+    .checkout-page-card { background:var(--white); border:1px solid var(--border); border-radius:18px; box-shadow:0 12px 40px rgba(12,35,64,.08); overflow:hidden; }
+    .checkout-page-card .modal-body { padding:24px; }
+    .checkout-page-card .checkout-stepper { padding:0 0 22px; }
+    .checkout-page-shell .checkout-mini-summary { margin:0 24px 8px; }
+    .checkout-page-shell .checkout-actions { display:flex; gap:12px; }
+    .checkout-page-shell .checkout-actions button { min-height:48px; }
+    .checkout-empty { text-align:center; padding:64px 24px; }
+    .checkout-empty a { color:var(--navy); font-weight:700; }
+    @media (max-width:640px) { .checkout-page-shell { padding:16px 12px 40px; } .checkout-page-header h1 { font-size:1.35rem; } .checkout-page-card .modal-body { padding:16px; } }
+  </style>
+</head>
+<body data-checkout-page="true">
+  <main id="checkout-page-main" class="checkout-page-shell">
+    <header class="checkout-page-header">
+      <a href="./index.html">← Volver a la tienda</a>
+      <h1>Finalizar pedido</h1>
+    </header>
+
+    <section class="checkout-page-card" aria-labelledby="checkout-title">
+      <div class="checkout-stepper" id="checkout-stepper">
+        <div class="checkout-stepper-item active" data-step="1"><div class="stepper-dot">1</div><span class="stepper-label">Quién recibe</span></div>
+        <div class="stepper-line"></div>
+        <div class="checkout-stepper-item" data-step="2"><div class="stepper-dot">2</div><span class="stepper-label">Pago</span></div>
+        <div class="stepper-line"></div>
+        <div class="checkout-stepper-item" data-step="3"><div class="stepper-dot">3</div><span class="stepper-label">Confirmación</span></div>
+      </div>
+      <div class="checkout-mini-summary" id="checkout-mini-summary"></div>
+
+      <div class="modal-body">
+        <form id="checkout-form" novalidate>
+          <div data-checkout-step="1">
+            <div class="checkout-section-title"><span class="checkout-section-icon">1</span><div><h4>Quién recibe</h4><p>Dinos a quién le entregamos el pedido en Guantánamo.</p></div></div>
+            <div class="checkout-form-section">
+              <div class="form-group"><label for="receiver_name">Nombre del familiar o persona que recibe <span class="required">*</span></label><input type="text" id="receiver_name" name="receiver_name" placeholder="Nombre de quien recibe" required><p class="field-error" id="error-receiver_name"></p></div>
+              <div class="form-group"><label for="delivery_municipality">Municipio de entrega <span class="required">*</span></label><select id="delivery_municipality" name="delivery_municipality" aria-describedby="error-delivery_municipality delivery-surcharge-note" required><option value="">Cargando municipios...</option></select><input type="hidden" id="delivery_location_id" name="delivery_location_id"><p class="field-error" id="error-delivery_municipality" role="alert"></p><button type="button" id="retry-delivery-locations" class="checkout-retry" hidden>Reintentar carga de municipios</button><div class="delivery-pricing-card" id="delivery-pricing-card" aria-live="polite"><div class="delivery-pricing-heading"><span>Recargo de entrega</span><strong id="delivery-surcharge-amount">Calculando...</strong></div><p id="delivery-surcharge-note">Selecciona un municipio para ver el importe.</p></div></div>
+              <div class="form-group"><label for="customer_address">Dirección de entrega <span class="required">*</span></label><input type="text" id="customer_address" name="customer_address" placeholder="Calle, número, reparto, municipio" required><p class="field-error" id="error-customer_address"></p></div>
+              <div class="form-group"><label for="receiver_phone">Teléfono de la persona que recibe <span class="required">*</span></label><input type="tel" id="receiver_phone" name="receiver_phone" placeholder="+53 5XXX-XXXX" required><p class="field-error" id="error-receiver_phone"></p></div>
+              <div class="form-group"><label for="delivery_notes">Notas de entrega</label><textarea id="delivery_notes" name="delivery_notes" rows="2" placeholder="Referencias adicionales para la entrega (opcional)"></textarea></div>
+            </div>
+            <div class="checkout-safe-note">Nos aseguraremos de que tu pedido llegue seguro a su destino.</div>
+            <p class="form-error" id="checkout-error-step1" style="display:none"></p>
+            <div class="checkout-actions"><a href="./index.html" class="checkout-back-btn checkout-shop-link">← Seguir comprando</a><button type="button" id="checkout-next-btn" class="form-submit" style="flex:1">Continuar al pago →</button></div>
+          </div>
+
+          <div id="checkout-payment-step" style="display:none">
+            <div class="checkout-section-title"><span class="checkout-section-icon">2</span><div><h4>Quién paga y cómo</h4><p>Tus datos como remitente y el método de pago.</p></div></div>
+            <div class="checkout-form-section">
+              <h5>Tus datos (remitente)</h5>
+              <div class="form-row">
+                <div class="form-group"><label for="sender_first_name">Nombre <span class="required">*</span></label><input type="text" id="sender_first_name" name="sender_first_name" placeholder="Tu nombre" required autocomplete="given-name" aria-describedby="error-sender_first_name"><p class="field-error" id="error-sender_first_name" role="alert"></p></div>
+                <div class="form-group"><label for="sender_last_name">Apellidos <span class="required">*</span></label><input type="text" id="sender_last_name" name="sender_last_name" placeholder="Tus apellidos" required autocomplete="family-name" aria-describedby="error-sender_last_name"><p class="field-error" id="error-sender_last_name" role="alert"></p></div>
+              </div>
+              <div class="form-group"><label for="sender_phone">Teléfono / WhatsApp <span class="required">*</span></label><input type="tel" id="sender_phone" name="sender_phone" placeholder="+1 (555) 000-0000" required autocomplete="tel" inputmode="tel" aria-describedby="error-sender_phone"><p class="field-error" id="error-sender_phone" role="alert"></p></div>
+            </div>
+            <h5 class="checkout-methods-title">Método de pago</h5>
+            <div class="methods-grid" id="checkout-methods-container"></div>
+            <fieldset class="checkout-form-section tropipay-payer" id="tropipay-payer-fields" hidden disabled aria-describedby="tropipay-payer-help">
+              <legend>Datos para pagar con TropiPay</legend>
+              <p class="tropipay-payer-help" id="tropipay-payer-help">TropiPay pide los datos de quien paga (tu país y dirección, no la de Guantánamo) para validar la tarjeta.</p>
+              <div class="form-group"><label for="customer_email">Email <span class="required">*</span></label><input type="email" id="customer_email" name="customer_email" placeholder="tu@email.com" required autocomplete="email" inputmode="email" aria-describedby="error-customer_email"><p class="field-error" id="error-customer_email" role="alert"></p></div>
+              <div class="form-group country-select">
+                <label for="payer_country" id="payer_country-label">País de residencia <span class="required">*</span></label>
+                <div class="country-select-control">
+                  <input type="text" id="payer_country" name="payer_country" role="combobox" placeholder="Busca tu país" required autocomplete="off" aria-describedby="error-payer_country">
+                  <button type="button" class="country-select-toggle" id="payer_country-toggle" tabindex="-1" aria-label="Mostrar lista de países"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                </div>
+                <input type="hidden" id="payer_country_iso" name="payer_country_iso">
+                <ul class="country-listbox" id="payer_country-listbox" role="listbox" aria-labelledby="payer_country-label" hidden></ul>
+                <p class="field-error" id="error-payer_country" role="alert"></p>
+              </div>
+              <div class="form-group"><label for="payer_address">Dirección <span class="required">*</span></label><input type="text" id="payer_address" name="payer_address" placeholder="Calle y número" required autocomplete="billing street-address" aria-describedby="error-payer_address"><p class="field-error" id="error-payer_address" role="alert"></p></div>
+              <div class="form-row">
+                <div class="form-group"><label for="payer_city">Ciudad <span class="required">*</span></label><input type="text" id="payer_city" name="payer_city" required autocomplete="billing address-level2" aria-describedby="error-payer_city"><p class="field-error" id="error-payer_city" role="alert"></p></div>
+                <div class="form-group"><label for="payer_state">Estado / provincia</label><input type="text" id="payer_state" name="payer_state" autocomplete="billing address-level1"></div>
+              </div>
+              <div class="form-group"><label for="payer_postcode">Código postal</label><input type="text" id="payer_postcode" name="payer_postcode" autocomplete="billing postal-code" aria-describedby="payer_postcode-hint"><small class="field-hint" id="payer_postcode-hint">Si tu país lo usa, ayuda a que el banco apruebe el pago.</small></div>
+              <div class="form-group checkbox-group">
+                <label class="checkbox-label" for="payer_terms"><input type="checkbox" id="payer_terms" name="payer_terms" required aria-describedby="error-payer_terms"><span>Acepto los <a href="https://www.tropipay.com/terms" target="_blank" rel="noopener">términos y condiciones de TropiPay</a> <span class="required">*</span></span></label>
+                <p class="field-error" id="error-payer_terms" role="alert"></p>
+              </div>
+            </fieldset>
+            <div class="checkout-review-card" id="checkout-review-card"></div>
+            <div class="checkout-ai-card"><div class="checkout-ai-header"><div><strong>¿Tienes dudas con el pago?</strong><span>El asistente puede orientarte.</span></div></div><div class="checkout-ai-chips" id="checkout-ai-chips"><button type="button" data-question="No tengo Zelle, ¿qué método puedo usar?">No tengo Zelle</button><button type="button" data-question="Estoy en Europa, ¿cómo puedo pagar?">Pago desde Europa</button><button type="button" data-question="¿Qué pasa después de crear el pedido?">Qué pasa después</button></div><div class="checkout-ai-response" id="checkout-ai-response" aria-live="polite"></div><div class="checkout-ai-form" id="checkout-ai-form"><label for="checkout-ai-input" class="sr-only">Pregunta sobre el pago</label><input type="text" id="checkout-ai-input" placeholder="Escribe tu duda sobre el pago" autocomplete="off"><button type="button" id="checkout-ai-submit">Preguntar</button></div></div>
+            <p class="form-error" id="checkout-error"></p>
+            <div class="checkout-actions" style="margin-top:20px"><button type="button" id="checkout-back-btn" class="checkout-back-btn">← Atrás</button><button type="submit" id="checkout-submit-btn" class="form-submit" style="flex:1">Selecciona un método</button></div>
+          </div>
+          <div id="checkout-success-overlay" style="display:none"></div>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    import { initCheckout } from "./js/checkout.js?v26";
+    initCheckout();
+  </script>
+</body>
+</html>

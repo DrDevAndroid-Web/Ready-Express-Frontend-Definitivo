@@ -1,7 +1,42 @@
-const PROD_API_BASE = "https://readyexpressnowbackend.versabold.com/api";
-export const API_BASE = PROD_API_BASE;
+import { API_BASE } from "./config.js?v26";
+import { authorizedFetch } from "./session.js?v26";
+
+export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
 const SUPPORT_MSG = `\n\nSi el problema persiste, contacta a nuestro equipo de soporte:\n📱 WhatsApp: ${SUPPORT_PHONE}`;
+const PUBLIC_SESSION_CACHE_TTL = Object.freeze({
+  "/catalog": 60_000,
+  "/info": 300_000,
+  "/localizaciones": 300_000,
+  "/payment-methods": 300_000
+});
+
+function sessionCacheKey(path) {
+  return `ren:api-cache:${API_BASE}${path}`;
+}
+
+function readSessionCache(path, ttl) {
+  try {
+    const raw = sessionStorage.getItem(sessionCacheKey(path));
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (!cached || Date.now() - Number(cached.savedAt) > ttl) {
+      sessionStorage.removeItem(sessionCacheKey(path));
+      return null;
+    }
+    return cached.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionCache(path, data) {
+  try {
+    sessionStorage.setItem(sessionCacheKey(path), JSON.stringify({ savedAt: Date.now(), data }));
+  } catch {
+    // sessionStorage puede estar bloqueado o lleno; la petición sigue funcionando.
+  }
+}
 
 function getUserFriendlyError(error, status) {
   const message = error?.error || error?.message || "";
@@ -87,7 +122,14 @@ function fetchWithTimeout(url, options, timeoutMs) {
 
 async function request(path, options = {}) {
   try {
-    const res = await fetchWithTimeout(`${API_BASE}${path}`, options, 10000);
+    const method = String(options.method || "GET").toUpperCase();
+    const cacheTtl = method === "GET" && options.cache !== "no-store" ? PUBLIC_SESSION_CACHE_TTL[path] : 0;
+    if (cacheTtl) {
+      const cached = readSessionCache(path, cacheTtl);
+      if (cached !== null) return cached;
+    }
+    // Con sesión: token renovado si caducó y reintento ante 401
+    const res = await authorizedFetch(`${API_BASE}${path}`, options, (url, opts) => fetchWithTimeout(url, opts, 10000));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       const userMessage = getUserFriendlyError(err, res.status);
@@ -96,7 +138,9 @@ async function request(path, options = {}) {
       error.originalError = err;
       throw error;
     }
-    return res.json();
+    const data = await res.json();
+    if (cacheTtl) writeSessionCache(path, data);
+    return data;
   } catch (err) {
     if (err.name === "AbortError") {
       throw new Error("⏱️ La solicitud tardó demasiado. Verifica tu conexión e intenta de nuevo.");
@@ -111,9 +155,7 @@ async function request(path, options = {}) {
   }
 }
 
-export const getCombos = () => request("/food-combos");
-export const getProductos = () => request("/productos");
-export const getElectrodomesticos = () => request("/electrodomesticos");
+export const getCatalog = () => request("/catalog");
 export const getInfo = () => request("/info");
 export const getLocalizaciones = () => request("/localizaciones");
 export const createOrder = (data) =>
@@ -123,9 +165,17 @@ export const createOrder = (data) =>
     body: JSON.stringify(data),
   });
 
-export const cancelOrder = (orderId) =>
+export const cancelOrder = (orderId, checkoutToken) =>
   request(`/orders/${encodeURIComponent(orderId)}/cancel`, {
     method: "PATCH",
+    headers: checkoutToken ? { "X-Checkout-Token": checkoutToken } : {},
+  });
+
+export const createTropipayPayment = (orderId, checkoutToken) =>
+  request("/payments/tropipay", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ order_id: orderId, checkout_token: checkoutToken })
   });
 
 export async function uploadPayment(formData) {

@@ -1,7 +1,8 @@
 import express from 'express';
 import { supabase } from '../config/supabase.js';
 import { badRequest, notFound, created, success } from '../utils/http-error.js';
-import { requireSupabaseUser } from '../middlewares/auth.js';
+import { requireAdmin, requireSupabaseUser } from '../middlewares/auth.js';
+import { getCached, invalidateCache, PUBLIC_CACHE_KEYS, sendPublicJson } from '../utils/public-cache.js';
 
 const router = express.Router();
 
@@ -19,25 +20,27 @@ async function ensureTableExists() {
 }
 
 // GET - Obtener todos los métodos de pago
-router.get('/', async (_req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
-    await ensureTableExists();
-
-    const { data, error } = await supabase
-      .from(TABLE_NAME)
-      .select('*')
-      .order('order_index', { ascending: true });
+    const { data, error } = await getCached(PUBLIC_CACHE_KEYS.paymentMethods, async () => {
+      await ensureTableExists();
+      const result = await supabase
+        .from(TABLE_NAME)
+        .select('*')
+        .order('order_index', { ascending: true });
+      if (result.error) throw result.error;
+      return result;
+    }, 300_000);
 
     if (error) throw error;
-
-    return success(res, data || []);
+    return sendPublicJson(req, res, data || [], { maxAge: 300, staleWhileRevalidate: 600 });
   } catch (error) {
     return next(error);
   }
 });
 
 // POST - Crear nuevo método de pago
-router.post('/', requireSupabaseUser, async (req, res, next) => {
+router.post('/', requireSupabaseUser, requireAdmin, async (req, res, next) => {
   try {
     await ensureTableExists();
 
@@ -63,6 +66,8 @@ router.post('/', requireSupabaseUser, async (req, res, next) => {
 
     if (error) throw error;
 
+    invalidateCache(PUBLIC_CACHE_KEYS.paymentMethods, PUBLIC_CACHE_KEYS.info);
+
     return created(res, data?.[0] || {});
   } catch (error) {
     return next(error);
@@ -70,7 +75,7 @@ router.post('/', requireSupabaseUser, async (req, res, next) => {
 });
 
 // PATCH - Actualizar método de pago
-router.patch('/:id', requireSupabaseUser, async (req, res, next) => {
+router.patch('/:id', requireSupabaseUser, requireAdmin, async (req, res, next) => {
   try {
     await ensureTableExists();
 
@@ -96,6 +101,8 @@ router.patch('/:id', requireSupabaseUser, async (req, res, next) => {
       return notFound(res, 'Método de pago no encontrado');
     }
 
+    invalidateCache(PUBLIC_CACHE_KEYS.paymentMethods, PUBLIC_CACHE_KEYS.info);
+
     return success(res, data[0]);
   } catch (error) {
     return next(error);
@@ -103,7 +110,7 @@ router.patch('/:id', requireSupabaseUser, async (req, res, next) => {
 });
 
 // DELETE - Eliminar método de pago
-router.delete('/:id', requireSupabaseUser, async (req, res, next) => {
+router.delete('/:id', requireSupabaseUser, requireAdmin, async (req, res, next) => {
   try {
     await ensureTableExists();
 
@@ -115,6 +122,8 @@ router.delete('/:id', requireSupabaseUser, async (req, res, next) => {
       .eq('id', id);
 
     if (error) throw error;
+
+    invalidateCache(PUBLIC_CACHE_KEYS.paymentMethods, PUBLIC_CACHE_KEYS.info);
 
     return success(res, { message: 'Método eliminado' });
   } catch (error) {

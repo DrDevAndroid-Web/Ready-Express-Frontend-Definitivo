@@ -11,6 +11,10 @@ export async function cargarProductos(apiFetch, onCategoriasProductos) {
   ]);
 }
 
+function escapeAttr(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 export function mostrarModalCrearProducto(section, apiFetch, recargar) {
   if (section === 'combos') {
     mostrarModalCrearCombo(apiFetch, recargar);
@@ -165,7 +169,7 @@ function mostrarModalCombo(combo, apiFetch, recargar) {
   const vistaImg = document.getElementById('vista-imagen-modal-combo');
   if (vistaImg) {
     vistaImg.innerHTML = imagenActual
-      ? `<img src="${imagenActual}" alt="Imagen actual" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.innerHTML='<div class=&quot;marcador-imagen&quot;>sin imagen</div>'">`
+      ? `<img src="${escapeAttr(imagenActual)}" alt="Imagen actual" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.innerHTML='<div class=&quot;marcador-imagen&quot;>sin imagen</div>'">`
       : `<div class="marcador-imagen">sin imagen</div>`;
   }
 
@@ -669,7 +673,7 @@ function mostrarModalProducto(item, config, apiFetch, recargar) {
       <form id="formularioModificarProducto" class="formulario-combo">
         <div class="vista-imagen-combo">
           ${imagenActual
-            ? `<img src="${imagenActual}" alt="Imagen actual" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.innerHTML='<div class=&quot;marcador-imagen&quot;>sin imagen</div>'">`
+            ? `<img src="${escapeAttr(imagenActual)}" alt="Imagen actual" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.parentElement.innerHTML='<div class=&quot;marcador-imagen&quot;>sin imagen</div>'">`
             : `<div class="marcador-imagen">sin imagen</div>`}
         </div>
         <label>

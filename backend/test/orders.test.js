@@ -172,3 +172,73 @@ describe("POST /api/orders — validación de items (normalizeItem)", () => {
     assert.match(body.error, /cantidad/i);
   });
 });
+
+describe("POST /api/orders — remitente con nombre y apellidos separados", () => {
+  it("rechaza sender_first_name sin sender_last_name", async () => {
+    const { sender_name: _omit, ...base } = validBase;
+    const res = await postOrder({ ...base, sender_first_name: "Juan" });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /apellidos/i);
+  });
+});
+
+describe("POST /api/orders — datos del pagador para TropiPay", () => {
+  const tropipayBase = {
+    ...validBase,
+    sender_first_name: "Juan",
+    sender_last_name: "Perez",
+    payment_flow: "tropipay",
+    customer_email: "juan@example.com",
+    payer: { country_iso: "US", address: "123 Main St", city: "Miami", terms_accepted: true }
+  };
+
+  it("rechaza TropiPay sin email", async () => {
+    const res = await postOrder({ ...tropipayBase, customer_email: "" });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /email/i);
+  });
+
+  it("rechaza TropiPay con email inválido", async () => {
+    const res = await postOrder({ ...tropipayBase, customer_email: "juan@" });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /email/i);
+  });
+
+  it("rechaza TropiPay sin país", async () => {
+    const res = await postOrder({ ...tropipayBase, payer: { ...tropipayBase.payer, country_iso: "" } });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /pais/i);
+  });
+
+  it("rechaza TropiPay con país que no es ISO de 2 letras", async () => {
+    const res = await postOrder({ ...tropipayBase, payer: { ...tropipayBase.payer, country_iso: "USA" } });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /pais/i);
+  });
+
+  it("rechaza TropiPay sin dirección del pagador", async () => {
+    const res = await postOrder({ ...tropipayBase, payer: { ...tropipayBase.payer, address: " " } });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /direccion/i);
+  });
+
+  it("rechaza TropiPay sin ciudad del pagador", async () => {
+    const res = await postOrder({ ...tropipayBase, payer: { ...tropipayBase.payer, city: "" } });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /ciudad/i);
+  });
+
+  it("rechaza TropiPay sin aceptar términos", async () => {
+    const res = await postOrder({ ...tropipayBase, payer: { ...tropipayBase.payer, terms_accepted: false } });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /terminos/i);
+  });
+});

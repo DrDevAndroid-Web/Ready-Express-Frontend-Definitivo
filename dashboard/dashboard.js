@@ -1,4 +1,11 @@
-import { cargarProductos, mostrarModalCrearProducto } from './scripts/cargar-productos.js?v7';
+import { cargarProductos, mostrarModalCrearProducto } from './scripts/cargar-productos.js?v8';
+
+// Todo dato que llega del backend (nombres, teléfonos, métodos…) puede venir de un cliente
+// anónimo del checkout: se escapa siempre antes de insertarlo como HTML.
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+window.escapeHtml = escapeHtml;
 
 const API_PREDETERMINADA = 'https://readyexpressnowbackend.versabold.com';
 const TOKEN_KEY = 're_admin_token';
@@ -52,9 +59,9 @@ function renderApiLog() {
   }
 
   contenedor.innerHTML = eventosApi.map(evento => `
-    <div class="fila-log-api ${evento.tipo}">
-      <span>${evento.hora}</span>
-      <strong>${evento.mensaje}</strong>
+    <div class="fila-log-api ${escapeHtml(evento.tipo)}">
+      <span>${escapeHtml(evento.hora)}</span>
+      <strong>${escapeHtml(evento.mensaje)}</strong>
     </div>
   `).join('');
 }
@@ -89,7 +96,7 @@ function renderCategoriasProductos(categorias = obtenerCategoriasProductos()) {
   }
 
   contenedor.innerHTML = categorias
-    .map(categoria => `<span class="etiqueta etiqueta-metodo">${categoria}</span>`)
+    .map(categoria => `<span class="etiqueta etiqueta-metodo">${escapeHtml(categoria)}</span>`)
     .join('');
 }
 
@@ -134,7 +141,7 @@ function etiquetaEstado(estado) {
     rejected: 'rechazado',
   };
   const clase = mapa[estado] || 'etiqueta-generica';
-  return `<span class="etiqueta ${clase}">${etiquetas[estado] || estado || 'sin estado'}</span>`;
+  return `<span class="etiqueta ${escapeHtml(clase)}">${escapeHtml(etiquetas[estado] || estado || 'sin estado')}</span>`;
 }
 
 function formatearFecha(fecha) {
@@ -366,33 +373,33 @@ async function cargarPagos({ silencioso = false } = {}) {
       const urlImagen = obtenerUrlImagenPago(p.image_url);
 
       const htmlImagen = urlImagen
-        ? `<div class="contenedor-imagen-pago"><img src="${urlImagen}" alt="comprobante" data-imagen-pago></div>`
+        ? `<div class="contenedor-imagen-pago"><img src="${escapeHtml(urlImagen)}" alt="comprobante" data-imagen-pago></div>`
         : '<div class="contenedor-imagen-pago"><div class="marcador-imagen">sin imagen</div></div>';
 
       const infoOrden = p.orders
-        ? `<div class="fila-info"><span class="clave-info">cliente</span><span class="valor-info">${p.orders.customer_name || 'sin nombre'}</span></div>
-           <div class="fila-info"><span class="clave-info">tel</span><span class="valor-info">${p.orders.customer_phone || '-'}</span></div>`
+        ? `<div class="fila-info"><span class="clave-info">cliente</span><span class="valor-info">${escapeHtml(p.orders.customer_name || 'sin nombre')}</span></div>
+           <div class="fila-info"><span class="clave-info">tel</span><span class="valor-info">${escapeHtml(p.orders.customer_phone || '-')}</span></div>`
         : '';
 
       return `
-      <div class="tarjeta" id="tarjeta-pago-${p.id}">
+      <div class="tarjeta" id="tarjeta-pago-${escapeHtml(p.id)}">
         <div class="encabezado-tarjeta">
           <div>
-            <div class="id-tarjeta"># ${idCorto(p.id)}</div>
-            <div class="titulo-tarjeta">${p.method || 'Metodo desconocido'}</div>
+            <div class="id-tarjeta"># ${escapeHtml(idCorto(p.id))}</div>
+            <div class="titulo-tarjeta">${escapeHtml(p.method || 'Metodo desconocido')}</div>
           </div>
           <div class="monto-tarjeta">$${Number(p.amount).toFixed(2)}</div>
         </div>
         <div class="meta-tarjeta">
           ${etiquetaEstado(p.validation_status)}
-          <span class="etiqueta etiqueta-generica">${formatearFecha(p.created_at)}</span>
-          <span class="etiqueta etiqueta-metodo">orden: ${idCorto(p.order_id)}</span>
+          <span class="etiqueta etiqueta-generica">${escapeHtml(formatearFecha(p.created_at))}</span>
+          <span class="etiqueta etiqueta-metodo">orden: ${escapeHtml(idCorto(p.order_id))}</span>
         </div>
         ${htmlImagen}
         ${infoOrden ? `<div class="tarjeta-configuracion tarjeta-info-orden">${infoOrden}</div>` : ''}
         <div class="acciones-tarjeta">
-          <button class="boton boton-aprobar" data-accion-pago="approve" data-id-pago="${p.id}">Aprobar</button>
-          <button class="boton boton-rechazar" data-accion-pago="reject" data-id-pago="${p.id}">Rechazar</button>
+          <button class="boton boton-aprobar" data-accion-pago="approve" data-id-pago="${escapeHtml(p.id)}">Aprobar</button>
+          <button class="boton boton-rechazar" data-accion-pago="reject" data-id-pago="${escapeHtml(p.id)}">Rechazar</button>
         </div>
       </div>`;
     }).join('');
@@ -400,7 +407,7 @@ async function cargarPagos({ silencioso = false } = {}) {
     registrarErroresImagen(lista);
     establecerEstado(true);
   } catch (e) {
-    lista.innerHTML = `<div class="vacio"><div class="icono-vacio">!</div>Error al cargar pagos<br><small>${e.message || 'Error desconocido'}</small></div>`;
+    lista.innerHTML = `<div class="vacio"><div class="icono-vacio">!</div>Error al cargar pagos<br><small>${escapeHtml(e.message || 'Error desconocido')}</small></div>`;
     establecerEstado(false);
   } finally {
     cargandoPagos = false;
@@ -426,7 +433,7 @@ async function verificarPago(id, accion, boton) {
   boton.textContent = '...';
 
   try {
-    const data = await apiFetch(`/api/payments/${id}/verify`, {
+    const data = await apiFetch(`/api/payments/${encodeURIComponent(id)}/verify`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: accion })
@@ -469,39 +476,39 @@ async function cargarOrdenes() {
     lista.innerHTML = data.map(o => {
       const items = Array.isArray(o.items)
         ? o.items.map(i => `${i.cantidad}x ${i.nombre} - $${Number(i.precio).toFixed(2)}`).join('\n')
-        : JSON.stringify(o.items);
+        : JSON.stringify(o.items ?? '');
 
       return `
       <div class="tarjeta">
         <div class="encabezado-tarjeta">
           <div>
-            <div class="id-tarjeta"># ${idCorto(o.id)}</div>
-            <div class="titulo-tarjeta">${o.customer_name || 'Cliente sin nombre'}</div>
+            <div class="id-tarjeta"># ${escapeHtml(idCorto(o.id))}</div>
+            <div class="titulo-tarjeta">${escapeHtml(o.customer_name || 'Cliente sin nombre')}</div>
           </div>
           <div class="monto-tarjeta">$${Number(o.total).toFixed(2)}</div>
         </div>
         <div class="meta-tarjeta">
           ${etiquetaEstado(o.status)}
-          <span class="etiqueta etiqueta-generica">${formatearFecha(o.created_at)}</span>
+          <span class="etiqueta etiqueta-generica">${escapeHtml(formatearFecha(o.created_at))}</span>
         </div>
-        ${o.items ? `<div class="items-orden">${items}</div>` : ''}
+        ${o.items ? `<div class="items-orden">${escapeHtml(items)}</div>` : ''}
         <div class="fila-info">
           <span class="clave-info">email</span>
-          <span class="valor-info">${o.customer_email || '-'}</span>
+          <span class="valor-info">${escapeHtml(o.customer_email || '-')}</span>
         </div>
         <div class="fila-info">
           <span class="clave-info">telefono</span>
-          <span class="valor-info">${o.customer_phone || '-'}</span>
+          <span class="valor-info">${escapeHtml(o.customer_phone || '-')}</span>
         </div>
         <div class="acciones-tarjeta">
-          <button class="boton boton-aprobar" data-accion-orden="print" data-id-orden="${o.id}">Imprimir factura</button>
+          <button class="boton boton-aprobar" data-accion-orden="print" data-id-orden="${escapeHtml(o.id)}">Imprimir factura</button>
         </div>
       </div>`;
     }).join('');
   } catch(e) {
     document.getElementById('estadistica-ordenes').textContent = '-';
     document.getElementById('contador-ordenes').textContent = 0;
-    lista.innerHTML = `<div class="vacio"><div class="icono-vacio">!</div>No se pudieron cargar las ordenes<br><small>${e.message || 'Error desconocido'}</small></div>`;
+    lista.innerHTML = `<div class="vacio"><div class="icono-vacio">!</div>No se pudieron cargar las ordenes<br><small>${escapeHtml(e.message || 'Error desconocido')}</small></div>`;
     establecerEstado(false);
   }
 }
@@ -694,7 +701,7 @@ async function guardarMetodoPago(e) {
 
   try {
     if (id) {
-      await apiFetch(`/api/payment-methods/${id}`, {
+      await apiFetch(`/api/payment-methods/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         body: JSON.stringify(datos)
       });
@@ -717,7 +724,7 @@ async function eliminarMetodoPago(id) {
   if (!confirm('¿Estás seguro de que deseas eliminar este método de pago?')) return;
 
   try {
-    await apiFetch(`/api/payment-methods/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/payment-methods/${encodeURIComponent(id)}`, { method: 'DELETE' });
     mostrarAviso('Método eliminado', 'exito');
     cargarMetodosPago();
   } catch (err) {

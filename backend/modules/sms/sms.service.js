@@ -29,7 +29,8 @@ export async function notifyOrderSMS(order) {
   const recipients = (process.env.SMS_NOTIFY_PHONES ?? "").split(",").map(p => p.trim()).filter(Boolean);
   if (!recipients.length) return;
 
-  const mstext = `Nuevo pedido de ${order.sender_name}: $${order.total}. Pago: ${extractPaymentMethod(order)}`;
+  const reference = order.order_reference || order.id || "-";
+  const mstext = `Nuevo pedido ${reference} de ${order.sender_name}: $${order.total}. Pago: ${extractPaymentMethod(order)}`;
 
   await Promise.allSettled(recipients.map(r => sendOne(r, mstext)));
 }

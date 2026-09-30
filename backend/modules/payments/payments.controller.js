@@ -1,5 +1,6 @@
 import { processPayment, getPendingPayments, getApprovedPayments, verifyPayment } from "./payments.service.js";
 import { sendError } from "../../utils/http-error.js";
+import { getOrderAccess } from "../orders/orders.controller.js";
 
 export async function uploadPayment(req, res) {
   try {
@@ -8,7 +9,8 @@ export async function uploadPayment(req, res) {
       req.file,
       order_id,
       method,
-      Number(amount)
+      Number(amount),
+      await getOrderAccess(req)
     );
     res.json(result);
   } catch (err) {

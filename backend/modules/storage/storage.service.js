@@ -6,14 +6,11 @@ export async function uploadImage(buffer, filename) {
     .from("payments")
     .upload(filename, buffer, {
       contentType: "image/jpeg",
-      upsert: true
+      upsert: false
     });
 
   throwIfSupabaseError(error, "No se pudo subir la imagen del comprobante");
 
-  const { data: publicUrl } = supabase.storage
-    .from("payments")
-    .getPublicUrl(data.path);
-
-  return publicUrl.publicUrl;
+  // El bucket es privado: se guarda la ruta y se sirve con URLs firmadas temporales
+  return data.path;
 }

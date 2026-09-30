@@ -22,9 +22,15 @@ export function sendError(res, err, fallback = "Error interno del servidor") {
     console.error("[api:error]", err);
   }
 
+  // En 5xx solo se muestra el mensaje de un HttpError propio (texto controlado);
+  // los errores inesperados y los detalles de Supabase/proveedores quedan en el log.
+  const isServerError = status >= 500;
+  const message = isServerError && !(err instanceof HttpError) ? fallback : (err?.message || fallback);
+  const details = isServerError ? null : err?.details;
+
   return res.status(status).json({
-    error: err?.message || fallback,
-    ...(err?.details ? { details: err.details } : {})
+    error: message,
+    ...(details ? { details } : {})
   });
 }
 

@@ -1,21 +1,41 @@
 import { NotificationManager } from "./notifications.service.js";
 import { registerAdminPushToken } from "./push.service.js";
-import { sendError } from "../../utils/http-error.js";
+import { sendError, createUnauthorized } from "../../utils/http-error.js";
+import { ADMIN_ROLES, getUserRoles } from "../../middlewares/auth.js";
 
 let clientCounter = 0;
 let locationClientCounter = 0;
 
-export function subscribeToNotifications(req, res) {
+async function isAdminUser(user) {
+  if (!user?.id) return false;
+  try {
+    const roles = await getUserRoles(user.id);
+    return roles.some(role => ADMIN_ROLES.includes(role));
+  } catch (err) {
+    console.error("[SSE] No se pudo validar el rol:", err.message);
+    return false;
+  }
+}
+
+// Admin (Bearer o ?access_token=) recibe todos los eventos.
+// Cliente del chat (?chatSessionId=) solo recibe las respuestas de su propia sesión.
+export async function subscribeToNotifications(req, res) {
+  const chatSessionId = typeof req.query.chatSessionId === "string" ? req.query.chatSessionId.trim() : "";
+  const admin = await isAdminUser(req.user);
+
+  if (!admin && !chatSessionId) {
+    return sendError(res, createUnauthorized("Se requiere sesion de administrador o chatSessionId"));
+  }
+
   const clientId = `client-${++clientCounter}-${Date.now()}`;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 
-  NotificationManager.addClient(clientId, res);
+  NotificationManager.addClient(clientId, res, admin ? { admin: true } : { chatSessionId });
 
   res.write(`data: ${JSON.stringify({
     type: "connection_established",

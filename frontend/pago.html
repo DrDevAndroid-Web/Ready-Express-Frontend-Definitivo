@@ -9,8 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  <link rel="stylesheet" href="./css/styles.css?v21" />
-  <link rel="icon" type="image/png" href="./images/favicon.png" />
+  <link rel="stylesheet" href="./css/styles.css?v26" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
+  <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
 <body class="payment-page">
 
@@ -19,7 +20,7 @@
 
   <nav class="navbar">
     <a class="navbar-logo" href="./index.html" aria-label="Ready Express Now">
-      <img src="./images/favicon.png" alt="Ready Express Now" onerror="this.style.display='none'">
+      <img src="./images/logo-100.webp" alt="Ready Express Now" onerror="this.style.display='none'">
       <span class="navbar-logo-text">Ready Express Now</span>
     </a>
     <div class="navbar-links">
@@ -49,7 +50,7 @@
         <span class="section-tag">Último paso</span>
         <h1>Sube la captura de pantalla del pago</h1>
         <p>
-          Tu pedido ya fue creado. Si saliste a pagar por Zelle o Tocopay, vuelve aqui y adjunta una captura clara del comprobante para poder confirmar la orden.
+          Tu pedido ya fue creado. Si saliste a pagar por Zelle o TocoPay, vuelve aquí y adjunta una captura clara del comprobante para poder confirmar la orden.
         </p>
       </div>
     </section>
@@ -85,14 +86,14 @@
 
           <!-- Accordion de ejemplo -->
           <div id="accordion-ejemplo" class="accordion-ejemplo" style="display:none;margin:16px 0;padding:12px;background:#f0f7ff;border:1px solid #0066cc;border-radius:8px">
-            <img id="img-ejemplo-comprobante" src="" alt="Ejemplo de comprobante" style="max-width:100%;height:auto;border-radius:4px">
+            <img id="img-ejemplo-comprobante" alt="Ejemplo de comprobante" style="max-width:100%;height:auto;border-radius:4px">
           </div>
           <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Subir comprobante">
             <span>📎</span>
             <p>Arrastra tu comprobante aqui</p>
             <small>o haz clic para seleccionar JPG o PNG</small>
           </div>
-          <img id="file-preview" src="" alt="Vista previa del comprobante">
+          <img id="file-preview" alt="Vista previa del comprobante">
           <input type="file" id="payment-file" accept="image/*" style="display:none">
           <p class="form-error" id="payment-error"></p>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -136,7 +137,7 @@
           </div>
           <p style="margin:0 0 16px 0;color:#666;font-size:0.9rem">Así debe verse tu comprobante de pago:</p>
           <div style="text-align:center">
-            <img id="proof-example-1" src="" alt="Ejemplo de comprobante" style="width:100%;max-width:280px;height:auto;border:1px solid #e0e0e0;border-radius:6px">
+            <img id="proof-example-1" alt="Ejemplo de comprobante" style="width:100%;max-width:280px;height:auto;border:1px solid #e0e0e0;border-radius:6px">
           </div>
           <p style="margin:16px 0 0 0;padding:12px;background:#fff3cd;border-radius:6px;font-size:0.85rem;color:#856404">
             <strong>Importante:</strong> Debe verse claramente el monto exacto, la fecha, y la referencia de transacción.
@@ -147,7 +148,7 @@
   </main>
 
   <script type="module">
-    import { initPaymentPage } from "./js/payment.js?v19";
+    import { initPaymentPage } from "./js/payment.js?v26";
 
     document.addEventListener("DOMContentLoaded", () => {
       initPaymentPage();

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>Pago rechazado | Ready Express Now</title>
+  <meta name="robots" content="noindex">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="./css/styles.css?v26">
+  <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
+  <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
+</head>
+<body class="auth-page">
+  <header class="auth-header">
+    <div class="auth-header-inner">
+      <a class="auth-brand" href="./index.html"><img src="./images/logo-100.webp" alt="" width="36" height="36">Ready Express Now</a>
+      <a class="auth-back" href="./index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Tienda</a>
+    </div>
+  </header>
+  <main class="auth-main" id="main">
+    <section class="auth-card auth-card--center" aria-labelledby="title">
+      <div class="status-icon is-error" aria-hidden="true"><i class="fa-solid fa-circle-xmark"></i></div>
+      <h1 id="title">Pago no confirmado</h1>
+      <p class="auth-lead">TropiPay no pudo completar el pago. Puedes intentarlo de nuevo o escribirnos por WhatsApp.</p>
+      <p>Pedido <span id="order" class="status-order">-</span></p>
+      <div class="auth-actions">
+        <a class="auth-btn" href="./checkout.html">Intentar de nuevo</a>
+        <a class="auth-btn auth-btn--secondary" href="./index.html">Volver a la tienda</a>
+      </div>
+    </section>
+  <script>document.querySelector('#order').textContent = new URLSearchParams(location.search).get('order') || '-';</script>
+  </main>
+</body>
+</html>
