@@ -15,10 +15,36 @@ export async function requireSupabaseUser(req, res, next) {
     }
 
     req.user = data.user;
+    req.accessToken = token;
     next();
-  } catch (err) {
-    res.status(401).json({ error: err.message || "No autorizado" });
+  } catch {
+    res.status(401).json({ error: "No autorizado" });
   }
+}
+
+// Métodos con los que se abrió la sesión (claim amr del JWT, ya validado por getUser).
+// El enlace de recuperación de Supabase emite una sesión "otp"; un login normal, "password".
+const RECOVERY_METHODS = ["otp", "recovery", "magiclink"];
+const RECOVERY_MAX_AGE_SECONDS = 60 * 60;
+
+export function isRecentRecoverySession(token, nowSeconds = Math.floor(Date.now() / 1000)) {
+  try {
+    const payload = JSON.parse(Buffer.from(String(token).split(".")[1], "base64url").toString("utf8"));
+    const entries = Array.isArray(payload.amr) ? payload.amr : [];
+    return entries.some(entry => RECOVERY_METHODS.includes(entry?.method)
+      && nowSeconds - Number(entry.timestamp) <= RECOVERY_MAX_AGE_SECONDS);
+  } catch {
+    return false;
+  }
+}
+
+// Cambiar la contraseña sin la actual solo con la sesión que abre el enlace del email:
+// un token de sesión normal robado no basta para apropiarse de la cuenta.
+export function requireRecoverySession(req, res, next) {
+  if (!isRecentRecoverySession(req.accessToken)) {
+    return res.status(403).json({ error: "El enlace de recuperación no es válido o caducó. Solicita uno nuevo." });
+  }
+  next();
 }
 
 export async function optionalSupabaseUser(req, _res, next) {
@@ -57,7 +83,8 @@ export function requireRoles(...allowedRoles) {
       req.userRoles = roles;
       next();
     } catch (error) {
-      res.status(500).json({ error: error.message || "No se pudo validar el rol" });
+      console.error("[auth:roles]", error?.message || error);
+      res.status(500).json({ error: "No se pudo validar el rol" });
     }
   };
 }

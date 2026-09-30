@@ -4,7 +4,8 @@ import { getOrderAccess } from "../orders/orders.controller.js";
 
 export async function uploadPayment(req, res) {
   try {
-    const { order_id, method, amount } = req.body;
+    // Sin multipart (petición mal formada) multer no rellena req.body
+    const { order_id, method, amount } = req.body || {};
     const result = await processPayment(
       req.file,
       order_id,

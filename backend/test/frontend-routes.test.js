@@ -539,14 +539,11 @@ describe("GET /api/notifications/subscribe — SSE", () => {
 });
 
 // ---------------------------------------------------------------------------
-// GET /notifications/stats — sin auth
+// GET /notifications/stats — solo administradores (auditoría OWASP A01)
 // ---------------------------------------------------------------------------
 describe("GET /api/notifications/stats — estadísticas SSE", () => {
-  it("responde con JSON y campo connectedClients numérico", async () => {
+  it("sin sesión → 401", async () => {
     const res = await req("/notifications/stats");
-    const body = await res.json();
-    assert.equal(res.status, 200);
-    assert.ok(typeof body.connectedClients === "number");
-    assert.ok(typeof body.timestamp === "string");
+    assert.equal(res.status, 401);
   });
 });

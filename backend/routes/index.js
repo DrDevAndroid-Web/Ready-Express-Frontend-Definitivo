@@ -52,10 +52,19 @@ import {
 } from "../modules/chat/chat.controller.js";
 
 import { upload } from "../middlewares/upload.js";
-import { authLimiter, chatMessageLimiter, chatSessionLimiter, orderLimiter, passwordRecoveryLimiter, paymentLimiter } from "../middlewares/rate-limits.js";
-import { optionalSupabaseUser, requireAdmin, requireDeliveryOperator, requireSupabaseUser, tokenFromQuery } from "../middlewares/auth.js";
+import { authLimiter, chatMessageLimiter, chatSessionLimiter, orderLimiter, passwordRecoveryLimiter, paymentLimiter, paymentStatusLimiter } from "../middlewares/rate-limits.js";
+import { optionalSupabaseUser, requireAdmin, requireDeliveryOperator, requireRecoverySession, requireSupabaseUser, tokenFromQuery } from "../middlewares/auth.js";
 import { supabase, supabaseAuth } from "../config/supabase.js";
-import { createBadRequest } from "../utils/http-error.js";
+import { createBadRequest, sendError } from "../utils/http-error.js";
+
+// Mensajes de Supabase Auth traducidos; el resto no se reenvía al cliente (pueden ser internos)
+function authErrorMessage(error) {
+  const message = String(error?.message || "");
+  if (/invalid login credentials/i.test(message)) return "Email o contraseña incorrectos";
+  if (/email not confirmed/i.test(message)) return "Confirma tu email antes de iniciar sesión";
+  if (/refresh token/i.test(message)) return "La sesión expiró. Inicia sesión de nuevo.";
+  return "No se pudo iniciar sesión";
+}
 import { registerCustomer, getCustomerProfile, updateCustomerProfile, listCustomerAddresses, createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from "../modules/customers/customer.service.js";
 import { createTropipayPaymentController, getTropipayStatusController, retryTropipayPaymentController, tropipayWebhookController, tropipayConfigurationController } from "../modules/payments/tropipay.controller.js";
 import { listAdminTransactions, getAdminTransactionEvents, retryAdminPrint } from "../modules/payments/admin-payments.controller.js";
@@ -84,7 +93,7 @@ router.post("/auth/login", authLimiter, async (req, res) => {
     });
 
     if (error) {
-      return res.status(401).json({ error: error.message });
+      return res.status(401).json({ error: authErrorMessage(error) });
     }
 
     res.json({
@@ -99,7 +108,7 @@ router.post("/auth/login", authLimiter, async (req, res) => {
         : null
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -119,7 +128,13 @@ router.post("/auth/recover-password", passwordRecoveryLimiter, async (req, res, 
     const frontendUrl = String(process.env.FRONTEND_PUBLIC_URL || "https://www.readyexpressnow.com").replace(/\/$/, "");
     const redirectTo = process.env.FRONTEND_PASSWORD_RESET_URL || `${frontendUrl}/reset-password.html`;
     const { error } = await supabaseAuth.auth.resetPasswordForEmail(email, { redirectTo });
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      console.warn("[auth:recover]", error.message);
+      if (error.status === 429 || /rate limit/i.test(error.message || "")) {
+        return res.status(429).json({ error: "Se enviaron demasiados emails. Espera unos minutos e inténtalo de nuevo." });
+      }
+      return res.status(400).json({ error: "No se pudo enviar el email de recuperación. Revisa la dirección." });
+    }
 
     res.json({ message: "Si el email está registrado, recibirás instrucciones para recuperar la contraseña." });
   } catch (err) {
@@ -128,7 +143,7 @@ router.post("/auth/recover-password", passwordRecoveryLimiter, async (req, res, 
 });
 
 // Recibe el access_token de recuperación (enlace del email) como Bearer y fija la nueva contraseña
-router.post("/auth/reset-password", authLimiter, requireSupabaseUser, async (req, res, next) => {
+router.post("/auth/reset-password", authLimiter, requireSupabaseUser, requireRecoverySession, async (req, res, next) => {
   try {
     const password = String(req.body?.password || "");
     if (password.length < 8) throw createBadRequest("La contraseña debe tener al menos 8 caracteres");
@@ -155,7 +170,7 @@ router.post("/auth/refresh", authLimiter, async (req, res) => {
     });
 
     if (error) {
-      return res.status(401).json({ error: error.message });
+      return res.status(401).json({ error: authErrorMessage(error) });
     }
 
     res.json({
@@ -170,7 +185,7 @@ router.post("/auth/refresh", authLimiter, async (req, res) => {
         : null
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -196,7 +211,7 @@ router.get("/auth/profile", requireSupabaseUser, async (req, res, next) => {
 
 // TropiPay: la creación puede operar con invitado; el webhook es público para TropiPay.
 router.post("/payments/tropipay", paymentLimiter, requireSupabaseUser, createTropipayPaymentController);
-router.get("/payments/tropipay/:id/status", optionalSupabaseUser, getTropipayStatusController);
+router.get("/payments/tropipay/:id/status", paymentStatusLimiter, optionalSupabaseUser, getTropipayStatusController);
 router.post("/payments/tropipay/:id/retry", paymentLimiter, optionalSupabaseUser, retryTropipayPaymentController);
 router.post("/payments/tropipay/webhook", tropipayWebhookController);
 router.get("/admin/tropipay/configuration", requireSupabaseUser, requireAdmin, tropipayConfigurationController);
@@ -255,7 +270,7 @@ router.patch("/payments/:id/verify", requireSupabaseUser, requireAdmin, verifyPa
 
 // NOTIFICATIONS (SSE para APK Admin / Dashboard)
 router.get("/notifications/subscribe", tokenFromQuery, optionalSupabaseUser, subscribeToNotifications);
-router.get("/notifications/stats", getConnectionStats);
+router.get("/notifications/stats", requireSupabaseUser, requireAdmin, getConnectionStats);
 router.post("/notifications/test", requireSupabaseUser, requireAdmin, testNotification);
 router.post("/notifications/push-token", requireSupabaseUser, requireAdmin, registerPushToken);
 

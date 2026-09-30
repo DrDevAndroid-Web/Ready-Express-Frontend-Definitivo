@@ -20,6 +20,12 @@ app.use(cors({
 }));
 
 app.use(express.json());
+// Express 5 deja req.body sin definir si la petición no trae cuerpo JSON: las rutas que lo
+// desestructuran fallaban con 500 en vez de responder 400 (multer lo reemplaza en las subidas)
+app.use((req, _res, next) => {
+  req.body ??= {};
+  next();
+});
 app.use(securityMiddleware);
 
 app.use("/api", routes);

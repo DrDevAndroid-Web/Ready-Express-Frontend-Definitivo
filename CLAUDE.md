@@ -482,7 +482,7 @@ git push origin master
 
 ## Estado del trabajo (sesión 2026-09-30) — leer antes de desplegar
 
-Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `master` intacto). Backend `npm test`: 213/213.
+Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `master` intacto). Backend `npm test`: 228/228.
 
 **Hecho y probado (no rehacer):**
 - Base (sesión 2026-09-23): `requireAdmin`, `checkout_token`, precios en servidor, bucket `payments` privado, rate limits, CSP, webhook TropiPay firmado, datos del pagador, avisos al confirmar (`notifyConfirmedOrder`), checkout en 2 pasos, "Mi cuenta", renovación de sesión.
@@ -495,7 +495,8 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
   - URLs de retorno: carpeta de la página de origen solo si está en `CORS_ORIGINS` y es **https no local** (TropiPay rechaza `http://localhost` con `INVALID_PARAM`); si no, `FRONTEND_PUBLIC_URL`. Sin `estado=` en la URL.
   - Frontend: `js/payment-return.js` (usado por `pago-confirmado.html`, `pago-rechazado.html` y "Mi cuenta"): consulta el estado ~30 s, estados verificando/rechazado/pendiente/pagado/sin sesión, acciones reintentar/otro método/WhatsApp/pedidos. `pago-confirmado.html?payment=manual` sigue mostrando "Pedido recibido". Login con `?return=` a páginas de pago. Subida de comprobante con sesión. Cache-buster `?v27`.
 - **Datos de facturación en el registro** (2026-09-30): el registro pide país, dirección de facturación, ciudad, estado, código postal, fecha de nacimiento (18+) y términos de TropiPay (`js/billing-fields.js`, también en "Mi cuenta" → Perfil). El checkout los muestra como resumen con "Cambiar"; cuentas antiguas los rellenan en el checkout y se guardan en el perfil. El pedido guarda `payer_details.birth_date` y el enlace envía `client.dateOfBirth` (verificado en sandbox: `birthDate`/`birthdate` se ignoran) → la pasarela ya no pide fecha ni código postal. **Migración pendiente de ejecutar en Supabase: `backend/migrations/20260930_customer_billing_profile.sql`** (sin ella el registro guarda el perfil sin facturación y "Mi cuenta" da error al guardarla).
-- `MUTE_NOTIFICATIONS=sms,email,print` en el `.env` **local** silencia SMS, emails e impresión (Telegram y APK siguen). No definir en producción.
+- `MUTE_NOTIFICATIONS` en el `.env` **local** silencia canales (`sms`, `email`, `print` o `all`). Desde 2026-09-30 está en `print` (SMS y email activos). No definir en producción.
+- Auditoría OWASP (2026-09-30), corregido: `/auth/reset-password` solo acepta la sesión del enlace de recuperación (`amr` = `otp`/`recovery`, < 1 h; un login normal es `password`); `/notifications/stats` solo admin; login/refresh/recuperación sin mensajes internos de Supabase; límite en `GET /tropipay/:id/status`; `req.body` vacío por defecto (antes 500 sin cuerpo); `ilike` de municipios sin comodines. `npm audit --omit=dev`: 0 vulnerabilidades. Script de rutas en local: 82/82.
 
 **Pendiente — paso 7 (despliegue), requiere permiso del usuario:**
 1. Desplegar **primero el backend** (repo standalone en `backend/.git`): producción aún da 404 en `/tropipay/webhook`, `/status` y `/retry`.

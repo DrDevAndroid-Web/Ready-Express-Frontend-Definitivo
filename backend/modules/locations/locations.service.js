@@ -78,7 +78,9 @@ async function findLocation(id) {
 }
 
 async function assertMunicipalityAvailable(municipio, ignoreId = null) {
-  const { data, error } = await supabase.from(TABLE).select("id").ilike("municipio", municipio).limit(1).maybeSingle();
+  // ilike sin comodines: comparación exacta sin distinguir mayúsculas ("%" o "_" no deben casar con otros)
+  const exact = String(municipio ?? "").replace(/[\\%_]/g, "\\$&");
+  const { data, error } = await supabase.from(TABLE).select("id").ilike("municipio", exact).limit(1).maybeSingle();
   throwIfSupabaseError(error, "No se pudo validar el municipio");
   if (data && String(data.id) !== String(ignoreId || "")) throw createConflict("Ya existe una localizacion con ese municipio");
 }
