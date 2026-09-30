@@ -109,28 +109,49 @@ export async function createTropipayPayment({ order, transactionId, reference = 
   const amount = Math.round(Number(order.total) * 100);
 
   const client = buildTropipayClient(order);
+  const payload = {
+    reference,
+    concept: `ReadyExpressNow ${orderReference}`,
+    description: `Pedido ${orderReference}`,
+    amount,
+    currency,
+    singleUse: true,
+    favorite: false,
+    reasonId: 4,
+    serviceDate: new Date().toISOString().slice(0, 10), // TropiPay espera YYYY-MM-DD
+    lang: "es",
+    // La página de retorno consulta el estado real al backend; la URL no decide nada
+    urlSuccess: `${frontend}/pago-confirmado.html?order=${encodeURIComponent(orderReference)}&payment=${encodeURIComponent(transactionId)}`,
+    urlFailed: `${frontend}/pago-rechazado.html?order=${encodeURIComponent(orderReference)}&payment=${encodeURIComponent(transactionId)}`,
+    urlNotification: webhook,
+    paymentMethods: ["EXT", "TPP"],
+    client
+  };
+
+  // Diagnóstico del payload sin datos personales. `countryIso` se conserva porque
+  // es el campo relevante para investigar la configuración de Apple Pay en TropiPay.
+  console.info("[tropipay:paymentcard:request]", {
+    ...payload,
+    accountId: payload.accountId ?? null,
+    client: {
+      countryIso: client.countryIso,
+      termsAndConditions: client.termsAndConditions,
+      hasName: Boolean(client.name),
+      hasLastName: Boolean(client.lastName),
+      hasEmail: Boolean(client.email),
+      hasPhone: Boolean(client.phone),
+      hasAddress: Boolean(client.address),
+      hasCity: Boolean(client.city),
+      hasState: Boolean(client.state),
+      hasPostCode: Boolean(client.postCode),
+      hasDateOfBirth: Boolean(client.dateOfBirth)
+    }
+  });
 
   const payment = await tropipayFetch("/api/v3/paymentcards", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({
-      reference,
-      concept: `ReadyExpressNow ${orderReference}`,
-      description: `Pedido ${orderReference}`,
-      amount,
-      currency,
-      singleUse: true,
-      favorite: false,
-      reasonId: 4,
-      serviceDate: new Date().toISOString().slice(0, 10), // TropiPay espera YYYY-MM-DD
-      lang: "es",
-      // La página de retorno consulta el estado real al backend; la URL no decide nada
-      urlSuccess: `${frontend}/pago-confirmado.html?order=${encodeURIComponent(orderReference)}&payment=${encodeURIComponent(transactionId)}`,
-      urlFailed: `${frontend}/pago-rechazado.html?order=${encodeURIComponent(orderReference)}&payment=${encodeURIComponent(transactionId)}`,
-      urlNotification: webhook,
-      paymentMethods: ["EXT", "TPP"],
-      client
-    })
+    body: JSON.stringify(payload)
   });
 
   return payment;
