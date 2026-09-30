@@ -33,7 +33,7 @@ export async function createPayment(payload) {
 export async function findById(id) {
   const { data, error } = await supabase
     .from("payment_transactions")
-    .select("*, orders(id, checkout_token, customer_id)")
+    .select("*, orders(id, checkout_token, customer_id, order_reference, total, status, payment_status, printed_at)")
     .eq("id", id)
     .single();
   throwIfSupabaseError(error, "No se pudo consultar el pago");

@@ -15,7 +15,7 @@ export async function createTropipayPaymentController(req, res) {
 export async function getTropipayStatusController(req, res) {
   try {
     res.json(await getTropipayStatus(req.params.id, {
-      checkoutToken: req.query.checkout_token || null,
+      checkoutToken: req.get("x-checkout-token") || req.query.checkout_token || null,
       customerId: req.user?.id || null,
       isAdmin: req.userRoles?.includes("admin") || req.userRoles?.includes("operador")
     }));
