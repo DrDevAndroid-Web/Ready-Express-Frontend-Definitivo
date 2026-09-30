@@ -1,6 +1,7 @@
 import { supabase } from "../../config/supabase.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { notifyChatStartedTelegram } from "../telegram/telegram.service.js";
+import { isMuted } from "../../utils/mute.js";
 
 const AI_API_URL = "https://hostingclan.com/api/ai/chat/completions";
 const AI_MODEL = "openai/gpt-5-nano";
@@ -395,6 +396,7 @@ ${checkoutPrompt}`;
 // ─── SMS de alerta ───────────────────────────────────────────────────────────
 
 export async function notifyChatStarted(sessionId) {
+  if (isMuted("sms")) return;
   const VERSABOLD_SMS_URL = process.env.VERSABOLD_SMS_URL;
   const VERSABOLD_API_KEY = process.env.VERSABOLD_API_KEY;
   const recipients = (process.env.SMS_NOTIFY_PHONES ?? "").split(",").map(p => p.trim()).filter(Boolean);

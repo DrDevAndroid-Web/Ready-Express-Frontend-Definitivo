@@ -1,3 +1,5 @@
+import { isMuted } from "../../utils/mute.js";
+
 const VERSABOLD_SMS_URL = process.env.VERSABOLD_SMS_URL;
 const VERSABOLD_API_KEY = process.env.VERSABOLD_API_KEY;
 
@@ -26,6 +28,7 @@ function extractPaymentMethod(order) {
 }
 
 export async function notifyOrderSMS(order) {
+  if (isMuted("sms")) return;
   const recipients = (process.env.SMS_NOTIFY_PHONES ?? "").split(",").map(p => p.trim()).filter(Boolean);
   if (!recipients.length) return;
 

@@ -4,12 +4,14 @@ import { Resend } from "resend";
 import sharp from "sharp";
 import nodemailer from "nodemailer";
 import { generatePDF } from "../../utils/pdf.js";
+import { isMuted } from "../../utils/mute.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LOGO_PATH = path.resolve(__dirname, "../../assets/logo-negocio.png");
 
 export async function resendEmail(order, emailContent, to) {
+  if (isMuted("email")) return;
   const resend = createResendClient();
   const from = getResendFrom();
 
@@ -32,6 +34,7 @@ export async function resendEmail(order, emailContent, to) {
 }
 
 export async function sendPrintableOrderEmail(order, to = process.env.IMPRESORA_EMAIL) {
+  if (isMuted("print")) return;
   if (!to) {
     throw new Error("IMPRESORA_EMAIL no esta configurado en .env");
   }

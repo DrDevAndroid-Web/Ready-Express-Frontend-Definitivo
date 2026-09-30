@@ -7,6 +7,7 @@ import {
   getItemQuantity,
   normalizeItems
 } from "../../utils/order-item-details.js";
+import { isMuted } from "../../utils/mute.js";
 
 function createTransporter() {
   return nodemailer.createTransport({
@@ -21,6 +22,7 @@ function createTransporter() {
 }
 
 export async function sendEmail(order) {
+  if (isMuted("email")) return;
   const transporter = createTransporter();
   const content = await buildOrderEmail(order);
   const ownerEmails = getOwnerEmails();
@@ -49,6 +51,7 @@ function getOwnerEmails() {
 }
 
 export async function sendCancelledOrderEmail(order) {
+  if (isMuted("email")) return;
   const transporter = createTransporter();
   const ownerEmails = getOwnerEmails();
 
