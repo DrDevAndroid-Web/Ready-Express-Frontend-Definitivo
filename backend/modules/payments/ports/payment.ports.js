@@ -3,7 +3,7 @@
  * Los casos de uso dependen de estos contratos, no de Supabase ni Express.
  */
 export const paymentPorts = {
-  transactionRepository: ["findOrderForCheckout", "findById", "findByProviderReference", "create", "update"],
+  transactionRepository: ["findOrderById", "findPendingByOrder", "countByOrder", "findById", "findByProviderReference", "createPayment", "updatePayment"],
   eventRepository: ["exists", "record"],
   orderRepository: ["updatePaymentState", "markPrinted"],
 };

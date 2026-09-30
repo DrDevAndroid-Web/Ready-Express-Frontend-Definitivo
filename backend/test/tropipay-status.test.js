@@ -13,8 +13,10 @@ process.env.SUPABASE_ANON_KEY ||= "anon-key";
 process.env.TROPIPAY_API_KEY = "test-api-key";
 process.env.TROPIPAY_API_SECRET = "test-api-secret";
 
-const { getTropipayStatus, processTropipayWebhook } = await import("../modules/payments/tropipay.service.js");
+const { createTropipayPaymentForOrder, getTropipayStatus, processTropipayWebhook, retryTropipayPayment } = await import("../modules/payments/tropipay.service.js");
+const { resolveReturnBase } = await import("../modules/payments/providers/tropipay.provider.js");
 
+const OPEN = new Set(["pending", "processing"]);
 const TX_ID = "tx-1";
 const OWNER = "user-1";
 const TOKEN = "tok-123";
@@ -23,7 +25,14 @@ const TOKEN = "tok-123";
 function setup({ txStatus = "pending", order = {}, paymentcard = { state: 1, amount: 2500, paymentInfo: { paid: false, paymentsCount: 0 } }, cardError = null } = {}) {
   const state = {
     tx: { id: TX_ID, order_id: "o1", status: txStatus, amount: 25, currency: "USD", external_reference: "REN-1", provider_payment_id: "card-1", payment_url: "https://tpp.me/abc", raw_payload: { secreto: true } },
-    order: { id: "o1", checkout_token: TOKEN, customer_id: OWNER, order_reference: "REN-1", total: 25, status: "pending", payment_status: "processing", printed_at: null, ...order },
+    order: {
+      id: "o1", checkout_token: TOKEN, customer_id: OWNER, order_reference: "REN-1", total: 25, status: "pending", payment_status: "processing", printed_at: null,
+      sender_first_name: "Ana", sender_last_name: "Pérez", customer_email: "ana@example.com", sender_phone: "+15550001",
+      payer_details: { address: "Calle 1", country_iso: "US", terms_accepted_at: "2026-09-01T00:00:00Z" },
+      ...order
+    },
+    created: [],
+    links: [],
     events: [],
     cardCalls: 0,
     printed: 0,
@@ -36,8 +45,20 @@ function setup({ txStatus = "pending", order = {}, paymentcard = { state: 1, amo
         if (id !== state.tx.id) throw Object.assign(new Error("No se pudo consultar el pago"), { status: 404 });
         return { ...state.tx, orders: { ...state.order } };
       },
+      async findOrderById() { return { ...state.order }; },
+      async findPendingByOrder() { return OPEN.has(state.tx.status) ? { ...state.tx } : null; },
+      async countByOrder() { return 1 + state.created.length; },
       async findByProviderReference() { return { ...state.tx }; },
-      async updatePayment(_id, updates) { Object.assign(state.tx, updates); return { ...state.tx }; }
+      async createPayment(payload) {
+        const row = { id: `tx-${2 + state.created.length}`, ...payload };
+        state.created.push(row);
+        return row;
+      },
+      async updatePayment(id, updates) {
+        const row = id === state.tx.id ? state.tx : state.created.find(r => r.id === id);
+        Object.assign(row, updates);
+        return { ...row };
+      }
     },
     paymentEventRepository: {
       async exists(id, type) { return state.events.some(e => e.payment_transaction_id === id && e.event_type === type); },
@@ -53,6 +74,11 @@ function setup({ txStatus = "pending", order = {}, paymentcard = { state: 1, amo
       async updatePaymentState(_id, paymentStatus, status) { Object.assign(state.order, { payment_status: paymentStatus, status }); },
       async markPrinted() { state.order.printed_at = new Date().toISOString(); }
     },
+    async createTropipayPayment({ reference, returnOrigin }) {
+      state.links.push({ reference, returnOrigin });
+      return { id: `card-${1 + state.links.length}`, shortUrl: `https://tpp.me/new-${state.links.length}` };
+    },
+    warmTropipayToken() {},
     async getTropipayPayment() {
       state.cardCalls++;
       if (cardError) throw cardError;
@@ -78,7 +104,7 @@ describe("GET estado TropiPay — respuesta saneada", () => {
   it("devuelve solo los campos públicos, sin raw_payload ni datos de la orden", async () => {
     const { deps } = setup();
     const result = await getTropipayStatus(TX_ID, owner, deps);
-    assert.deepEqual(Object.keys(result).sort(), ["can_retry", "currency", "order_reference", "order_status", "retry_url", "status", "total"]);
+    assert.deepEqual(Object.keys(result).sort(), ["can_retry", "currency", "order_id", "order_reference", "order_status", "retry_url", "status", "total"]);
     assert.equal(result.order_reference, "REN-1");
     assert.equal(result.total, 25);
     assert.ok(!JSON.stringify(result).includes(TOKEN));
@@ -184,8 +210,17 @@ describe("GET estado TropiPay — conciliación con la API", () => {
     assert.equal(result.can_retry, false);
   });
 
-  it("pago fallido: se puede reintentar, pero sin reutilizar el enlace", async () => {
+  it("pago rechazado con el enlace aún activo: ofrece reutilizarlo", async () => {
     const { state, deps } = setup({ txStatus: "failed", order: { status: "payment_rejected", payment_status: "failed" } });
+    const result = await getTropipayStatus(TX_ID, owner, deps);
+    assert.equal(state.cardCalls, 1);
+    assert.equal(result.can_retry, true);
+    assert.equal(result.retry_url, "https://tpp.me/abc");
+  });
+
+  it("pago cuyo enlace no llegó a crearse: se puede reintentar sin consultar TropiPay", async () => {
+    const { state, deps } = setup({ txStatus: "failed" });
+    state.tx.provider_payment_id = null;
     const result = await getTropipayStatus(TX_ID, owner, deps);
     assert.equal(state.cardCalls, 0);
     assert.equal(result.can_retry, true);
@@ -256,5 +291,108 @@ describe("Conciliación y webhook — idempotencia", () => {
     assert.equal(result.status, "failed");
     assert.equal(state.order.status, "payment_rejected");
     assert.equal(state.printed, 0);
+  });
+});
+
+describe("POST reintento TropiPay", () => {
+  it("enlace activo y sin pagar: devuelve el mismo enlace sin crear otro", async () => {
+    const { state, deps } = setup();
+    const result = await retryTropipayPayment(TX_ID, owner, deps);
+    assert.deepEqual(result, { payment_id: TX_ID, payment_url: "https://tpp.me/abc", reused: true });
+    assert.equal(state.links.length, 0);
+  });
+
+  it("tras un rechazo con el enlace activo: lo reutiliza y reabre la orden", async () => {
+    const { state, deps } = setup({ txStatus: "failed", order: { status: "payment_rejected", payment_status: "failed" } });
+    const result = await retryTropipayPayment(TX_ID, owner, deps);
+    assert.equal(result.reused, true);
+    assert.equal(state.tx.status, "pending");
+    assert.equal(state.order.status, "pending");
+    assert.equal(state.order.payment_status, "processing");
+  });
+
+  it("enlace caducado: cierra el anterior y crea otro para la misma orden con referencia -R2", async () => {
+    const { state, deps } = setup({ paymentcard: { state: 2, amount: 2500, paymentInfo: { paid: false } } });
+    const result = await retryTropipayPayment(TX_ID, owner, deps);
+    assert.equal(result.reused, false);
+    assert.equal(result.payment_url, "https://tpp.me/new-1");
+    assert.equal(state.tx.status, "cancelled");
+    assert.equal(state.links[0].reference, "REN-1-R2");
+    assert.equal(state.created[0].order_id, "o1");
+    assert.equal(state.created[0].amount, 25);
+  });
+
+  it("enlace que no llegó a crearse: crea uno nuevo", async () => {
+    const { state, deps } = setup({ txStatus: "failed" });
+    state.tx.provider_payment_id = null;
+    const result = await retryTropipayPayment(TX_ID, owner, deps);
+    assert.equal(result.reused, false);
+    assert.equal(state.links.length, 1);
+  });
+
+  it("orden ya pagada → 409", async () => {
+    const { state, deps } = setup({ txStatus: "successful", order: { status: "paid", payment_status: "successful" } });
+    await assert.rejects(retryTropipayPayment(TX_ID, owner, deps), err => err.status === 409);
+    assert.equal(state.links.length, 0);
+  });
+
+  it("pagada en TropiPay pero sin webhook: la concilia y responde 409 sin crear otro enlace", async () => {
+    const { state, deps } = setup({ paymentcard: { state: 1, amount: 2500, paymentInfo: { paid: true } } });
+    await assert.rejects(retryTropipayPayment(TX_ID, owner, deps), err => err.status === 409);
+    assert.equal(state.order.status, "paid");
+    assert.equal(state.links.length, 0);
+  });
+
+  it("orden cancelada → 409", async () => {
+    const { deps } = setup({ order: { status: "cancelled" } });
+    await assert.rejects(retryTropipayPayment(TX_ID, owner, deps), err => err.status === 409);
+  });
+
+  it("TropiPay no responde: 503 y no abre un segundo enlace", async () => {
+    const { state, deps } = setup({ cardError: new Error("timeout") });
+    await assert.rejects(retryTropipayPayment(TX_ID, owner, deps), err => err.status === 503);
+    assert.equal(state.links.length, 0);
+  });
+
+  it("otro cliente → 404", async () => {
+    const { state, deps } = setup();
+    await assert.rejects(retryTropipayPayment(TX_ID, { customerId: "user-2" }, deps), err => err.status === 404);
+    assert.equal(state.cardCalls, 0);
+  });
+});
+
+describe("Crear pago TropiPay — acceso", () => {
+  it("el dueño con sesión puede pagar sin checkout_token", async () => {
+    const { state, deps } = setup({ txStatus: "cancelled" });
+    const result = await createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps);
+    assert.equal(result.payment_url, "https://tpp.me/new-1");
+    assert.equal(state.links[0].reference, "REN-1");
+  });
+
+  it("otro cliente sin token → 404", async () => {
+    const { deps } = setup({ txStatus: "cancelled" });
+    await assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", customerId: "user-2" }, deps), err => err.status === 404);
+  });
+
+  it("orden pagada → 409", async () => {
+    const { deps } = setup({ txStatus: "successful", order: { status: "paid", payment_status: "successful" } });
+    await assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", checkoutToken: TOKEN }, deps), err => err.status === 409);
+  });
+});
+
+describe("URLs de retorno según el entorno", () => {
+  it("usa la carpeta de la página de origen si su dominio está en CORS_ORIGINS", () => {
+    process.env.CORS_ORIGINS = "https://readyexpressnow.versabold.com,http://localhost:5500";
+    assert.equal(resolveReturnBase("http://localhost:5500/frontend/checkout.html"), "http://localhost:5500/frontend");
+    assert.equal(resolveReturnBase("http://localhost:5500/frontend/"), "http://localhost:5500/frontend");
+    assert.equal(resolveReturnBase("http://localhost:5500"), "http://localhost:5500");
+  });
+
+  it("un dominio que no está en CORS_ORIGINS vuelve a FRONTEND_PUBLIC_URL", () => {
+    process.env.CORS_ORIGINS = "http://localhost:5500";
+    process.env.FRONTEND_PUBLIC_URL = "https://readyexpressnow.versabold.com/";
+    assert.equal(resolveReturnBase("https://evil.example/phish/"), "https://readyexpressnow.versabold.com");
+    assert.equal(resolveReturnBase("no es una url"), "https://readyexpressnow.versabold.com");
+    assert.equal(resolveReturnBase(null), "https://readyexpressnow.versabold.com");
   });
 });

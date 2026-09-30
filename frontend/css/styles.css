@@ -3464,3 +3464,8 @@ body.modal-open .cart-panel {
 /* Etiquetas del stepper alineadas a los bordes para que no se corten */
 .checkout-stepper-item:first-child { align-items: flex-start; }
 .checkout-stepper-item:last-child { align-items: flex-end; }
+
+/* ── Retorno de TropiPay: otros métodos de pago ── */
+.payment-return-methods { padding-top: 16px; border-top: 1px solid var(--border); }
+.payment-return-methods-title { font-weight: 600; color: var(--gray-dark); margin: 0; }
+.payment-return-methods small { font-weight: 400; margin-left: 4px; }

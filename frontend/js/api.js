@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v26";
-import { authorizedFetch } from "./session.js?v26";
+import { API_BASE } from "./config.js?v27";
+import { authorizedFetch } from "./session.js?v27";
 
 export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
@@ -175,15 +175,17 @@ export const createTropipayPayment = (orderId, checkoutToken) =>
   request("/payments/tropipay", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ order_id: orderId, checkout_token: checkoutToken })
+    // Carpeta de esta página: TropiPay devuelve al cliente aquí (el backend la valida con CORS_ORIGINS)
+    body: JSON.stringify({ order_id: orderId, checkout_token: checkoutToken, return_url_base: new URL(".", location.href).href })
   });
 
 export async function uploadPayment(formData) {
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/payments/upload`, {
+    // Con sesión el dueño de la orden puede subir el comprobante aunque no tenga el checkout_token
+    const res = await authorizedFetch(`${API_BASE}/payments/upload`, {
       method: "POST",
       body: formData,
-    }, 30000);
+    }, (url, opts) => fetchWithTimeout(url, opts, 30000));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       const userMessage = getUserFriendlyError(err, res.status);

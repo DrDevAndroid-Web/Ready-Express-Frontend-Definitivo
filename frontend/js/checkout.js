@@ -1,11 +1,11 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v26";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v26";
-import { savePendingPayment } from "./payment.js?v26";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v26";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v26";
-import { getAccessToken, getCurrentUser, getMyProfile } from "./auth.js?v26";
-import { setupCountrySelect } from "./country-select.js?v26";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v26";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v27";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v27";
+import { savePendingPayment } from "./payment.js?v27";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v27";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v27";
+import { getAccessToken, getCurrentUser, getMyProfile } from "./auth.js?v27";
+import { setupCountrySelect } from "./country-select.js?v27";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v27";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";

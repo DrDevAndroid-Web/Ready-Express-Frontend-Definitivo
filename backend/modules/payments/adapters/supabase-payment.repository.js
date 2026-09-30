@@ -1,15 +1,25 @@
 import { supabase } from "../../../config/supabase.js";
 import { throwIfSupabaseError } from "../../../utils/http-error.js";
 
-export async function findOrderForCheckout(orderId, checkoutToken) {
+// El acceso (checkout_token o cliente propietario) lo comprueba el caso de uso
+export async function findOrderById(orderId) {
   const { data, error } = await supabase
     .from("orders")
     .select("*")
     .eq("id", orderId)
-    .eq("checkout_token", checkoutToken)
-    .single();
+    .maybeSingle();
   throwIfSupabaseError(error, "No se pudo cargar la orden para TropiPay");
   return data;
+}
+
+export async function countByOrder(orderId) {
+  const { count, error } = await supabase
+    .from("payment_transactions")
+    .select("id", { count: "exact", head: true })
+    .eq("order_id", orderId)
+    .eq("provider", "tropipay");
+  throwIfSupabaseError(error, "No se pudieron contar los intentos de pago");
+  return count || 0;
 }
 
 export async function findPendingByOrder(orderId) {

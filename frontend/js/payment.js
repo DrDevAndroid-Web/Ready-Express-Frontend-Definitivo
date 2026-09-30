@@ -1,7 +1,8 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v26";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v26";
-import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v26";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v26";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v27";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v27";
+import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v27";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v27";
+import { authorizedFetch } from "./session.js?v27";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -425,7 +426,7 @@ async function downloadReceipt() {
     if (pendingOrderId) {
       try {
         const checkoutToken = pendingPayment?.checkoutToken;
-        const res = await fetch(`${API_BASE}/orders/${encodeURIComponent(pendingOrderId)}`, {
+        const res = await authorizedFetch(`${API_BASE}/orders/${encodeURIComponent(pendingOrderId)}`, {
           headers: checkoutToken ? { "X-Checkout-Token": checkoutToken } : {}
         });
         if (res.ok) {

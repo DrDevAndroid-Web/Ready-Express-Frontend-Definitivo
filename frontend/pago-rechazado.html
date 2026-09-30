@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <title>Pago rechazado | Ready Express Now</title>
+  <title>Pago no completado | Ready Express Now</title>
   <meta name="robots" content="noindex">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v26">
+  <link rel="stylesheet" href="./css/styles.css?v27">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -20,17 +20,20 @@
     </div>
   </header>
   <main class="auth-main" id="main">
-    <section class="auth-card auth-card--center" aria-labelledby="title">
-      <div class="status-icon is-error" aria-hidden="true"><i class="fa-solid fa-circle-xmark"></i></div>
-      <h1 id="title">Pago no confirmado</h1>
-      <p class="auth-lead">TropiPay no pudo completar el pago. Puedes intentarlo de nuevo o escribirnos por WhatsApp.</p>
+    <!-- El estado se consulta al backend: la URL de retorno de TropiPay no decide nada -->
+    <section class="auth-card auth-card--center" aria-labelledby="title" aria-live="polite">
+      <div id="status-icon" class="status-icon" aria-hidden="true"><i class="fa-solid fa-spinner fa-spin"></i></div>
+      <h1 id="title">Verificando tu pago...</h1>
+      <p id="message" class="auth-lead">Estamos consultando a TropiPay. No cierres esta ventana.</p>
       <p>Pedido <span id="order" class="status-order">-</span></p>
-      <div class="auth-actions">
-        <a class="auth-btn" href="./checkout.html">Intentar de nuevo</a>
-        <a class="auth-btn auth-btn--secondary" href="./index.html">Volver a la tienda</a>
-      </div>
+      <p id="error" class="auth-msg" role="alert"></p>
+      <div id="actions" class="auth-actions"></div>
+      <div id="other-methods" class="auth-actions payment-return-methods" hidden></div>
     </section>
-  <script>document.querySelector('#order').textContent = new URLSearchParams(location.search).get('order') || '-';</script>
   </main>
+  <script type="module">
+    import { initPaymentReturn } from './js/payment-return.js?v27';
+    initPaymentReturn();
+  </script>
 </body>
 </html>

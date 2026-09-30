@@ -80,12 +80,29 @@ export function missingTropipayClientFields(client) {
   return Object.keys(labels).filter(key => !client[key]).map(key => labels[key]);
 }
 
-export async function createTropipayPayment({ order, transactionId }) {
+// Base de las URLs de retorno. `returnOrigin` es la carpeta de la página que inició
+// el pago (p. ej. http://localhost:5500/frontend/): solo se usa si su origen está en
+// CORS_ORIGINS, para que las pruebas en local vuelvan a local y nadie pueda desviar
+// al cliente a otro dominio. Si no, FRONTEND_PUBLIC_URL.
+export function resolveReturnBase(returnOrigin) {
+  const fallback = String(process.env.FRONTEND_PUBLIC_URL || "https://www.readyexpressnow.com").replace(/\/$/, "");
+  if (!returnOrigin) return fallback;
+  try {
+    const url = new URL(returnOrigin);
+    const allowed = String(process.env.CORS_ORIGINS || "").split(",").map(o => o.trim().replace(/\/$/, "")).filter(Boolean);
+    if (!allowed.includes(url.origin)) return fallback;
+    return `${url.origin}${url.pathname.replace(/\/[^/]*$/, "")}`;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function createTropipayPayment({ order, transactionId, reference = order.order_reference || order.id, returnOrigin = null }) {
   const token = await getAccessToken();
   const currency = String(process.env.TROPIPAY_CURRENCY || "USD").toUpperCase();
-  const frontend = String(process.env.FRONTEND_PUBLIC_URL || "https://www.readyexpressnow.com").replace(/\/$/, "");
+  const frontend = resolveReturnBase(returnOrigin);
   const webhook = String(process.env.TROPIPAY_NOTIFICATION_URL || `${process.env.BACKEND_PUBLIC_URL || "https://readyexpressnowbackend.versabold.com"}/api/payments/tropipay/webhook`);
-  const reference = order.order_reference || order.id;
+  const orderReference = order.order_reference || reference;
   const amount = Math.round(Number(order.total) * 100);
 
   const client = buildTropipayClient(order);
@@ -95,8 +112,8 @@ export async function createTropipayPayment({ order, transactionId }) {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
       reference,
-      concept: `ReadyExpressNow ${reference}`,
-      description: `Pedido ${reference}`,
+      concept: `ReadyExpressNow ${orderReference}`,
+      description: `Pedido ${orderReference}`,
       amount,
       currency,
       singleUse: true,
@@ -104,8 +121,9 @@ export async function createTropipayPayment({ order, transactionId }) {
       reasonId: 4,
       serviceDate: new Date().toISOString().slice(0, 10), // TropiPay espera YYYY-MM-DD
       lang: "es",
-      urlSuccess: `${frontend}/pago-confirmado.html?order=${encodeURIComponent(reference)}&payment=${encodeURIComponent(transactionId)}&estado=procesando`,
-      urlFailed: `${frontend}/pago-rechazado.html?order=${encodeURIComponent(reference)}&payment=${encodeURIComponent(transactionId)}&estado=rechazado`,
+      // La página de retorno consulta el estado real al backend; la URL no decide nada
+      urlSuccess: `${frontend}/pago-confirmado.html?order=${encodeURIComponent(orderReference)}&payment=${encodeURIComponent(transactionId)}`,
+      urlFailed: `${frontend}/pago-rechazado.html?order=${encodeURIComponent(orderReference)}&payment=${encodeURIComponent(transactionId)}`,
       urlNotification: webhook,
       paymentMethods: ["EXT", "TPP"],
       client

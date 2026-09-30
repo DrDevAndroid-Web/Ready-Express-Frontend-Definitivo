@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v26";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v26";
+import { API_BASE } from "./config.js?v27";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v27";
 const ACCESS_KEY = "ren_access_token";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
 export function getCurrentUser() { try { return JSON.parse(localStorage.getItem("ren_user") || "null"); } catch { return null; } }
@@ -8,7 +8,17 @@ export function clearSession() { clearStoredSession(); }
 async function authRequest(path, options = {}) { const response = await authorizedFetch(`${API_BASE}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } }); const body = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(body.error || "No se pudo completar la operación"); error.status = response.status; throw error; } return body; }
 export async function registerCustomer(data) { const result = await authRequest("/auth/register", { method: "POST", body: JSON.stringify(data) }); if (result.access_token) saveSession(result); return result; }
 export async function requestPasswordReset(email) { return authRequest("/auth/recover-password", { method: "POST", body: JSON.stringify({ email }) }); }
-export async function loginCustomer(email, password) { const result = await authRequest("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }); saveSession(result); if (new URLSearchParams(location.search).get("return") === "checkout") location.href = "./checkout.html"; return result; }
+// Página a la que volver tras iniciar sesión (?return=). Solo páginas propias conocidas,
+// para que el parámetro no sirva para redirigir a otro sitio.
+const RETURN_PAGES = ["pago-confirmado.html", "pago-rechazado.html"];
+export function safeReturnPath() {
+  const target = new URLSearchParams(location.search).get("return") || "";
+  if (target === "checkout") return "./checkout.html";
+  const [page, query = ""] = target.split("?");
+  if (!RETURN_PAGES.includes(page)) return null;
+  return `./${page}${query ? `?${new URLSearchParams(query)}` : ""}`;
+}
+export async function loginCustomer(email, password) { const result = await authRequest("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }); saveSession(result); const target = safeReturnPath(); if (target) location.href = target; return result; }
 export async function getMyProfile() { return authRequest("/auth/profile"); }
 export async function getMyOrders() { return authRequest("/account/orders"); }
 export async function updateMyProfile(data) { return authRequest("/auth/profile", { method: "PATCH", body: JSON.stringify(data) }); }

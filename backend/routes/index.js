@@ -57,7 +57,7 @@ import { optionalSupabaseUser, requireAdmin, requireDeliveryOperator, requireSup
 import { supabase, supabaseAuth } from "../config/supabase.js";
 import { createBadRequest } from "../utils/http-error.js";
 import { registerCustomer, getCustomerProfile, updateCustomerProfile, listCustomerAddresses, createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from "../modules/customers/customer.service.js";
-import { createTropipayPaymentController, getTropipayStatusController, tropipayWebhookController, tropipayConfigurationController } from "../modules/payments/tropipay.controller.js";
+import { createTropipayPaymentController, getTropipayStatusController, retryTropipayPaymentController, tropipayWebhookController, tropipayConfigurationController } from "../modules/payments/tropipay.controller.js";
 import { listAdminTransactions, getAdminTransactionEvents, retryAdminPrint } from "../modules/payments/admin-payments.controller.js";
 import { uploadDeliveryConfirmationController, getDeliveryConfirmationController, getPaymentDeliveryConfirmationController, updateDeliveryConfirmationController } from "../modules/media/media.controller.js";
 
@@ -197,6 +197,7 @@ router.get("/auth/profile", requireSupabaseUser, async (req, res, next) => {
 // TropiPay: la creación puede operar con invitado; el webhook es público para TropiPay.
 router.post("/payments/tropipay", paymentLimiter, requireSupabaseUser, createTropipayPaymentController);
 router.get("/payments/tropipay/:id/status", optionalSupabaseUser, getTropipayStatusController);
+router.post("/payments/tropipay/:id/retry", paymentLimiter, optionalSupabaseUser, retryTropipayPaymentController);
 router.post("/payments/tropipay/webhook", tropipayWebhookController);
 router.get("/admin/tropipay/configuration", requireSupabaseUser, requireAdmin, tropipayConfigurationController);
 router.get("/admin/payments", requireSupabaseUser, requireAdmin, listAdminTransactions);

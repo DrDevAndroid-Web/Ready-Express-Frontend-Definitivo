@@ -1,8 +1,9 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v26";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v26";
+} from "./auth.js?v27";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v27";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v27";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -36,8 +37,11 @@ const TROPIPAY_STATUS = {
   processing: ["Procesando", "info"],
   pending: ["Pendiente", "warning"],
   successful: ["Pagado", "success"],
-  failed: ["Fallido", "danger"]
+  failed: ["Rechazado", "danger"],
+  cancelled: ["Sustituido", "muted"]
 };
+// La orden aún puede pagarse (con TropiPay u otro método)
+const ORDER_AWAITING_PAYMENT = ["pending", "processing", "payment_rejected"];
 
 function badge([label, icon, tone]) {
   return `<span class="account-badge is-${tone}"><i class="fa-solid ${icon}" aria-hidden="true"></i>${escapeHtml(label)}</span>`;
@@ -302,20 +306,33 @@ function renderPayments(order) {
           </div>` : ""}
       </div>`;
   }).join("");
+  // Solo el intento más reciente (la lista llega ordenada) ofrece reintentar
+  const latestTropipayId = payments.tropipay?.[0]?.id;
   const tropipay = (payments.tropipay || []).map(payment => {
     const [label, tone] = TROPIPAY_STATUS[payment.status] || [payment.status || "Pendiente", "info"];
-    const canRetry = payment.payment_url && ["pending", "processing"].includes(payment.status);
+    const canRetry = payment.id === latestTropipayId
+      && ["pending", "processing", "failed"].includes(payment.status)
+      && ORDER_AWAITING_PAYMENT.includes(order.status);
+    const id = escapeHtml(payment.id);
     return `
       <div class="account-payment">
         <span><i class="fa-solid fa-credit-card" aria-hidden="true"></i> TropiPay <span class="account-badge is-${tone}">${escapeHtml(label)}</span></span>
-        ${canRetry ? `<div class="account-card-actions"><a class="account-action" href="${escapeHtml(payment.payment_url)}" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Completar pago</a></div>` : ""}
+        ${canRetry ? `
+          <div class="account-card-actions">
+            <button type="button" class="account-action" data-retry-payment="${id}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>Reintentar pago</button>
+            <button type="button" class="account-action" data-other-methods="${escapeHtml(order.id)}" aria-expanded="false"><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i>Pagar con otro método</button>
+          </div>
+          <div class="account-card-actions" data-methods-for="${escapeHtml(order.id)}" hidden></div>` : ""}
       </div>`;
   }).join("");
   return manual || tropipay ? `<div class="account-payments">${manual}${tropipay}</div>` : "";
 }
 
+let ordersById = new Map();
+
 async function loadOrders() {
   const orders = await getMyOrders();
+  ordersById = new Map(orders.map(order => [String(order.id), order]));
   const container = $("#orders");
   container.setAttribute("aria-busy", "false");
   if (!orders.length) {
@@ -369,11 +386,45 @@ async function downloadFile(url, filename, button) {
   }
 }
 
+let otherMethods = [];
+
+async function toggleOtherMethods(button) {
+  const orderId = button.dataset.otherMethods;
+  const container = $(`[data-methods-for="${CSS.escape(orderId)}"]`);
+  const open = button.getAttribute("aria-expanded") === "true";
+  button.setAttribute("aria-expanded", String(!open));
+  container.hidden = open;
+  if (open) return;
+  if (!otherMethods.length) otherMethods = await alternativeMethods().catch(() => []);
+  container.innerHTML = otherMethods.length
+    ? otherMethods.map(method => `<button type="button" class="account-action" data-pay-with="${escapeHtml(method.id)}" data-order="${escapeHtml(orderId)}">${escapeHtml(method.method_name)}${method.payment_flow === "assisted" ? " · WhatsApp" : ""}</button>`).join("")
+    : '<p class="account-muted">No hay otros métodos disponibles ahora. Escríbenos por WhatsApp.</p>';
+}
+
 function setupOrders() {
   $("#orders").addEventListener("click", async event => {
     const button = event.target.closest("button");
     if (!button) return;
-    if (button.dataset.download) {
+    if (button.dataset.retryPayment) {
+      setLoading(button, true, "Abriendo TropiPay...");
+      try {
+        location.href = await retryTropipayPayment(button.dataset.retryPayment);
+      } catch (error) {
+        setLoading(button, false);
+        if (error.status === 409) {
+          toast(error.message);
+          loadOrders().catch(handleError);
+        } else {
+          handleError(error);
+        }
+      }
+    } else if (button.dataset.otherMethods) {
+      await toggleOtherMethods(button);
+    } else if (button.dataset.payWith) {
+      const order = ordersById.get(button.dataset.order);
+      const method = otherMethods.find(m => String(m.id) === button.dataset.payWith);
+      if (order && method) payWithMethod(method, { orderId: order.id, reference: order.order_reference || order.id, total: order.total });
+    } else if (button.dataset.download) {
       await downloadFile(button.dataset.download, button.dataset.filename, button);
     } else if (button.dataset.share) {
       const url = button.dataset.share;
