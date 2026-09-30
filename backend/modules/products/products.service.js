@@ -107,9 +107,9 @@ export async function updateElectrodomestico(id, electro, file) {
 export async function getInfo() {
   const { data: info, error } = await catalogRepository.getInfo();
   if (error) return { error };
-  // tropipay_enabled: el checkout solo ofrece TropiPay si el backend tiene credenciales
-  const tropipayEnabled = Boolean(process.env.TROPIPAY_CLIENT_ID && process.env.TROPIPAY_CLIENT_SECRET);
-  return { data: { ...info?.[0], payment_methods: await catalogRepository.getPaymentMethods(), tropipay_enabled: tropipayEnabled } };
+  // TropiPay forma parte fija del checkout. Las credenciales siguen siendo privadas
+  // y se validan al crear el pago, nunca se exponen en esta respuesta pública.
+  return { data: { ...info?.[0], payment_methods: await catalogRepository.getPaymentMethods(), tropipay_enabled: true } };
 }
 
 function createCompactId(prefix) { return `${prefix}-${Date.now().toString(36)}`; }
