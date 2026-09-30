@@ -70,12 +70,14 @@ function setup({ txStatus = "pending", order = {}, paymentcard = { state: 1, amo
       }
     },
     orderRepository: {
+      async findCustomerBilling() { return state.profile || null; },
+      async updatePayerDetails(_id, payerDetails) { state.order.payer_details = payerDetails; },
       async findPrintState() { return { ...state.order }; },
       async updatePaymentState(_id, paymentStatus, status) { Object.assign(state.order, { payment_status: paymentStatus, status }); },
       async markPrinted() { state.order.printed_at = new Date().toISOString(); }
     },
-    async createTropipayPayment({ reference, returnOrigin }) {
-      state.links.push({ reference, returnOrigin });
+    async createTropipayPayment({ order, reference, returnOrigin }) {
+      state.links.push({ reference, returnOrigin, payer: order.payer_details });
       return { id: `card-${1 + state.links.length}`, shortUrl: `https://tpp.me/new-${state.links.length}` };
     },
     warmTropipayToken() {},
@@ -389,7 +391,7 @@ describe("Crear pago TropiPay — acceso", () => {
 
 describe("URLs de retorno según el entorno", () => {
   it("usa la carpeta de la página de origen si su dominio está en CORS_ORIGINS", () => {
-    process.env.CORS_ORIGINS = "https://readyexpressnow.versabold.com, https://preview.vercel.app";
+    process.env.CORS_ORIGINS = "https://www.readyexpressnow.com, https://preview.vercel.app";
     assert.equal(resolveReturnBase("https://preview.vercel.app/checkout.html"), "https://preview.vercel.app");
     assert.equal(resolveReturnBase("https://preview.vercel.app/frontend/"), "https://preview.vercel.app/frontend");
     assert.equal(resolveReturnBase("https://preview.vercel.app"), "https://preview.vercel.app");
@@ -397,16 +399,58 @@ describe("URLs de retorno según el entorno", () => {
 
   it("localhost o http vuelven a FRONTEND_PUBLIC_URL (TropiPay las rechaza)", () => {
     process.env.CORS_ORIGINS = "http://localhost:5173, https://localhost:5173";
-    process.env.FRONTEND_PUBLIC_URL = "https://readyexpressnow.versabold.com";
-    assert.equal(resolveReturnBase("http://localhost:5173/checkout.html"), "https://readyexpressnow.versabold.com");
-    assert.equal(resolveReturnBase("https://localhost:5173/checkout.html"), "https://readyexpressnow.versabold.com");
+    process.env.FRONTEND_PUBLIC_URL = "https://www.readyexpressnow.com";
+    assert.equal(resolveReturnBase("http://localhost:5173/checkout.html"), "https://www.readyexpressnow.com");
+    assert.equal(resolveReturnBase("https://localhost:5173/checkout.html"), "https://www.readyexpressnow.com");
   });
 
   it("un dominio que no está en CORS_ORIGINS vuelve a FRONTEND_PUBLIC_URL", () => {
     process.env.CORS_ORIGINS = "http://localhost:5500";
-    process.env.FRONTEND_PUBLIC_URL = "https://readyexpressnow.versabold.com/";
-    assert.equal(resolveReturnBase("https://evil.example/phish/"), "https://readyexpressnow.versabold.com");
-    assert.equal(resolveReturnBase("no es una url"), "https://readyexpressnow.versabold.com");
-    assert.equal(resolveReturnBase(null), "https://readyexpressnow.versabold.com");
+    process.env.FRONTEND_PUBLIC_URL = "https://www.readyexpressnow.com/";
+    assert.equal(resolveReturnBase("https://evil.example/phish/"), "https://www.readyexpressnow.com");
+    assert.equal(resolveReturnBase("no es una url"), "https://www.readyexpressnow.com");
+    assert.equal(resolveReturnBase(null), "https://www.readyexpressnow.com");
+  });
+});
+
+describe("Reintento de pedidos antiguos — datos del pagador desde el perfil", () => {
+  const profile = { pais_iso: "ES", direccion_facturacion: "Otra 2", ciudad: "Madrid", estado_region: null, codigo_postal: "28001", fecha_nacimiento: "1985-05-05", terminos_tropipay_at: "2026-09-30T00:00:00Z" };
+
+  it("completa fecha de nacimiento y código postal que faltan, sin pisar lo que tiene la orden", async () => {
+    const { state, deps } = setup({ txStatus: "failed" });
+    state.tx.provider_payment_id = null;
+    state.profile = profile;
+    await retryTropipayPayment(TX_ID, owner, deps);
+    const payer = state.links[0].payer;
+    assert.equal(payer.birth_date, "1985-05-05");
+    assert.equal(payer.post_code, "28001");
+    assert.equal(payer.country_iso, "US");
+    assert.equal(payer.address, "Calle 1");
+    assert.equal(state.order.payer_details.birth_date, "1985-05-05");
+  });
+
+  it("también al crear el pago desde el checkout o Mi cuenta", async () => {
+    const { state, deps } = setup({ txStatus: "cancelled" });
+    state.profile = profile;
+    await createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps);
+    assert.equal(state.links[0].payer.birth_date, "1985-05-05");
+  });
+
+  it("sin perfil con facturación: el enlace se crea con lo que tenga la orden", async () => {
+    const { state, deps } = setup({ txStatus: "failed" });
+    state.tx.provider_payment_id = null;
+    await retryTropipayPayment(TX_ID, owner, deps);
+    assert.equal(state.links[0].payer.birth_date, undefined);
+    assert.equal(state.links.length, 1);
+  });
+
+  it("orden completa: no consulta el perfil", async () => {
+    const { state, deps } = setup({ txStatus: "failed" });
+    state.tx.provider_payment_id = null;
+    Object.assign(state.order.payer_details, { city: "Miami", state: "FL", post_code: "33101", birth_date: "1990-01-15" });
+    let consulted = false;
+    deps.orderRepository.findCustomerBilling = async () => { consulted = true; return profile; };
+    await retryTropipayPayment(TX_ID, owner, deps);
+    assert.equal(consulted, false);
   });
 });

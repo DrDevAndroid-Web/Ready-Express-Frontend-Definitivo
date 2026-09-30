@@ -438,7 +438,7 @@ Estos no se pueden verificar con Playwright headless — revisarlos al hacer cam
 - **Repo GitHub:** `https://github.com/DrDevAndroid-Web/Ready-Express-Frontend-Definitivo`
 - **Proyecto Vercel:** `ready-express-frontend-definitivo`
 - **URL de preview (última):** `ready-express-frontend-definitivo-awh3hrf58.vercel.app`
-- **URL de producción:** `https://readyexpressnow.versabold.com`
+- **URL de producción:** `https://www.readyexpressnow.com` (dominio propio; `https://readyexpressnow.com` redirige a `www`). El antiguo `readyexpressnow.versabold.com` ya no resuelve.
 - **Rama principal:** `master`
 
 ### Reglas de Deploy
@@ -475,7 +475,7 @@ Solo cuando el usuario diga explícitamente "sube a producción" o equivalente:
 git checkout master
 git merge preview/descripcion-del-cambio
 git push origin master
-# → Vercel despliega automáticamente a readyexpressnow.versabold.com
+# → Vercel despliega automáticamente a www.readyexpressnow.com
 ```
 
 ---
@@ -499,9 +499,10 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
 
 **Pendiente — paso 7 (despliegue), requiere permiso del usuario:**
 1. Desplegar **primero el backend** (repo standalone en `backend/.git`): producción aún da 404 en `/tropipay/webhook`, `/status` y `/retry`.
-2. En producción, `FRONTEND_PUBLIC_URL` debe ser `https://readyexpressnow.versabold.com` (el `.env` local tiene `https://www.readyexpressnow.com`, que da 404 en Vercel).
-3. Confirmar en el panel de TropiPay la URL de notificación `https://readyexpressnowbackend.versabold.com/api/payments/tropipay/webhook`.
-4. Push de `preview/tropipay-base` para la preview de Vercel; luego `master` cuando el usuario lo diga.
+2. En el backend de producción: `FRONTEND_PUBLIC_URL=https://www.readyexpressnow.com` y `CORS_ORIGINS` con `https://www.readyexpressnow.com,https://readyexpressnow.com` (el navegador llega con origen `www`). Sin `FRONTEND_PASSWORD_RESET_URL` (la de `localhost` es solo del `.env` local). Las páginas de pago y `reset-password.html` dan 404 en el dominio hasta desplegar el frontend.
+3. Supabase → Authentication → URL Configuration: Site URL `https://www.readyexpressnow.com`; Redirect URLs `https://www.readyexpressnow.com/reset-password.html` y `http://localhost:5173/reset-password.html`. Plantilla del email de recuperación: `backend/email-templates/supabase-reset-password.html`.
+4. Confirmar en el panel de TropiPay la URL de notificación `https://readyexpressnowbackend.versabold.com/api/payments/tropipay/webhook`.
+5. Push de `preview/tropipay-base` para la preview de Vercel; luego `master` cuando el usuario lo diga.
 
 **Conocido sin arreglar:**
 - `payment_transactions.status` no admite `amount_mismatch` (falta migración): el aviso al admin sale, pero el estado no se guarda.

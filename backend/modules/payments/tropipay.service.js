@@ -26,12 +26,13 @@ const RETRYABLE_STATUSES = new Set(["pending", "processing", "failed"]);
 export async function createTropipayPaymentForOrder({ orderId, checkoutToken = null, customerId = null, returnOrigin = null }, deps = defaultDeps) {
   deps.warmTropipayToken();
   // Consultas independientes en paralelo: cada ida y vuelta a Supabase cuesta 200-500 ms
-  const [order, existing] = await Promise.all([
+  const [storedOrder, existing] = await Promise.all([
     deps.paymentRepository.findOrderById(orderId),
     deps.paymentRepository.findPendingByOrder(orderId)
   ]);
   // Quien creó la orden (checkout_token) o su cliente registrado
-  assertOrderAccess(order, { checkoutToken, customerId });
+  assertOrderAccess(storedOrder, { checkoutToken, customerId });
+  const order = await completePayerFromProfile(storedOrder, deps);
   assertPayableWithTropipay(order);
 
   if (existing?.payment_url) return existing;
@@ -39,6 +40,36 @@ export async function createTropipayPaymentForOrder({ orderId, checkoutToken = n
   const attempts = await deps.paymentRepository.countByOrder(order.id);
   const reference = attempts ? `${order.order_reference}-R${attempts + 1}` : order.order_reference;
   return openTropipayLink(order, { reference, customerId, returnOrigin }, deps);
+}
+
+// Pedidos anteriores a los datos de facturación en el registro no guardan fecha de
+// nacimiento (y a veces tampoco código postal): se completan con el perfil del cliente
+// para que TropiPay no tenga que pedirlos en la pasarela. Lo que ya tiene la orden manda.
+const PAYER_FROM_PROFILE = {
+  country_iso: "pais_iso",
+  address: "direccion_facturacion",
+  city: "ciudad",
+  state: "estado_region",
+  post_code: "codigo_postal",
+  birth_date: "fecha_nacimiento",
+  terms_accepted_at: "terminos_tropipay_at"
+};
+
+async function completePayerFromProfile(order, deps) {
+  const current = order.payer_details || {};
+  const missing = Object.keys(PAYER_FROM_PROFILE).filter(key => !current[key]);
+  if (!order.customer_id || !missing.length) return order;
+
+  const profile = await deps.orderRepository.findCustomerBilling(order.customer_id).catch(error => {
+    console.warn("[tropipay] No se pudo leer la facturación del perfil:", error?.message || error);
+    return null;
+  });
+  const filled = Object.fromEntries(missing.map(key => [key, profile?.[PAYER_FROM_PROFILE[key]]]).filter(([, value]) => value));
+  if (!Object.keys(filled).length) return order;
+
+  const payerDetails = { ...current, ...filled };
+  await deps.orderRepository.updatePayerDetails(order.id, payerDetails);
+  return { ...order, payer_details: payerDetails };
 }
 
 function assertPayableWithTropipay(order) {
@@ -135,7 +166,7 @@ export async function retryTropipayPayment(transactionId, access = {}, deps = de
   }
 
   // Enlace caducado o que no llegó a crearse: se cierra y se abre otro para la misma orden
-  const fullOrder = await deps.paymentRepository.findOrderById(transaction.order_id);
+  const fullOrder = await completePayerFromProfile(await deps.paymentRepository.findOrderById(transaction.order_id), deps);
   assertPayableWithTropipay(fullOrder);
   const attempts = await deps.paymentRepository.countByOrder(transaction.order_id);
   await deps.paymentRepository.updatePayment(transaction.id, { status: "cancelled", updated_at: new Date().toISOString() });
