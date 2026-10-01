@@ -1,10 +1,10 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v29";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v29";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v29";
-import { renderBillingFields } from "./billing-fields.js?v29";
+} from "./auth.js?v30";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v30";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v30";
+import { renderBillingFields } from "./billing-fields.js?v30";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -343,7 +343,7 @@ function renderPayments(order) {
     const id = escapeHtml(payment.id);
     return `
       <div class="account-payment">
-        <span><i class="fa-solid fa-credit-card" aria-hidden="true"></i> TropiPay <span class="account-badge is-${tone}">${escapeHtml(label)}</span></span>
+        <span><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Pago con tarjeta <span class="account-badge is-${tone}">${escapeHtml(label)}</span></span>
         ${canRetry ? `
           <div class="account-card-actions">
             <button type="button" class="account-action" data-retry-payment="${id}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>Reintentar pago</button>
@@ -433,7 +433,7 @@ function setupOrders() {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.retryPayment) {
-      setLoading(button, true, "Abriendo TropiPay...");
+      setLoading(button, true, "Abriendo el pago seguro...");
       try {
         location.href = await retryTropipayPayment(button.dataset.retryPayment);
       } catch (error) {

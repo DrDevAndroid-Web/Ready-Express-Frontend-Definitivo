@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>Finalizar pedido | Ready Express Now</title>
-  <link rel="stylesheet" href="./css/styles.css?v29">
+  <link rel="stylesheet" href="./css/styles.css?v30">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
   <style>
@@ -69,8 +69,8 @@
             <h5 class="checkout-methods-title">Método de pago</h5>
             <div class="methods-grid" id="checkout-methods-container"></div>
             <fieldset class="checkout-form-section tropipay-payer" id="tropipay-payer-fields" hidden disabled aria-describedby="tropipay-payer-help">
-              <legend>Datos para pagar con TropiPay</legend>
-              <p class="tropipay-payer-help" id="tropipay-payer-help">TropiPay pide los datos de quien paga (tu país y dirección, no la de Guantánamo) para validar la tarjeta.</p>
+              <legend>Datos del titular de la tarjeta</legend>
+              <p class="tropipay-payer-help" id="tropipay-payer-help">La pasarela de pago (TropiPay) pide los datos de quien paga —tu país y dirección, no la de Guantánamo— para validar la tarjeta.</p>
               <div class="tropipay-payer-summary" id="tropipay-payer-summary" hidden>
                 <p>Pagarás con los datos de facturación de tu cuenta:<br><strong id="tropipay-payer-summary-text"></strong></p>
                 <button type="button" id="tropipay-payer-edit" aria-controls="tropipay-payer-inputs">Cambiar</button>
@@ -113,7 +113,7 @@
     </section>
   </main>
   <script type="module">
-    import { initCheckout } from "./js/checkout.js?v29";
+    import { initCheckout } from "./js/checkout.js?v30";
     initCheckout();
   </script>
 </body>

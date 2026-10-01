@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v29">
+  <link rel="stylesheet" href="./css/styles.css?v30">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -58,10 +58,11 @@
       </nav>
     </section>
   <script type="module">
-    import { registerCustomer, createMyAddress } from './js/auth.js?v29';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v29';
-    import { renderBillingFields } from './js/billing-fields.js?v29';
+    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath } from './js/auth.js?v30';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v30';
+    import { renderBillingFields } from './js/billing-fields.js?v30';
     bindPasswordToggles();
+    applyReturnContext();
     const billing = renderBillingFields(document.querySelector('#billing-fields'));
     const form = document.querySelector('#form');
     const message = document.querySelector('#error');
@@ -77,7 +78,10 @@
         const result = await registerCustomer(data);
         if (result.access_token) await createMyAddress({ alias: data.alias, direccion: data.direccion, provincia: data.provincia, municipio: data.municipio, referencia: data.referencia, telefono_contacto: data.telefono, es_predeterminada: true });
         showMessage(message, result.email_confirmation_required ? 'Cuenta creada. Confirma tu email y luego inicia sesión.' : 'Cuenta creada correctamente.', 'success');
-        setTimeout(() => location.href = result.access_token ? './cuenta.html' : './login-v25.html', 900);
+        // Si venía del checkout, vuelve al pago; si debe confirmar el email, el login conserva la vuelta
+        const returnParam = new URLSearchParams(location.search).get('return');
+        const loginUrl = returnParam && safeReturnPath() ? `./login-v25.html?return=${encodeURIComponent(returnParam)}` : './login-v25.html';
+        setTimeout(() => location.href = result.access_token ? (safeReturnPath() || './cuenta.html') : loginUrl, 900);
       } catch (err) {
         showMessage(message, err.message, 'error');
         setLoading(button, false);

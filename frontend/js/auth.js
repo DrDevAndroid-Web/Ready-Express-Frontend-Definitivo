@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v29";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v29";
+import { API_BASE } from "./config.js?v30";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v30";
 const ACCESS_KEY = "ren_access_token";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
 export function getCurrentUser() { try { return JSON.parse(localStorage.getItem("ren_user") || "null"); } catch { return null; } }
@@ -17,6 +17,25 @@ export function safeReturnPath() {
   const [page, query = ""] = target.split("?");
   if (!RETURN_PAGES.includes(page)) return null;
   return `./${page}${query ? `?${new URLSearchParams(query)}` : ""}`;
+}
+// Mantiene ?return= al pasar entre login y registro y, si viene del checkout,
+// explica por qué se pide la cuenta (pago con tarjeta)
+export function applyReturnContext() {
+  const target = new URLSearchParams(location.search).get("return");
+  if (!target || !safeReturnPath()) return;
+  document.querySelectorAll('a[href^="./login-v25.html"], a[href^="./registro-v25.html"]').forEach(link => {
+    const url = new URL(link.getAttribute("href"), location.href);
+    url.searchParams.set("return", target);
+    link.setAttribute("href", `./${url.pathname.split("/").pop()}${url.search}`);
+  });
+  if (target !== "checkout") return;
+  const lead = document.querySelector(".auth-lead");
+  if (!lead) return;
+  const notice = document.createElement("p");
+  notice.className = "auth-msg is-info auth-return-notice";
+  // .auth-msg es flex: el texto va en un solo <span> para que no se parta en columnas
+  notice.innerHTML = '<i class="fa-solid fa-credit-card" aria-hidden="true"></i><span>Para pagar con tarjeta de débito o crédito necesitas una cuenta. <strong>Tu carrito y los datos del envío se guardan</strong>: al terminar vuelves al pago.</span>';
+  lead.after(notice);
 }
 export async function loginCustomer(email, password) { const result = await authRequest("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }); saveSession(result); const target = safeReturnPath(); if (target) location.href = target; return result; }
 export async function getMyProfile() { return authRequest("/auth/profile"); }

@@ -1,12 +1,12 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v29";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v29";
-import { savePendingPayment } from "./payment.js?v29";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v29";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v29";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v29";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v29";
-import { setupCountrySelect } from "./country-select.js?v29";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v29";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v30";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v30";
+import { savePendingPayment } from "./payment.js?v30";
+import { cargarMetodosPago, CARD_METHOD_LABEL, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v30";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v30";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v30";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v30";
+import { setupCountrySelect } from "./country-select.js?v30";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v30";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -289,7 +289,7 @@ function validatePaymentStep() {
   stepEl.querySelectorAll("input[required], textarea[required], select[required]").forEach(field => {
     if (field.disabled) return;
     if (!field.checkValidity()) {
-      showFieldError(field.name, field.type === "checkbox" ? "Debes aceptar los términos para pagar con TropiPay" : field.validationMessage);
+      showFieldError(field.name, field.type === "checkbox" ? "Debes aceptar los términos de la pasarela de pago para pagar con tarjeta" : field.validationMessage);
       firstInvalid ||= field;
     }
   });
@@ -621,7 +621,9 @@ async function renderPaymentMethods() {
     container.innerHTML = `
       ${renderPaymentGroup(
         "Pagar ahora con tarjeta",
-        "Pago seguro en línea; tu pedido se confirma al instante.",
+        getAccessToken()
+          ? "Pago seguro en línea; tu pedido se confirma al instante."
+          : "Pago seguro en línea. Para pagar con tarjeta necesitas iniciar sesión o crear una cuenta gratis.",
         cardMethods
       )}
       ${renderPaymentGroup(
@@ -636,8 +638,14 @@ async function renderPaymentMethods() {
       )}
     `;
 
-    // Restaurar selección previa si existe
-    if (currentSelectedMethod) {
+    // Volvió de iniciar sesión tras elegir tarjeta: dejarla seleccionada
+    const pendingCard = getAccessToken() && storageGet(PENDING_CARD_KEY)
+      ? container.querySelector(`[data-payment-flow="${PAYMENT_FLOW_TROPIPAY}"]`)
+      : null;
+    storageRemove(PENDING_CARD_KEY);
+    if (pendingCard) {
+      selectPaymentMethod(pendingCard);
+    } else if (currentSelectedMethod) {
       const prevCard = container.querySelector(`[data-method="${cssEscape(currentSelectedMethod)}"]`);
       if (prevCard) selectPaymentMethod(prevCard);
     }
@@ -682,10 +690,11 @@ function renderPaymentGroup(title, description, methods) {
         <div class="method-content">
           ${methodLogoHtml(m)}
           <div class="method-info">
-            <strong>${escapeHtml(m.method_name)}</strong>
+            <strong>${escapeHtml(m.display_name || m.method_name)}</strong>
             ${m.account_number ? `<small class="method-account">${escapeHtml(m.account_number)}</small>` : ""}
             ${m.payment_flow === PAYMENT_FLOW_ASSISTED ? `<small class="method-account">Contacto por WhatsApp</small>` : ""}
-            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY ? `<small class="method-account">Visa, Mastercard y saldo TropiPay${getAccessToken() ? "" : " · requiere iniciar sesión"}</small>` : ""}
+            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY ? `<small class="method-account">Visa y Mastercard · pago seguro procesado por TropiPay</small>` : ""}
+            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY && !getAccessToken() ? `<span class="method-auth-badge">${svgIcon("lock", 12)} Requiere iniciar sesión</span>` : ""}
           </div>
         </div>
         <div class="method-instructions" style="display:none">
@@ -699,6 +708,7 @@ function renderPaymentGroup(title, description, methods) {
           <div class="instructions-text"></div>
         </div>
       </div>
+      ${m.payment_flow === PAYMENT_FLOW_TROPIPAY && !getAccessToken() ? cardAuthGateHtml() : ""}
         `).join("")}
       </div>
     </section>
@@ -715,15 +725,38 @@ function buildTocopayNotice(account) {
   return `Para pagar por TocoPay:\n\n1. Entra a tocopay.com e inicia sesión o crea tu cuenta.\n2. Añade como beneficiario a Ernesto, gerente de ventas.\n3. ${accountLine}\n4. Completa el pago en TocoPay y toma una captura clara del comprobante.\n5. Vuelve a Ready Express Now y sube esa captura para validar tu pedido.\n\nTocoPay es una plataforma externa e independiente. Ready Express Now no está afiliada ni asociada a TocoPay; solo usamos tu comprobante para validar el pago de tu pedido.`;
 }
 
+const PENDING_CARD_KEY = "ren_pending_card_payment";
+
+// Aviso dentro de la propia tarjeta: sin sesión no se puede pagar con tarjeta
+function cardAuthGateHtml() {
+  return `
+        <div class="method-auth-gate" role="region" aria-label="Inicia sesión para pagar con tarjeta" hidden>
+          <p class="method-auth-title">${svgIcon("lock", 18)} Inicia sesión para pagar con tarjeta</p>
+          <p>Por seguridad, el pago con tarjeta se hace desde tu cuenta: así ves el estado del pago y puedes reintentarlo si el banco lo rechaza. <strong>Tu carrito y los datos del envío se guardan.</strong></p>
+          <div class="method-auth-actions">
+            <a class="method-auth-btn is-primary" href="./login-v25.html?return=checkout">Iniciar sesión</a>
+            <a class="method-auth-btn" href="./registro-v25.html?return=checkout">Crear cuenta gratis</a>
+          </div>
+          <p class="method-auth-note">¿Prefieres no crear cuenta? Puedes pagar con Zelle, TocoPay o con ayuda por WhatsApp.</p>
+        </div>`;
+}
+
+function showCardAuthGate(card) {
+  // El aviso va justo después de la tarjeta (no dentro: tiene enlaces y la tarjeta es role=radio)
+  const gate = card.nextElementSibling?.classList.contains("method-auth-gate") ? card.nextElementSibling : null;
+  if (!gate) return;
+  const form = document.getElementById("checkout-form");
+  if (form) saveFormData(form);
+  storageSet(PENDING_CARD_KEY, "1");
+  gate.hidden = false;
+  card.classList.add("needs-auth");
+  gate.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+}
+
 function selectPaymentMethod(card) {
   const requestedFlow = card.dataset.paymentFlow || "proof_upload";
   if (requestedFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken()) {
-    const errorEl = document.getElementById("checkout-error");
-    if (errorEl) {
-      errorEl.innerHTML = 'Para pagar con TropiPay debes iniciar sesión. <a href="./login-v25.html?return=checkout">Iniciar sesión</a>';
-      errorEl.style.display = "block";
-    }
-    storageSet("ren_checkout_auth_return", "checkout");
+    showCardAuthGate(card);
     return;
   }
 
@@ -820,7 +853,7 @@ async function submitOrder(form) {
   if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken()) {
     const errorEl = document.getElementById("checkout-error");
     if (errorEl) {
-      errorEl.innerHTML = 'Tu sesión es necesaria para TropiPay. <a href="./login-v25.html?return=checkout">Iniciar sesión</a>';
+      errorEl.innerHTML = 'Para pagar con tarjeta necesitas iniciar sesión. <a href="./login-v25.html?return=checkout">Iniciar sesión</a> o <a href="./registro-v25.html?return=checkout">crear una cuenta</a>.';
       errorEl.style.display = "block";
     }
     return;
@@ -896,12 +929,12 @@ async function submitOrder(form) {
 
     const reference = order.order_reference || order.id;
     if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY) {
-      btn.innerHTML = '<span class="spinner"></span> Redirigiendo a TropiPay...';
+      btn.innerHTML = '<span class="spinner"></span> Abriendo el pago seguro...';
       const [payment] = await Promise.all([
         createTropipayPayment(order.id, order.checkout_token),
         saveBillingToProfile(orderData.payer)
       ]);
-      if (!payment?.payment_url) throw new Error("TropiPay no devolvió un enlace de pago");
+      if (!payment?.payment_url) throw new Error("La pasarela de pago no devolvió un enlace. Inténtalo de nuevo.");
       window.location.href = payment.payment_url;
       return;
     }
@@ -975,7 +1008,7 @@ function updateSubmitButton() {
     return;
   }
   btn.textContent = currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY
-    ? "Pagar con TropiPay →"
+    ? "Pagar con tarjeta →"
     : currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED
       ? "Crear pedido y recibir ayuda"
       : "Crear pedido →";
@@ -1140,11 +1173,11 @@ function buildCheckoutAIContext() {
     surface: "checkout",
     step: checkoutStep === 2 ? "payment" : "delivery_data",
     cartTotal: Number(getTotal().toFixed(2)),
-    selectedPaymentMethod: currentSelectedMethod,
+    selectedPaymentMethod: currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY ? CARD_METHOD_LABEL : currentSelectedMethod,
     selectedPaymentFlow: currentSelectedMethodFlow,
     availablePaymentMethods: currentPaymentMethods.map(m => ({
       id: m.id,
-      name: m.method_name,
+      name: m.display_name || m.method_name,
       flow: m.payment_flow || "proof_upload"
     }))
   };

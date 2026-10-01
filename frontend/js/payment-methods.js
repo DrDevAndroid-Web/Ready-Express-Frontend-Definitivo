@@ -1,4 +1,4 @@
-import { getInfo } from "./api.js?v29";
+import { getInfo } from "./api.js?v30";
 
 let methodosCache = null;
 let ultimaCarga = null;
@@ -7,6 +7,8 @@ let tropipayEnabled = false;
 export const PAYMENT_FLOW_PROOF_UPLOAD = "proof_upload";
 export const PAYMENT_FLOW_ASSISTED = "assisted";
 export const PAYMENT_FLOW_TROPIPAY = "tropipay";
+// Nombre que ve el cliente. "TropiPay" sigue siendo el method_name interno (pedidos, storage)
+export const CARD_METHOD_LABEL = "Tarjeta de débito o crédito";
 
 const ASSISTED_PAYMENT_METHODS = [
   {
@@ -49,7 +51,7 @@ const TROPIPAY_METHOD = {
   id: "tropipay",
   method_name: "TropiPay",
   account_number: "",
-  instructions: "Paga con tarjeta de crédito o débito en la pasarela segura de TropiPay. Al confirmar te llevamos a TropiPay y, cuando el pago se aprueba, tu pedido pasa a preparación automáticamente.",
+  instructions: "Paga con tu tarjeta Visa o Mastercard de débito o crédito. Al confirmar te llevamos a la pasarela de pago segura (procesada por TropiPay) y, cuando el banco aprueba el pago, tu pedido pasa a preparación automáticamente.",
   image_url: "",
   is_active: true,
   order_index: 0,
@@ -57,9 +59,11 @@ const TROPIPAY_METHOD = {
 };
 
 function normalizeMethod(method) {
+  const payment_flow = method.payment_flow || (String(method.method_name || "").toLowerCase().includes("tropipay") ? PAYMENT_FLOW_TROPIPAY : PAYMENT_FLOW_PROOF_UPLOAD);
   return {
     ...method,
-    payment_flow: method.payment_flow || (String(method.method_name || "").toLowerCase().includes("tropipay") ? PAYMENT_FLOW_TROPIPAY : PAYMENT_FLOW_PROOF_UPLOAD)
+    payment_flow,
+    display_name: payment_flow === PAYMENT_FLOW_TROPIPAY ? CARD_METHOD_LABEL : method.method_name
   };
 }
 
@@ -69,7 +73,7 @@ function mergeAssistedMethods(methods) {
   let merged = [...methods.map(normalizeMethod), ...assisted];
   // Sin credenciales en el backend, TropiPay fallaría al pagar: no se ofrece
   merged = merged.filter(m => m.payment_flow !== PAYMENT_FLOW_TROPIPAY || tropipayEnabled);
-  if (tropipayEnabled && !merged.some(m => m.payment_flow === PAYMENT_FLOW_TROPIPAY)) merged.push(TROPIPAY_METHOD);
+  if (tropipayEnabled && !merged.some(m => m.payment_flow === PAYMENT_FLOW_TROPIPAY)) merged.push(normalizeMethod(TROPIPAY_METHOD));
   return merged.sort((a, b) => (a.order_index ?? 999) - (b.order_index ?? 999));
 }
 
@@ -107,7 +111,7 @@ export function renderMetodosEnCheckout(contenedor, onSeleccionar) {
   contenedor.innerHTML = metodos.map(metodo => `
     <div class="metodo-pago-option" data-method-id="${metodo.id}">
       <button type="button" class="btn-metodo-pago" onclick="window.selectarMetodoPago('${metodo.id}')">
-        <div class="nombre-metodo">${metodo.method_name}</div>
+        <div class="nombre-metodo">${metodo.display_name || metodo.method_name}</div>
         ${metodo.payment_flow === PAYMENT_FLOW_ASSISTED ? `<small class="method-flow-label">Contacto por WhatsApp</small>` : ''}
         ${metodo.image_url ? `<img src="${metodo.image_url}" alt="${metodo.method_name}" class="img-metodo">` : ''}
       </button>
@@ -138,7 +142,7 @@ export function renderMetodosEnAyuda(contenedor) {
   contenedor.innerHTML = metodos.map(metodo => `
     <div class="tarjeta-metodo-ayuda">
       <div class="encabezado-metodo-ayuda">
-        <h3>${metodo.method_name}</h3>
+        <h3>${metodo.display_name || metodo.method_name}</h3>
       </div>
       ${metodo.image_url ? `<img src="${metodo.image_url}" alt="${metodo.method_name}" class="img-metodo-ayuda">` : ''}
       <div class="contenido-metodo-ayuda">

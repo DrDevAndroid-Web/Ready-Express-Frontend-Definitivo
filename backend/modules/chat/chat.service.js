@@ -9,6 +9,22 @@ const AI_API_URL = "https://hostingclan.com/api/ai/chat/completions";
 const AI_MODEL = "openai/gpt-5-nano";
 const AI_API_KEY = process.env.CHAT_AI_API_KEY;
 const SUPPORT_WHATSAPP = "+53 56189395";
+const HELP_URL = "https://www.readyexpressnow.com/ayuda";
+
+// Conocimiento fijo del agente sobre el pago con tarjeta (procesado por TropiPay)
+export const CARD_PAYMENT_KNOWLEDGE = `
+PAGO CON TARJETA (lo que debes saber; responde solo la parte que pregunten):
+- En la tienda aparece como "Tarjeta de débito o crédito". Acepta Visa y Mastercard, de débito o crédito, habilitadas para compras por internet. El cobro es en dólares (USD) por el total del pedido.
+- Lo procesa TropiPay, una pasarela de pago segura. Nosotros nunca vemos ni guardamos los datos de la tarjeta. Si el cliente tiene saldo en TropiPay, también puede usarlo en la pasarela.
+- Requiere cuenta: el cliente debe iniciar sesión o crear su cuenta gratis. Si elige tarjeta sin sesión, la tienda le muestra "Iniciar sesión" y "Crear cuenta gratis"; el carrito y los datos del envío se guardan y al terminar vuelve al pago.
+- Crear cuenta: nombre, apellidos, email, teléfono, contraseña de mínimo 8 caracteres, dirección de entrega en Guantánamo y datos de facturación del titular de la tarjeta (país, dirección, ciudad, estado, código postal, fecha de nacimiento; debe ser mayor de 18) y aceptar los términos de TropiPay. A veces debe confirmar el email antes de iniciar sesión.
+- Datos de facturación: son los del titular de la tarjeta en su país, no la dirección de Cuba. El banco los usa para validar el pago.
+- Pasos: en el checkout, paso "Quién paga y cómo", elegir "Tarjeta de débito o crédito" → revisar datos del titular → "Pagar con tarjeta" → en la pasarela escribir número, vencimiento y CVV → el banco puede pedir un código (3D Secure) → vuelve a la tienda con "Pago confirmado" y el pedido pasa a preparación.
+- Si el pago se rechaza: no se cobra nada. Causas comunes: fondos insuficientes, verificación 3D Secure sin completar, CVV o datos mal escritos, tarjeta sin compras internacionales o por internet. Puede reintentar con "Reintentar pago con tarjeta" o desde Mi cuenta → Pedidos → "Reintentar pago", usar otra tarjeta o elegir "Pagar con otro método".
+- Si pagó y dice "Tu pago aún no está confirmado": esperar unos minutos y tocar "Comprobar de nuevo"; no pagar otra vez sin revisar Mi cuenta. Si pasa más de una hora, ofrecer seguimiento con un agente.
+- Olvidó la contraseña: en "Iniciar sesión" tocar "¿Olvidaste tu contraseña?"; le llega un enlace por email válido una hora (revisar spam).
+- Mi cuenta: ver estado de pago y entrega de cada pedido, reintentar pagos, guardar direcciones y editar datos de facturación.
+`.trim();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // ─── Supabase helpers ────────────────────────────────────────────────────────
@@ -248,10 +264,13 @@ INFORMACIÓN DEL NEGOCIO:
 - Horario: ${info?.horario || "Consultar por WhatsApp"}
 - WhatsApp: ${SUPPORT_WHATSAPP}
 - Entregas únicamente en Guantánamo, Cuba
-- Métodos de pago directos con comprobante (solo mencionar si el cliente pregunta): Zelle y TocoPay
-- Métodos de pago asistidos (solo mencionar si el cliente pregunta o si dice que paga desde esos lugares): transferencia desde México, transferencia desde Brasil e IBAN Europa. En estos casos el equipo contacta al cliente por WhatsApp para darle los datos de transferencia y validar el comprobante manualmente.
-- IBAN Europa puede demorar mas en confirmarse segun el banco emisor.
-- Tarjetas (solo mencionar si el cliente pregunta por Visa/Mastercard): no se aceptan por restricciones bancarias hacia Cuba
+- Métodos de pago (solo mencionar si el cliente pregunta):
+  1. Tarjeta de débito o crédito: pago en línea, el pedido se confirma al instante.
+  2. Zelle y TocoPay: pago directo; el cliente sube la captura del comprobante.
+  3. Pago asistido por WhatsApp: transferencia desde México, Brasil o IBAN Europa. El equipo le escribe por WhatsApp con los datos y valida el comprobante manualmente. IBAN Europa puede demorar más según el banco emisor.
+- Ayuda completa para el cliente: ${HELP_URL}
+
+${CARD_PAYMENT_KNOWLEDGE}
 `.trim();
 }
 
@@ -339,10 +358,11 @@ Tus capacidades:
 Reglas estrictas:
 - NUNCA inventes productos, precios o disponibilidad — usa solo los datos del contexto
 - NUNCA menciones métodos de pago a menos que el cliente pregunte
-- Si preguntan cómo pagar: explica brevemente que hay pagos directos por Zelle o TocoPay y pagos asistidos por WhatsApp para México, Brasil e IBAN Europa.
+- Si preguntan cómo pagar: explica brevemente que puede pagar con tarjeta de débito o crédito (necesita iniciar sesión), con Zelle o TocoPay subiendo el comprobante, o con pago asistido por WhatsApp desde México, Brasil o IBAN Europa.
+- Si preguntan por tarjeta, Visa, Mastercard o TropiPay: SÍ se aceptan. Explica el pago con tarjeta según la sección PAGO CON TARJETA y recuerda que debe iniciar sesión o crear su cuenta gratis.
 - Si el cliente quiere pagar desde México, Brasil o Europa: dile que puede elegir ese metodo en checkout y que el equipo le escribira por WhatsApp para enviarle los datos. No pidas datos bancarios por el chat.
 - Si pregunta por IBAN Europa: aclara que puede demorar mas en confirmarse segun el banco emisor.
-- Si preguntan por Visa/Mastercard: explica que no aplican por restricciones bancarias hacia Cuba
+- NUNCA pidas ni aceptes números de tarjeta, CVV, contraseñas ni códigos del banco por el chat. Si el cliente los escribe, dile que no los comparta y que solo los ponga en la pasarela de pago.
 - Responde solo lo que te preguntan. Sin información extra no solicitada.
 - Si el cliente duda, tiene un problema técnico o pide ayuda humana: ofrece seguimiento manual con un agente de ventas por WhatsApp
 - No prometas notificaciones automáticas al cliente fuera del navegador; de momento el seguimiento fuera del chat es manual
@@ -519,10 +539,16 @@ function normalizeCheckoutContext(context) {
   };
 }
 
-function buildCheckoutPrompt(context) {
+const CHECKOUT_FLOW_LABELS = {
+  tropipay: "pago en línea con tarjeta; requiere iniciar sesión",
+  assisted: "pago asistido por WhatsApp",
+  proof_upload: "pago directo con comprobante"
+};
+
+export function buildCheckoutPrompt(context) {
   if (!context) return "";
   const methods = context.availablePaymentMethods
-    .map(method => `- ${method.name} (${method.flow === "assisted" ? "pago asistido por WhatsApp" : "pago directo con comprobante"})`)
+    .map(method => `- ${method.name} (${CHECKOUT_FLOW_LABELS[method.flow] || CHECKOUT_FLOW_LABELS.proof_upload})`)
     .join("\n");
 
   return `
@@ -538,7 +564,8 @@ ${methods || "- No disponible"}
 REGLAS PARA CHECKOUT:
 - Responde solo dudas del checkout, pago, datos de entrega o qué sucede después.
 - No agregues productos al carrito y no emitas CART_ACTION mientras el cliente esté en checkout.
-- Si el cliente no tiene Zelle o TocoPay, recomiéndale elegir un método asistido según su país.
+- Si el cliente no tiene Zelle o TocoPay, recomiéndale pagar con tarjeta de débito o crédito (con su cuenta) o un método asistido según su país.
+- Si eligió tarjeta y no puede continuar porque no ha iniciado sesión, dile que toque "Iniciar sesión" o "Crear cuenta gratis" en la misma opción de tarjeta; no pierde el carrito.
 - Si necesita ayuda humana o no entiende cómo pagar, ofrece que un agente de ventas lo contacte.
 - Si el cliente no va a quedarse en la página esperando, pídele su WhatsApp para seguimiento manual con un agente de ventas.
 - No digas que recibirá SMS, email o aviso automático cuando un agente responda; fuera del chat el contacto es manual por WhatsApp.

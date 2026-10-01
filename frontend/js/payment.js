@@ -1,8 +1,8 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v29";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v29";
-import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v29";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v29";
-import { authorizedFetch } from "./session.js?v29";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v30";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v30";
+import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v30";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v30";
+import { authorizedFetch } from "./session.js?v30";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 

@@ -1,10 +1,10 @@
 // Retorno de TropiPay (pago-confirmado / pago-rechazado) y acciones de reintento.
 // La página nunca decide por la URL: pregunta el estado real al backend, que a su vez
 // lo concilia con TropiPay. Las funciones de acción también las usa "Mi cuenta".
-import { API_BASE } from "./config.js?v29";
-import { authorizedFetch, getValidAccessToken } from "./session.js?v29";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v29";
-import { hasPendingPayment, savePendingPayment } from "./payment.js?v29";
+import { API_BASE } from "./config.js?v30";
+import { authorizedFetch, getValidAccessToken } from "./session.js?v30";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v30";
+import { hasPendingPayment, savePendingPayment } from "./payment.js?v30";
 
 const WHATSAPP_NUMBER = "5356189395";
 const POLL_INTERVAL_MS = 3000;
@@ -34,7 +34,7 @@ export async function retryTropipayPayment(paymentId) {
     error.status = response.status;
     throw error;
   }
-  if (!body.payment_url) throw new Error("TropiPay no devolvió un enlace de pago");
+  if (!body.payment_url) throw new Error("La pasarela de pago no devolvió un enlace. Inténtalo de nuevo.");
   return body.payment_url;
 }
 
@@ -157,15 +157,15 @@ function renderPaid() {
 function renderUnpaid(paymentId, status, { stillPending }) {
   const reference = status.order_reference || "";
   setView(stillPending
-    ? { icon: "fa-hourglass-half", title: "Tu pago aún no está confirmado", message: "Si acabas de pagar, TropiPay puede tardar unos minutos en avisarnos. Si no llegaste a completar el pago, puedes intentarlo de nuevo." }
-    : { icon: "fa-circle-xmark", tone: "error", title: "El pago no se completó", message: "TropiPay no pudo cobrar la tarjeta. Suele deberse a fondos insuficientes, a la verificación de seguridad del banco (3D Secure) o a un dato de la tarjeta. No se te ha cobrado nada." });
+    ? { icon: "fa-hourglass-half", title: "Tu pago aún no está confirmado", message: "Si acabas de pagar, la confirmación del banco puede tardar unos minutos. Si no llegaste a completar el pago, puedes intentarlo de nuevo." }
+    : { icon: "fa-circle-xmark", tone: "error", title: "El pago no se completó", message: "No se pudo cobrar la tarjeta. Suele deberse a fondos insuficientes, a la verificación de seguridad del banco (3D Secure) o a un dato de la tarjeta. No se te ha cobrado nada." });
 
   if (!status.can_retry) {
     $("#message").textContent = "Este pago ya no se puede completar en línea. Escríbenos por WhatsApp y te ayudamos.";
   } else {
-    actionButton("Reintentar con TropiPay", "fa-rotate-right", async button => {
+    actionButton("Reintentar pago con tarjeta", "fa-rotate-right", async button => {
       showError("");
-      setBusy(button, true, "Abriendo TropiPay...");
+      setBusy(button, true, "Abriendo el pago seguro...");
       try {
         location.href = await retryTropipayPayment(paymentId);
       } catch (error) {
@@ -177,7 +177,7 @@ function renderUnpaid(paymentId, status, { stillPending }) {
     actionButton("Pagar con otro método", "fa-money-bill-transfer", () => renderOtherMethods(status), { secondary: true });
   }
   if (stillPending) actionButton("Comprobar de nuevo", "fa-arrows-rotate", () => checkStatus(paymentId, { poll: false }), { secondary: true });
-  actionLink("Escribir por WhatsApp", "fa-brands fa-whatsapp", whatsappUrl(`Hola, tuve un problema pagando el pedido ${reference} con TropiPay.`), { external: true });
+  actionLink("Escribir por WhatsApp", "fa-brands fa-whatsapp", whatsappUrl(`Hola, tuve un problema pagando el pedido ${reference} con tarjeta.`), { external: true });
   actionLink("Ver mis pedidos", "fa-box", "./cuenta.html#pedidos");
 }
 
@@ -207,7 +207,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // TropiPay puede redirigir antes de que llegue su aviso: se consulta durante ~30 s
 async function checkStatus(paymentId, { poll = true } = {}) {
   showError("");
-  setView({ icon: "fa-spinner fa-spin", title: "Verificando tu pago...", message: "Estamos consultando a TropiPay. No cierres esta ventana." });
+  setView({ icon: "fa-spinner fa-spin", title: "Verificando tu pago...", message: "Estamos confirmando tu pago con el banco. No cierres esta ventana." });
   const deadline = Date.now() + (poll ? POLL_WINDOW_MS : 0);
   let status = null;
   let failedRequest = false;

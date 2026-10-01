@@ -3499,3 +3499,114 @@ body.modal-open .cart-panel {
   cursor: pointer;
   touch-action: manipulation;
 }
+
+/* ── Pago con tarjeta sin sesión: aviso dentro de la tarjeta ── */
+.method-auth-badge {
+  align-items: center;
+  background: #FFF4E5;
+  border: 1px solid #F5B041;
+  border-radius: 999px;
+  color: #8A4B00;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 700;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 2px 9px;
+}
+.method-card .method-auth-badge { display: inline-flex; font-size: 0.75rem; margin-bottom: 0; }
+.method-card .method-auth-badge i { font-size: 0.7rem; }
+.method-card.needs-auth { border-color: #F5B041; background: #FFFBF4; }
+.method-auth-gate {
+  background: #FFFBF4;
+  border: 2px solid #F5B041;
+  border-radius: var(--radius-sm);
+  color: var(--gray-dark);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  padding: 14px;
+}
+.method-auth-gate p { margin: 0 0 10px; }
+.method-auth-title { color: #8A4B00; font-size: 1rem; font-weight: 700; }
+.method-auth-title { align-items: center; display: flex; gap: 6px; }
+.method-auth-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.method-auth-btn {
+  align-items: center;
+  border: 2px solid var(--navy);
+  border-radius: var(--radius-sm);
+  color: var(--navy);
+  display: inline-flex;
+  flex: 1 1 160px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  text-decoration: none;
+  touch-action: manipulation;
+}
+.method-auth-btn.is-primary { background: var(--navy); color: var(--white); }
+@media (hover: hover) and (pointer: fine) {
+  .method-auth-btn:hover { background: var(--navy-light); border-color: var(--navy-light); color: var(--white); }
+}
+.method-auth-btn:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.method-auth-note { color: var(--gray); font-size: 0.82rem; }
+.method-auth-note:last-child { margin-bottom: 0; }
+
+/* ── Ayuda: índice de temas y preguntas frecuentes ── */
+.help-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 1120px;
+  padding: 24px 16px 0;
+}
+.help-index a {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--navy);
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  text-decoration: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .help-index a:hover { border-color: var(--navy); }
+}
+.help-section .help-grid + .help-note { margin-top: 22px; }
+.help-section-muted .help-grid { margin-top: 22px; }
+.help-faq { display: grid; gap: 10px; margin: 0 auto; max-width: 820px; }
+.help-faq details {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 18px;
+}
+.help-faq summary {
+  color: var(--navy);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+  padding: 16px 28px 16px 0;
+  position: relative;
+}
+.help-faq summary::-webkit-details-marker { display: none; }
+.help-faq summary::after {
+  content: "+";
+  font-size: 1.3rem;
+  line-height: 1;
+  position: absolute;
+  right: 0;
+  top: 15px;
+}
+.help-faq details[open] summary::after { content: "−"; }
+.help-faq details p { color: var(--gray-dark); margin: 0 0 16px; }
+.help-panel .btn-primary { display: inline-block; margin-top: 8px; }
+@media (max-width: 600px) {
+  .help-section { padding: 44px 16px; }
+}

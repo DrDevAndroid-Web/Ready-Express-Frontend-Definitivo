@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Guía de ayuda para pagar pedidos de Ready Express Now con TropiPay, Zelle, TocoPay o pagos asistidos desde México, Brasil e IBAN Europa." />
-  <title>Ayuda de pago - Ready Express Now</title>
+  <meta name="description" content="Ayuda de Ready Express Now: crear tu cuenta, iniciar sesión y pagar con tarjeta de débito o crédito, Zelle, TocoPay o pagos asistidos desde México, Brasil e IBAN Europa." />
+  <title>Ayuda: cuenta y pagos - Ready Express Now</title>
   <link rel="canonical" href="https://www.readyexpressnow.com/ayuda" />
   <meta property="og:type" content="article" />
   <meta property="og:url" content="https://www.readyexpressnow.com/ayuda" />
@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  <link rel="stylesheet" href="./css/styles.css?v29" />
+  <link rel="stylesheet" href="./css/styles.css?v30" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -66,39 +66,239 @@
   <main id="main">
     <section class="help-hero">
       <div class="help-hero-inner">
-        <span class="section-tag">Guía sencilla</span>
-        <h1>¿Cómo pagar tu pedido y enviar el comprobante?</h1>
+        <span class="section-tag">Centro de ayuda</span>
+        <h1>Tu cuenta, tu pedido y tu pago, paso a paso</h1>
         <p>
-          Esta página explica el flujo completo de la tienda: eliges los productos, confirmas los datos,
-          pagas por TropiPay, Zelle o TocoPay y subes una captura cuando corresponda para que podamos validar tu orden.
+          Aquí tienes todo lo que necesitas: cómo crear tu cuenta, iniciar sesión, hacer el pedido y pagar
+          con tarjeta de débito o crédito, Zelle o TocoPay. Si algo falla, también te explicamos qué hacer.
         </p>
         <div class="help-actions">
           <a href="./index.html#combos" class="btn-primary">Empezar pedido</a>
-          <a href="#captura-comprobante" class="btn-secondary">Ver captura de comprobante</a>
+          <a href="#pago-tarjeta" class="btn-secondary">Pagar con tarjeta</a>
+          <a href="./registro-v25.html" class="btn-secondary">Crear cuenta</a>
         </div>
       </div>
     </section>
 
-    <section class="help-section">
+    <nav class="help-index" aria-label="Temas de ayuda">
+      <a href="#como-pedir">Cómo hacer el pedido</a>
+      <a href="#cuenta">Crear tu cuenta</a>
+      <a href="#sesion">Iniciar sesión y contraseña</a>
+      <a href="#pago-tarjeta">Pago con tarjeta</a>
+      <a href="#pago-fallido">Si el pago no pasa</a>
+      <a href="#mi-cuenta">Mi cuenta</a>
+      <a href="#captura-comprobante">Zelle y TocoPay</a>
+      <a href="#preguntas">Preguntas frecuentes</a>
+    </nav>
+
+    <section class="help-section" id="como-pedir">
+      <div class="help-section-header">
+        <span class="section-tag">Paso a paso</span>
+        <h2>Cómo hacer tu pedido</h2>
+        <p>El pedido se hace en dos pasos. Tus datos se guardan mientras avanzas, así que puedes volver atrás sin perder nada.</p>
+      </div>
+      <div class="help-timeline">
+        <article class="help-step-card">
+          <span>1</span>
+          <h3>Elige qué enviar</h3>
+          <p>Agrega combos o productos al carrito. También puedes pedirle al asistente del chat que te ayude a armar el pedido.</p>
+        </article>
+        <article class="help-step-card">
+          <span>2</span>
+          <h3>Quién recibe</h3>
+          <p>Abre el carrito y toca <strong>Proceder al pago</strong>. Escribe el nombre de quien recibe en Guantánamo, el municipio, la dirección y su teléfono.</p>
+        </article>
+        <article class="help-step-card">
+          <span>3</span>
+          <h3>Quién paga y cómo</h3>
+          <p>Completa tus datos como remitente y elige el método: <strong>tarjeta de débito o crédito</strong>, Zelle, TocoPay o pago con ayuda por WhatsApp.</p>
+        </article>
+        <article class="help-step-card">
+          <span>4</span>
+          <h3>Confirma</h3>
+          <p>Con tarjeta, el pedido se confirma en cuanto el banco aprueba el pago. Con Zelle o TocoPay, subes la captura del pago y la validamos.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="help-section help-section-muted" id="cuenta">
+      <div class="help-section-header">
+        <span class="section-tag">Cuenta</span>
+        <h2>Crear tu cuenta</h2>
+        <p>La cuenta es gratis y se crea una sola vez. Es <strong>obligatoria para pagar con tarjeta</strong> y te permite ver tus pedidos y guardar direcciones.</p>
+      </div>
       <div class="help-grid">
         <article class="help-panel help-panel-highlight">
-          <span class="help-kicker">Flujo de la tienda</span>
-          <h2>Antes de pagar</h2>
+          <span class="help-kicker">Registro</span>
+          <h3>Qué te pedimos</h3>
           <ol class="help-steps">
-            <li>Elige combos o alimentos y agrégaros al carrito.</li>
-            <li>Abre el carrito y toca <strong>Proceder al Pago</strong>.</li>
-            <li>Completa los datos del remitente y de la persona que recibe en Cuba.</li>
-            <li>Confirma el pedido. La tienda te mostrará la pantalla para enviar el comprobante.</li>
-            <li>Selecciona el método de pago: <strong>TropiPay</strong>, <strong>Zelle</strong> o <strong>TocoPay</strong>.</li>
+            <li>Nombre, apellidos, email y teléfono.</li>
+            <li>Una contraseña de al menos 8 caracteres.</li>
+            <li>La dirección principal de entrega en Guantánamo (luego puedes añadir más).</li>
+            <li>Tus <strong>datos de facturación</strong>: país, dirección, ciudad, estado, código postal y fecha de nacimiento. Son los datos del titular de la tarjeta, no los de Cuba.</li>
+            <li>Aceptar los términos de TropiPay, la pasarela que procesa los pagos con tarjeta.</li>
+          </ol>
+          <a href="./registro-v25.html" class="btn-primary">Crear mi cuenta</a>
+        </article>
+        <article class="help-panel">
+          <span class="help-kicker">Por qué</span>
+          <h3>¿Para qué sirve la cuenta?</h3>
+          <ul class="help-checklist">
+            <li>Pagar con tarjeta sin volver a escribir tus datos de facturación.</li>
+            <li>Ver el estado de cada pago y de cada entrega.</li>
+            <li>Reintentar un pago con tarjeta si el banco lo rechazó.</li>
+            <li>Guardar las direcciones de tu familia para el próximo pedido.</li>
+          </ul>
+          <p class="help-note">Debes ser mayor de 18 años para pagar con tarjeta. Si al registrarte te pedimos confirmar el email, abre el enlace que te llega y después inicia sesión.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="help-section" id="sesion">
+      <div class="help-section-header">
+        <span class="section-tag">Acceso</span>
+        <h2>Iniciar sesión y recuperar la contraseña</h2>
+      </div>
+      <div class="help-grid">
+        <article class="help-panel">
+          <span class="help-kicker">Iniciar sesión</span>
+          <h3>Entrar a tu cuenta</h3>
+          <p>Toca <a href="./login-v25.html">Iniciar sesión</a> y escribe tu email y contraseña. La sesión se mantiene abierta en ese dispositivo hasta que la cierres desde <strong>Mi cuenta</strong>.</p>
+          <p class="help-note">Si eliges tarjeta en el pago sin haber iniciado sesión, te pediremos entrar o crear la cuenta. Tu carrito y los datos del envío se guardan, y al terminar vuelves directo al pago.</p>
+        </article>
+        <article class="help-panel">
+          <span class="help-kicker">Contraseña</span>
+          <h3>¿Olvidaste tu contraseña?</h3>
+          <ol class="help-steps">
+            <li>En la pantalla de inicio de sesión toca <a href="./recuperar-password.html">¿Olvidaste tu contraseña?</a></li>
+            <li>Escribe el email de tu cuenta.</li>
+            <li>Abre el enlace que te enviamos (revisa también spam). Es válido durante una hora.</li>
+            <li>Escribe tu nueva contraseña y vuelve a entrar.</li>
           </ol>
         </article>
+      </div>
+    </section>
 
-        <article class="help-panel" id="captura-comprobante">
+    <section class="help-section help-section-muted" id="pago-tarjeta">
+      <div class="help-section-header">
+        <span class="section-tag">Pago con tarjeta</span>
+        <h2>Pagar con tarjeta de débito o crédito</h2>
+        <p>La forma más rápida: el pedido se confirma al instante, sin capturas ni esperas. Aceptamos Visa y Mastercard, de débito o crédito.</p>
+      </div>
+      <div class="help-timeline">
+        <article class="help-step-card">
+          <span>1</span>
+          <h3>Inicia sesión</h3>
+          <p>El pago con tarjeta requiere tu cuenta. Si no tienes una, créala en un minuto: no pierdes el carrito.</p>
+        </article>
+        <article class="help-step-card">
+          <span>2</span>
+          <h3>Elige "Tarjeta de débito o crédito"</h3>
+          <p>En el paso <strong>Quién paga y cómo</strong>, toca esa opción. Verás los datos del titular de la tarjeta tomados de tu cuenta; puedes cambiarlos si paga otra persona.</p>
+        </article>
+        <article class="help-step-card">
+          <span>3</span>
+          <h3>Toca "Pagar con tarjeta"</h3>
+          <p>Te llevamos a la pasarela de pago segura, procesada por <strong>TropiPay</strong>. Allí escribes el número de la tarjeta, la fecha de vencimiento y el código de seguridad (CVV).</p>
+        </article>
+        <article class="help-step-card">
+          <span>4</span>
+          <h3>Verificación del banco</h3>
+          <p>Tu banco puede pedirte un código por SMS o en su app (3D Secure). Es normal: confirma el pago y no cierres la ventana.</p>
+        </article>
+        <article class="help-step-card">
+          <span>5</span>
+          <h3>Pago confirmado</h3>
+          <p>Vuelves a Ready Express Now con el mensaje <strong>Pago confirmado</strong>. Tu pedido pasa a preparación y lo ves en <strong>Mi cuenta</strong>.</p>
+        </article>
+      </div>
+      <div class="help-grid">
+        <article class="help-panel">
+          <span class="help-kicker">Seguridad</span>
+          <h3>Tus datos están protegidos</h3>
+          <ul class="help-checklist">
+            <li>Nunca vemos ni guardamos el número de tu tarjeta: lo procesa la pasarela de pago.</li>
+            <li>El cobro se hace en dólares (USD) por el total exacto del pedido.</li>
+            <li>Solo pagas cuando el banco aprueba; si no, no se te cobra nada.</li>
+          </ul>
+        </article>
+        <article class="help-panel">
+          <span class="help-kicker">Antes de pagar</span>
+          <h3>Revisa que tu tarjeta…</h3>
+          <ul class="help-checklist">
+            <li>Esté habilitada para compras por internet e internacionales.</li>
+            <li>Tenga saldo o crédito suficiente.</li>
+            <li>Coincida con los datos del titular (país, dirección y código postal).</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="help-section" id="pago-fallido">
+      <div class="help-section-header">
+        <span class="section-tag">Si algo falla</span>
+        <h2>Si el pago con tarjeta no pasa</h2>
+        <p>Un pago rechazado <strong>no se cobra</strong>. Tu pedido queda guardado y pendiente de pago, así que puedes intentarlo de nuevo.</p>
+      </div>
+      <div class="help-grid">
+        <article class="help-panel">
+          <span class="help-kicker">Causas frecuentes</span>
+          <h3>¿Por qué se rechaza?</h3>
+          <ul class="help-checklist">
+            <li>Fondos o crédito insuficientes.</li>
+            <li>No se completó la verificación del banco (3D Secure).</li>
+            <li>Un dato mal escrito: número, vencimiento o código de seguridad (CVV).</li>
+            <li>La tarjeta no permite compras internacionales o por internet.</li>
+          </ul>
+        </article>
+        <article class="help-panel help-panel-highlight">
+          <span class="help-kicker">Qué hacer</span>
+          <h3>Vuelve a intentarlo</h3>
+          <ol class="help-steps">
+            <li>En la pantalla del pago toca <strong>Reintentar pago con tarjeta</strong>, o entra a <strong>Mi cuenta → Pedidos</strong> y toca <strong>Reintentar pago</strong>.</li>
+            <li>Prueba con otra tarjeta o habla con tu banco para autorizar el pago.</li>
+            <li>También puedes tocar <strong>Pagar con otro método</strong> y usar Zelle, TocoPay o pago asistido.</li>
+            <li>¿Sigue sin funcionar? <a href="https://wa.me/5356189395" target="_blank" rel="noopener">Escríbenos por WhatsApp</a> con el número de tu pedido.</li>
+          </ol>
+        </article>
+      </div>
+      <p class="help-note">Si pagaste y ves <strong>"Tu pago aún no está confirmado"</strong>, espera unos minutos: a veces el banco tarda en avisar. Toca <strong>Comprobar de nuevo</strong> o revisa Mi cuenta antes de pagar otra vez.</p>
+    </section>
+
+    <section class="help-section help-section-muted" id="mi-cuenta">
+      <div class="help-section-header">
+        <span class="section-tag">Mi cuenta</span>
+        <h2>Seguir tus pedidos desde Mi cuenta</h2>
+      </div>
+      <div class="help-summary">
+        <div>
+          <strong>Pedidos</strong>
+          <p>El estado del pago (pendiente, pagado o rechazado) y de la entrega de cada envío. Desde aquí reintentas un pago con tarjeta.</p>
+        </div>
+        <div>
+          <strong>Direcciones</strong>
+          <p>Guarda las direcciones de tu familia en Guantánamo para no escribirlas en cada pedido.</p>
+        </div>
+        <div>
+          <strong>Perfil</strong>
+          <p>Tus datos personales y de facturación para pagar con tarjeta. Cámbialos si cambias de tarjeta o de dirección.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="help-section" id="captura-comprobante">
+      <div class="help-section-header">
+        <span class="section-tag">Zelle y TocoPay</span>
+        <h2>Pagos con comprobante</h2>
+        <p>Si pagas por Zelle o TocoPay no necesitas cuenta: creas el pedido, pagas por fuera y subes la captura.</p>
+      </div>
+      <div class="help-grid">
+        <article class="help-panel help-panel-highlight">
           <span class="help-kicker">Muy importante</span>
-          <h2>¿Por qué debes enviar una captura de pantalla?</h2>
+          <h3>¿Por qué debes enviar una captura de pantalla?</h3>
           <p>
-            La captura de pantalla es el comprobante que usamos para confirmar que el pago fue realizado.
-            Si no subes la captura, la orden puede quedar pendiente y tardar más en procesarse.
+            La captura es el comprobante que usamos para confirmar que el pago se hizo.
+            Si no la subes, el pedido queda pendiente y tarda más en procesarse.
           </p>
           <ul class="help-checklist">
             <li>Debe verse el monto pagado.</li>
@@ -106,9 +306,11 @@
             <li>Debe verse el nombre, correo, teléfono o referencia del destinatario.</li>
             <li>La imagen debe estar clara, sin cortes y sin partes borrosas.</li>
           </ul>
-          <p class="help-note">
-            En la página de pago, selecciona el recuadro de comprobante y adjunta la captura desde tu teléfono o computadora.
-          </p>
+        </article>
+        <article class="help-panel">
+          <span class="help-kicker">Ayuda por WhatsApp</span>
+          <h3>Pagos desde México, Brasil o Europa</h3>
+          <p>Elige el pago asistido de tu país en el checkout. El equipo te escribe por WhatsApp con los datos de la transferencia y valida el comprobante. Una transferencia IBAN desde Europa puede tardar más en confirmarse, según el banco.</p>
         </article>
       </div>
     </section>
@@ -126,7 +328,7 @@
 
     <section class="help-section help-section-muted">
       <div class="help-section-header">
-        <span class="section-tag">Opción 1</span>
+        <span class="section-tag">TocoPay</span>
         <h2>Pago con tarjeta en TocoPay para Tarjeta CLÁSICA</h2>
         <p>Esta opción sirve para clientes que desean gestionar una Tarjeta CLÁSICA para Cuba usando Visa, Mastercard o tarjeta prepago internacional.</p>
       </div>
@@ -172,7 +374,7 @@
 
     <section class="help-section">
       <div class="help-section-header">
-        <span class="section-tag">Opción 2</span>
+        <span class="section-tag">Zelle</span>
         <h2>Pago por Zelle desde Estados Unidos</h2>
         <p>Esta opción es la más directa para muchos clientes en Estados Unidos. Te guiamos por WhatsApp y validamos la orden con la captura.</p>
       </div>
@@ -232,6 +434,46 @@
         </div>
       </div>
     </section>
+    <section class="help-section" id="preguntas">
+      <div class="help-section-header">
+        <span class="section-tag">Preguntas frecuentes</span>
+        <h2>Dudas comunes</h2>
+      </div>
+      <div class="help-faq">
+        <details>
+          <summary>¿Necesito una cuenta para comprar?</summary>
+          <p>Solo para pagar con tarjeta de débito o crédito. Con Zelle, TocoPay o pago asistido por WhatsApp puedes comprar sin cuenta.</p>
+        </details>
+        <details>
+          <summary>¿Qué tarjetas aceptan?</summary>
+          <p>Visa y Mastercard, de débito o crédito, habilitadas para compras por internet. El cobro se hace en dólares (USD). Si tienes saldo en TropiPay, también puedes usarlo en la pasarela.</p>
+        </details>
+        <details>
+          <summary>¿Por qué me piden mi dirección y fecha de nacimiento si el pedido va a Cuba?</summary>
+          <p>Son los datos del titular de la tarjeta. El banco los usa para validar el pago y evitar fraudes. La dirección de entrega en Guantánamo es otra y se pide aparte.</p>
+        </details>
+        <details>
+          <summary>¿Qué es TropiPay?</summary>
+          <p>Es la pasarela de pago segura que procesa los pagos con tarjeta. Al pagar verás su página; ahí escribes los datos de la tarjeta, que nosotros nunca vemos.</p>
+        </details>
+        <details>
+          <summary>Me rechazaron el pago, ¿me cobraron?</summary>
+          <p>No. Un pago rechazado no se cobra. Puedes reintentarlo desde la pantalla del pago o desde Mi cuenta → Pedidos, o pagar con otro método.</p>
+        </details>
+        <details>
+          <summary>Pagué pero dice que el pago no está confirmado</summary>
+          <p>Espera unos minutos y toca "Comprobar de nuevo": a veces el banco tarda en avisar. No vuelvas a pagar hasta revisarlo en Mi cuenta. Si pasa más de una hora, escríbenos por WhatsApp con el número del pedido.</p>
+        </details>
+        <details>
+          <summary>No me llega el email para recuperar la contraseña</summary>
+          <p>Revisa la carpeta de spam o promociones y confirma que escribiste el mismo email con el que te registraste. Puedes pedir un enlace nuevo; cada enlace vale una hora.</p>
+        </details>
+        <details>
+          <summary>¿Cuándo llega mi pedido?</summary>
+          <p>Cuando el pago está confirmado, el pedido pasa a preparación y te avisamos por WhatsApp a medida que avanza la entrega en Guantánamo.</p>
+        </details>
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -252,6 +494,7 @@
       <div>
         <h4>Pagos</h4>
         <ul>
+          <li>Tarjeta de débito/crédito</li>
           <li>Zelle desde Estados Unidos</li>
           <li>TocoPay con tarjeta</li>
           <li>Captura de comprobante obligatoria</li>
@@ -277,7 +520,7 @@
   </footer>
 
   <script type="module">
-    import { cargarMetodosPago, renderMetodosEnAyuda } from './js/payment-methods.js?v29';
+    import { cargarMetodosPago, renderMetodosEnAyuda } from './js/payment-methods.js?v30';
 
     function initMobileNav() {
       const menuBtn = document.getElementById('menu-btn');
