@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title>Finalizar pedido | Ready Express Now</title>
-  <link rel="stylesheet" href="./css/styles.css?v30">
+  <link rel="stylesheet" href="./css/styles.css?v31">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
   <style>
@@ -34,7 +34,7 @@
       <div class="checkout-stepper" id="checkout-stepper">
         <div class="checkout-stepper-item active" data-step="1"><div class="stepper-dot">1</div><span class="stepper-label">Quién recibe</span></div>
         <div class="stepper-line"></div>
-        <div class="checkout-stepper-item" data-step="2"><div class="stepper-dot">2</div><span class="stepper-label">Pago</span></div>
+        <div class="checkout-stepper-item" data-step="2"><div class="stepper-dot">2</div><span class="stepper-label">Cuenta y pago</span></div>
         <div class="stepper-line"></div>
         <div class="checkout-stepper-item" data-step="3"><div class="stepper-dot">3</div><span class="stepper-label">Confirmación</span></div>
       </div>
@@ -51,13 +51,13 @@
               <div class="form-group"><label for="receiver_phone">Teléfono de la persona que recibe <span class="required">*</span></label><input type="tel" id="receiver_phone" name="receiver_phone" placeholder="+53 5XXX-XXXX" required><p class="field-error" id="error-receiver_phone"></p></div>
               <div class="form-group"><label for="delivery_notes">Notas de entrega</label><textarea id="delivery_notes" name="delivery_notes" rows="2" placeholder="Referencias adicionales para la entrega (opcional)"></textarea></div>
             </div>
-            <div class="checkout-safe-note">Nos aseguraremos de que tu pedido llegue seguro a su destino.</div>
+            <div class="checkout-safe-note"><strong>Tu pedido está protegido.</strong> Si eliges tarjeta, crearás una cuenta gratuita para pagar con TropiPay y seguir el estado de la entrega. Conservaremos estos datos.</div>
             <p class="form-error" id="checkout-error-step1" style="display:none"></p>
             <div class="checkout-actions"><a href="./index.html" class="checkout-back-btn checkout-shop-link">← Seguir comprando</a><button type="button" id="checkout-next-btn" class="form-submit" style="flex:1">Continuar al pago →</button></div>
           </div>
 
           <div id="checkout-payment-step" style="display:none">
-            <div class="checkout-section-title"><span class="checkout-section-icon">2</span><div><h4>Quién paga y cómo</h4><p>Tus datos como remitente y el método de pago.</p></div></div>
+            <div class="checkout-section-title"><span class="checkout-section-icon">2</span><div><h4>Cuenta y pago seguro</h4><p>Indica quién envía y elige cómo quieres pagar.</p></div></div>
             <div class="checkout-form-section">
               <h5>Tus datos (remitente)</h5>
               <div class="form-row">
@@ -113,7 +113,7 @@
     </section>
   </main>
   <script type="module">
-    import { initCheckout } from "./js/checkout.js?v30";
+    import { initCheckout } from "./js/checkout.js?v31";
     initCheckout();
   </script>
 </body>

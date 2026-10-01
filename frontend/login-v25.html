@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v30">
+  <link rel="stylesheet" href="./css/styles.css?v31">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -21,7 +21,12 @@
   <main class="auth-main" id="main">
     <section class="auth-card" aria-labelledby="page-title">
       <h1 id="page-title">Iniciar sesión</h1>
-      <p class="auth-lead">Accede para ver tus pedidos y guardar tus direcciones.</p>
+      <p class="auth-lead">Accede para continuar tu compra, ver tus pedidos y guardar tus direcciones.</p>
+      <aside class="auth-new-customer" aria-label="Primera compra">
+        <strong>¿Es tu primera compra?</strong>
+        <span>Crea tu cuenta gratuita y vuelve al pago sin perder el carrito.</span>
+        <a href="./registro-v25.html">Crear cuenta y continuar</a>
+      </aside>
       <form id="form" class="auth-form" novalidate>
         <div class="auth-field">
           <label for="email">Email<span class="auth-required" aria-hidden="true">*</span></label>
@@ -43,7 +48,7 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, loginCustomer, safeReturnPath } from './js/auth.js?v30';
+    import { applyReturnContext, loginCustomer, safeReturnPath } from './js/auth.js?v31';
     import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v30';
     bindPasswordToggles();
     applyReturnContext();

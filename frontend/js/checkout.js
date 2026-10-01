@@ -13,9 +13,9 @@ const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
 
 let currentOrderId = null;
 let currentTotal = 0;
-let currentSelectedMethod = null;
-let currentSelectedMethodId = null;
-let currentSelectedMethodFlow = "proof_upload";
+let currentSelectedMethod = storageGet("ren_selected_payment_method") || null;
+let currentSelectedMethodId = storageGet("ren_selected_payment_method_id") || null;
+let currentSelectedMethodFlow = storageGet("ren_selected_payment_flow") || "proof_upload";
 let currentPaymentMethods = [];
 let currentOrderReceiptData = null;
 let checkoutStep = 1;
@@ -43,6 +43,10 @@ function getSelectedLocation(form) {
   return deliveryLocations.find(location => String(location.id) === String(id)) || null;
 }
 
+function displayMunicipalityName(name) {
+  return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
+}
+
 function calculateCheckoutTotal(form) {
   return getDeliverySubtotal() + Number(getSelectedLocation(form)?.recargo || 0);
 }
@@ -53,7 +57,7 @@ function renderDeliveryLocations(form, selectedId = "") {
   if (!select || !hidden) return;
   const previous = selectedId || hidden.value || storageGet("ren_delivery_location_id") || "";
   select.innerHTML = '<option value="">Selecciona un municipio</option>' + deliveryLocations.map(location =>
-    `<option value="${escapeHtml(String(location.id))}">${escapeHtml(location.municipio)}</option>`
+    `<option value="${escapeHtml(String(location.id))}">${escapeHtml(displayMunicipalityName(location.municipio))}</option>`
   ).join("");
   const selected = deliveryLocations.find(location => String(location.id) === String(previous))
     || deliveryLocations.find(location => location.es_base)
@@ -75,8 +79,8 @@ function updateDeliveryPricing(form) {
   if (amount) amount.textContent = surcharge > 0 ? `+$${surcharge.toFixed(2)}` : "$0.00";
   if (note) note.textContent = selected
     ? (surcharge > 0
-      ? `${selected.municipio}: este importe se suma al subtotal de tus productos.`
-      : `${selected.municipio}: entrega dentro de la ciudad sin recargo adicional.`)
+      ? `${displayMunicipalityName(selected.municipio)}: este importe se suma al subtotal de tus productos.`
+      : `${displayMunicipalityName(selected.municipio)}: entrega dentro de la ciudad sin recargo adicional.`)
     : "Selecciona un municipio para ver el importe.";
   card?.classList.toggle("has-surcharge", surcharge > 0);
   currentTotal = calculateCheckoutTotal(form);
@@ -233,7 +237,7 @@ function renderMiniSummary() {
   const count = cart.reduce((s, i) => s + i.qty, 0);
   el.innerHTML = `
     <span class="mini-summary-items">${count} producto${count !== 1 ? "s" : ""}</span>
-    <span class="mini-summary-total">Total: <strong>$${total.toFixed(2)}</strong></span>
+    <span class="mini-summary-total">Total USD: <strong>$${total.toFixed(2)}</strong></span>
   `;
 }
 
@@ -623,7 +627,7 @@ async function renderPaymentMethods() {
         "Pagar ahora con tarjeta",
         getAccessToken()
           ? "Pago seguro en línea; tu pedido se confirma al instante."
-          : "Pago seguro en línea. Para pagar con tarjeta necesitas iniciar sesión o crear una cuenta gratis.",
+          : "Visa y Mastercard mediante TropiPay. Crea una cuenta gratuita para proteger el pago, conservar tu carrito y seguir el pedido.",
         cardMethods
       )}
       ${renderPaymentGroup(
@@ -693,8 +697,8 @@ function renderPaymentGroup(title, description, methods) {
             <strong>${escapeHtml(m.display_name || m.method_name)}</strong>
             ${m.account_number ? `<small class="method-account">${escapeHtml(m.account_number)}</small>` : ""}
             ${m.payment_flow === PAYMENT_FLOW_ASSISTED ? `<small class="method-account">Contacto por WhatsApp</small>` : ""}
-            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY ? `<small class="method-account">Visa y Mastercard · pago seguro procesado por TropiPay</small>` : ""}
-            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY && !getAccessToken() ? `<span class="method-auth-badge">${svgIcon("lock", 12)} Requiere iniciar sesión</span>` : ""}
+            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY ? `<small class="method-account">Visa y Mastercard · confirmación inmediata · sin comprobante</small>` : ""}
+            ${m.payment_flow === PAYMENT_FLOW_TROPIPAY && !getAccessToken() ? `<span class="method-auth-badge">${svgIcon("lock", 12)} Requiere una cuenta gratuita</span>` : ""}
           </div>
         </div>
         <div class="method-instructions" style="display:none">
@@ -731,11 +735,11 @@ const PENDING_CARD_KEY = "ren_pending_card_payment";
 function cardAuthGateHtml() {
   return `
         <div class="method-auth-gate" role="region" aria-label="Inicia sesión para pagar con tarjeta" hidden>
-          <p class="method-auth-title">${svgIcon("lock", 18)} Inicia sesión para pagar con tarjeta</p>
-          <p>Por seguridad, el pago con tarjeta se hace desde tu cuenta: así ves el estado del pago y puedes reintentarlo si el banco lo rechaza. <strong>Tu carrito y los datos del envío se guardan.</strong></p>
+          <p class="method-auth-title">${svgIcon("lock", 18)} Continúa con una cuenta segura</p>
+          <p>La cuenta protege tu pago y te permite seguir el pedido. <strong>Tu carrito y los datos del envío ya están guardados.</strong></p>
           <div class="method-auth-actions">
-            <a class="method-auth-btn is-primary" href="./login-v25.html?return=checkout">Iniciar sesión</a>
-            <a class="method-auth-btn" href="./registro-v25.html?return=checkout">Crear cuenta gratis</a>
+            <a class="method-auth-btn is-primary" href="./registro-v25.html?return=checkout">Crear cuenta y continuar</a>
+            <a class="method-auth-btn" href="./login-v25.html?return=checkout">Ya tengo cuenta</a>
           </div>
           <p class="method-auth-note">¿Prefieres no crear cuenta? Puedes pagar con Zelle, TocoPay o con ayuda por WhatsApp.</p>
         </div>`;
@@ -755,13 +759,9 @@ function showCardAuthGate(card) {
 
 function selectPaymentMethod(card) {
   const requestedFlow = card.dataset.paymentFlow || "proof_upload";
-  if (requestedFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken()) {
-    showCardAuthGate(card);
-    return;
-  }
-
   document.querySelectorAll(".method-card").forEach(c => {
     c.classList.remove("selected");
+    c.classList.remove("needs-auth");
     c.setAttribute("aria-checked", "false");
     const instr = c.querySelector(".method-instructions");
     if (instr) instr.style.display = "none";
@@ -772,7 +772,11 @@ function selectPaymentMethod(card) {
   currentSelectedMethod = card.dataset.method;
   currentSelectedMethodId = card.dataset.methodId || null;
   currentSelectedMethodFlow = card.dataset.paymentFlow || "proof_upload";
-  toggleTropipayPayerFields(currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY);
+
+  document.querySelectorAll(".method-auth-gate").forEach(gate => { gate.hidden = true; });
+  const needsAccount = requestedFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken();
+  if (requestedFlow !== PAYMENT_FLOW_TROPIPAY) storageRemove(PENDING_CARD_KEY);
+  toggleTropipayPayerFields(currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && !needsAccount);
 
   const instrEl = card.querySelector(".method-instructions");
   const instrText = card.querySelector(".instructions-text");
@@ -801,6 +805,7 @@ function selectPaymentMethod(card) {
   storageSet("ren_selected_payment_flow", currentSelectedMethodFlow);
   updateSubmitButton();
   renderCheckoutReview();
+  if (needsAccount) showCardAuthGate(card);
 }
 
 function copyToClipboard(text, btn) {
@@ -851,11 +856,9 @@ async function submitOrder(form) {
   }
 
   if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken()) {
-    const errorEl = document.getElementById("checkout-error");
-    if (errorEl) {
-      errorEl.innerHTML = 'Para pagar con tarjeta necesitas iniciar sesión. <a href="./login-v25.html?return=checkout">Iniciar sesión</a> o <a href="./registro-v25.html?return=checkout">crear una cuenta</a>.';
-      errorEl.style.display = "block";
-    }
+    saveFormData(form);
+    storageSet(PENDING_CARD_KEY, "1");
+    window.location.href = "./registro-v25.html?return=checkout";
     return;
   }
 
@@ -1008,7 +1011,7 @@ function updateSubmitButton() {
     return;
   }
   btn.textContent = currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY
-    ? "Pagar con tarjeta →"
+    ? (getAccessToken() ? "Pagar con tarjeta →" : "Crear cuenta y continuar →")
     : currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED
       ? "Crear pedido y recibir ayuda"
       : "Crear pedido →";

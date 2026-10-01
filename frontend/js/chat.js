@@ -3,7 +3,7 @@ import { API_BASE } from "./api.js?v30";
 
 const CHAT_API = API_BASE;
 let productCache = null;
-const PROACTIVE_DELAY = 10000;
+const PROACTIVE_DELAY = 25000;
 const CLIENT_KEY = "ren_chat_client";
 const SESSION_KEY = "ren_chat_session";
 const TRANSCRIPT_KEY = "ren_chat_messages";

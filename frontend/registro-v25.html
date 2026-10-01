@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v30">
+  <link rel="stylesheet" href="./css/styles.css?v31">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -21,44 +21,65 @@
   <main class="auth-main" id="main">
     <section class="auth-card auth-card--wide" aria-labelledby="page-title">
       <h1 id="page-title">Crear cuenta</h1>
-      <p class="auth-lead">Completa estos datos una sola vez: así tus entregas y tus pagos con tarjeta van sin repetir nada. Los campos con <span class="auth-required" aria-hidden="true">*</span> son obligatorios.</p>
+      <p class="auth-lead">Tres pasos sencillos para proteger tu pago y volver al pedido sin perder el carrito. Los campos con <span class="auth-required" aria-hidden="true">*</span> son obligatorios.</p>
+      <ol class="auth-wizard-steps" aria-label="Progreso del registro">
+        <li class="is-active" data-reg-indicator="1"><span>1</span>Tu cuenta</li>
+        <li data-reg-indicator="2"><span>2</span>La entrega</li>
+        <li data-reg-indicator="3"><span>3</span>Pago seguro</li>
+      </ol>
       <form id="form" class="auth-form" novalidate>
-        <div class="auth-row">
-          <div class="auth-field"><label for="nombre">Nombre<span class="auth-required" aria-hidden="true">*</span></label><input id="nombre" name="nombre" autocomplete="given-name" required></div>
-          <div class="auth-field"><label for="apellidos">Apellidos<span class="auth-required" aria-hidden="true">*</span></label><input id="apellidos" name="apellidos" autocomplete="family-name" required></div>
-        </div>
-        <div class="auth-row">
-          <div class="auth-field"><label for="email">Email<span class="auth-required" aria-hidden="true">*</span></label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" required></div>
-          <div class="auth-field"><label for="telefono">Teléfono<span class="auth-required" aria-hidden="true">*</span></label><input id="telefono" name="telefono" type="tel" autocomplete="tel" inputmode="tel" required></div>
-        </div>
-        <div class="auth-field">
-          <label for="password">Contraseña<span class="auth-required" aria-hidden="true">*</span></label>
-          <div class="auth-password">
-            <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" aria-describedby="password-hint">
-            <button type="button" class="auth-password-toggle" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
-          </div>
-          <small id="password-hint" class="auth-hint">Mínimo 8 caracteres.</small>
-        </div>
-        <fieldset class="auth-fieldset">
-          <legend>Dirección principal de entrega</legend>
-          <div class="auth-field"><label for="alias">Alias<span class="auth-required" aria-hidden="true">*</span></label><input id="alias" name="alias" placeholder="Ej.: Casa de mamá" required></div>
-          <div class="auth-field"><label for="direccion">Dirección completa<span class="auth-required" aria-hidden="true">*</span></label><input id="direccion" name="direccion" autocomplete="street-address" required></div>
+        <section class="auth-wizard-panel" data-reg-step="1" aria-labelledby="reg-step-1-title">
+          <h2 id="reg-step-1-title">Primero, crea tu cuenta</h2>
+          <p class="auth-hint">Usaremos estos datos para identificar tu pedido y enviarte confirmaciones.</p>
           <div class="auth-row">
-            <div class="auth-field"><label for="provincia">Provincia<span class="auth-required" aria-hidden="true">*</span></label><input id="provincia" name="provincia" value="Guantánamo" required></div>
-            <div class="auth-field"><label for="municipio">Municipio<span class="auth-required" aria-hidden="true">*</span></label><input id="municipio" name="municipio" value="Guantánamo" required></div>
+            <div class="auth-field"><label for="nombre">Nombre<span class="auth-required" aria-hidden="true">*</span></label><input id="nombre" name="nombre" autocomplete="given-name" required></div>
+            <div class="auth-field"><label for="apellidos">Apellidos<span class="auth-required" aria-hidden="true">*</span></label><input id="apellidos" name="apellidos" autocomplete="family-name" required></div>
           </div>
-          <div class="auth-field"><label for="referencia">Referencia</label><input id="referencia" name="referencia" placeholder="Ej.: frente al parque"></div>
-        </fieldset>
-        <div id="billing-fields"></div>
+          <div class="auth-row">
+            <div class="auth-field"><label for="email">Email<span class="auth-required" aria-hidden="true">*</span></label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" required></div>
+            <div class="auth-field"><label for="telefono">Teléfono / WhatsApp<span class="auth-required" aria-hidden="true">*</span></label><input id="telefono" name="telefono" type="tel" autocomplete="tel" inputmode="tel" required></div>
+          </div>
+          <div class="auth-field">
+            <label for="password">Contraseña<span class="auth-required" aria-hidden="true">*</span></label>
+            <div class="auth-password">
+              <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" aria-describedby="password-hint">
+              <button type="button" class="auth-password-toggle" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Mostrar contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+            </div>
+            <small id="password-hint" class="auth-hint">Usa al menos 8 caracteres.</small>
+          </div>
+          <button type="button" class="auth-btn" data-reg-next="2">Continuar a la entrega →</button>
+        </section>
+
+        <section class="auth-wizard-panel" data-reg-step="2" aria-labelledby="reg-step-2-title" hidden>
+          <h2 id="reg-step-2-title">Confirma dónde entregamos</h2>
+          <p class="auth-hint">Si empezaste una compra, completamos estos campos con los datos que ya escribiste.</p>
+          <fieldset class="auth-fieldset">
+            <legend>Dirección principal de entrega</legend>
+            <div class="auth-field"><label for="alias">Nombre de esta dirección<span class="auth-required" aria-hidden="true">*</span></label><input id="alias" name="alias" placeholder="Ej.: Casa de mamá" required></div>
+            <div class="auth-field"><label for="direccion">Dirección completa<span class="auth-required" aria-hidden="true">*</span></label><input id="direccion" name="direccion" autocomplete="street-address" required></div>
+            <div class="auth-row">
+              <div class="auth-field"><label for="provincia">Provincia<span class="auth-required" aria-hidden="true">*</span></label><input id="provincia" name="provincia" value="Guantánamo" required></div>
+              <div class="auth-field"><label for="municipio">Municipio<span class="auth-required" aria-hidden="true">*</span></label><input id="municipio" name="municipio" value="Guantánamo" required></div>
+            </div>
+            <div class="auth-field"><label for="referencia">Referencia</label><input id="referencia" name="referencia" placeholder="Ej.: frente al parque"></div>
+          </fieldset>
+          <div class="auth-wizard-actions"><button type="button" class="auth-btn auth-btn--secondary" data-reg-back="1">← Atrás</button><button type="button" class="auth-btn" data-reg-next="3">Continuar al pago seguro →</button></div>
+        </section>
+
+        <section class="auth-wizard-panel" data-reg-step="3" aria-labelledby="reg-step-3-title" hidden>
+          <h2 id="reg-step-3-title">Datos para pagar con tarjeta</h2>
+          <p class="auth-payment-assurance"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>TropiPay procesa el pago con Visa o Mastercard. Estos datos deben coincidir con los de tu tarjeta. <strong>No tendrás que subir comprobante.</strong></span></p>
+          <div id="billing-fields"></div>
+          <div class="auth-wizard-actions"><button type="button" class="auth-btn auth-btn--secondary" data-reg-back="2">← Atrás</button><button type="submit" class="auth-btn">Crear cuenta y volver al pago</button></div>
+        </section>
         <p id="error" class="auth-msg" role="alert"></p>
-        <button type="submit" class="auth-btn">Registrarme</button>
       </form>
       <nav class="auth-links" aria-label="Opciones de cuenta">
         <a href="./login-v25.html">¿Ya tienes cuenta? Inicia sesión</a>
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath } from './js/auth.js?v30';
+    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath } from './js/auth.js?v31';
     import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v30';
     import { renderBillingFields } from './js/billing-fields.js?v30';
     bindPasswordToggles();
@@ -66,10 +87,66 @@
     const billing = renderBillingFields(document.querySelector('#billing-fields'));
     const form = document.querySelector('#form');
     const message = document.querySelector('#error');
+    let currentStep = 1;
+
+    function showStep(step) {
+      currentStep = step;
+      document.querySelectorAll('[data-reg-step]').forEach(panel => { panel.hidden = Number(panel.dataset.regStep) !== step; });
+      document.querySelectorAll('[data-reg-indicator]').forEach(item => {
+        const itemStep = Number(item.dataset.regIndicator);
+        item.classList.toggle('is-active', itemStep === step);
+        item.classList.toggle('is-done', itemStep < step);
+      });
+      showMessage(message, '');
+      document.querySelector(`[data-reg-step="${step}"] h2`)?.focus?.();
+      window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+
+    function validateStep(step) {
+      if (step === 3) billing.syncValidity();
+      const panel = document.querySelector(`[data-reg-step="${step}"]`);
+      const invalid = [...panel.querySelectorAll('input, select, textarea')].find(field => !field.checkValidity());
+      panel.querySelectorAll('[aria-invalid="true"]').forEach(field => field.removeAttribute('aria-invalid'));
+      if (!invalid) return true;
+      invalid.setAttribute('aria-invalid', 'true');
+      invalid.focus();
+      showMessage(message, 'Revisa el campo marcado antes de continuar.', 'error');
+      return false;
+    }
+
+    function prefillFromCheckout() {
+      let saved;
+      try { saved = JSON.parse(localStorage.getItem('ren_checkout_form_data') || 'null'); } catch { saved = null; }
+      if (!saved) return;
+      const values = {
+        nombre: saved.sender_first_name,
+        apellidos: saved.sender_last_name,
+        telefono: saved.sender_phone,
+        direccion: saved.customer_address,
+        referencia: saved.delivery_notes,
+        alias: saved.receiver_name ? `Casa de ${saved.receiver_name}` : 'Entrega principal'
+      };
+      Object.entries(values).forEach(([id, value]) => { const field = document.getElementById(id); if (field && value && !field.value) field.value = value; });
+      try {
+        const cache = JSON.parse(localStorage.getItem('ren_delivery_locations') || 'null');
+        const location = cache?.items?.find(item => String(item.id) === String(saved.delivery_location_id));
+        if (location?.municipio) document.getElementById('municipio').value = location.municipio;
+      } catch {}
+    }
+
+    prefillFromCheckout();
+    document.querySelectorAll('[data-reg-next]').forEach(button => button.addEventListener('click', () => {
+      if (validateStep(currentStep)) showStep(Number(button.dataset.regNext));
+    }));
+    document.querySelectorAll('[data-reg-back]').forEach(button => button.addEventListener('click', () => showStep(Number(button.dataset.regBack))));
     form.addEventListener('submit', async e => {
       e.preventDefault();
       billing.syncValidity();
-      if (!focusFirstInvalid(form)) return showMessage(message, 'Revisa el campo marcado: es obligatorio o tiene un formato inválido.', 'error');
+      if (!focusFirstInvalid(form)) {
+        const invalidPanel = form.querySelector(':invalid')?.closest('[data-reg-step]');
+        if (invalidPanel) showStep(Number(invalidPanel.dataset.regStep));
+        return showMessage(message, 'Revisa el campo marcado: es obligatorio o tiene un formato inválido.', 'error');
+      }
       const button = form.querySelector('[type=submit]');
       const data = Object.fromEntries(new FormData(form));
       showMessage(message, '');

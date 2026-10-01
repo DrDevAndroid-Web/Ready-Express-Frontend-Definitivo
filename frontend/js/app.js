@@ -1,9 +1,13 @@
 import { initCart, getCart } from "./cart.js?v30";
 import { initProducts } from "./products.js?v30";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v30";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v31";
 import { redirectToPendingPayment } from "./payment.js?v30";
 import { inicializarMetodosPago } from "./payment-methods.js?v30";
 import { getLocalizaciones } from "./api.js?v30";
+
+function displayMunicipalityName(name) {
+  return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (redirectToPendingPayment()) return;
@@ -51,7 +55,7 @@ async function initDeliveryLocationsFaq() {
     container.innerHTML = locations.map(location => {
       const surcharge = Number(location.recargo || 0);
       const amount = surcharge > 0 ? `+$${surcharge.toFixed(2)}` : "Sin recargo";
-      return `<div class="faq-location-row"><span>${escapeHtml(location.municipio || "Municipio")}</span><strong>${amount}</strong></div>`;
+      return `<div class="faq-location-row"><span>${escapeHtml(displayMunicipalityName(location.municipio))}</span><strong>${amount}</strong></div>`;
     }).join("");
   } catch (error) {
     container.innerHTML = '<span class="faq-locations-empty">Las tarifas se mostrarán automáticamente durante el checkout.</span>';

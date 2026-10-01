@@ -31,7 +31,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v30" />
+  <link rel="stylesheet" href="./css/styles.css?v31" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -108,11 +108,12 @@
           Compra en minutos, sin complicaciones.
         </p>
         <div class="hero-actions">
-          <a href="#alimentos" class="btn-primary">Arma tu pedido ahora</a>
+          <a href="#combos" class="btn-primary">Ver combos y pagar con tarjeta</a>
           <a href="https://wa.me/5356189395?text=Hola%20ReadyExpressNow.%20Me%20interesa%20conocer%20los%20combos%20y%20productos%20disponibles.%20%C2%BFPodr%C3%ADan%20ayudarme%3F" class="btn-secondary" target="_blank" rel="noopener">
             Hablar por WhatsApp
           </a>
         </div>
+        <p class="hero-payment-note"><i class="fa-solid fa-lock" aria-hidden="true"></i> Visa y Mastercard mediante TropiPay · confirmación inmediata · sin subir comprobante</p>
         <div class="hero-stats">
 
           <div class="hero-stat">
@@ -346,7 +347,7 @@
         </details>
         <details class="faq-item">
           <summary>¿Qué métodos de pago aceptan?</summary>
-          <p>Aceptamos tarjetas de débito/crédito (Visa y Mastercard) para pago en línea —necesitas iniciar sesión con tu cuenta— y Zelle o TocoPay con comprobante en la plataforma. También tenemos pagos asistidos desde México, Brasil e IBAN Europa; en esos casos el equipo te contacta por WhatsApp para darte los datos y validar el comprobante manualmente.</p>
+          <p>Aceptamos tarjetas de débito/crédito Visa y Mastercard mediante TropiPay. Para proteger el pago necesitas una cuenta gratuita; tu carrito y los datos del envío se conservan y no tienes que subir comprobante. También puedes pagar con Zelle o TocoPay, o solicitar ayuda por WhatsApp.</p>
         </details>
         <details class="faq-item">
           <summary>¿Puedo contactar directamente?</summary>
@@ -444,10 +445,10 @@
     </div>
     <div class="cart-footer">
       <div class="cart-total-row">
-        <span>Total:</span>
+        <span>Total (USD):</span>
         <strong id="cart-total">$0.00</strong>
       </div>
-      <button id="cart-checkout-btn" disabled>Proceder al Pago →</button>
+      <button id="cart-checkout-btn" disabled>Continuar al pago seguro →</button>
     </div>
   </aside>
 
@@ -878,7 +879,7 @@
         "name": "¿Qué métodos de pago aceptan?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Aceptamos Zelle y Tocopay con comprobante en la plataforma. También tenemos pagos asistidos desde México, Brasil e IBAN Europa; en esos casos el equipo te contacta por WhatsApp para darte los datos y validar el comprobante manualmente."
+          "text": "Aceptamos Visa y Mastercard mediante TropiPay con confirmación automática y sin subir comprobante. También aceptamos Zelle y TocoPay con comprobante, y ofrecemos ayuda por WhatsApp."
         }
       },
       {
@@ -893,7 +894,7 @@
   }
   </script>
 
-  <script type="module" src="./js/app.js?v30"></script>
+  <script type="module" src="./js/app.js?v31"></script>
   <script>
     document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
       document.getElementById('cart-btn')?.click();
@@ -906,7 +907,6 @@
     });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  <script type="module" src="./js/chat.js?v30"></script>
+  <script type="module" src="./js/chat.js?v31"></script>
 </body>
 </html>
-
