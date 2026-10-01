@@ -1,10 +1,10 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v30";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v30";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v30";
-import { renderBillingFields } from "./billing-fields.js?v30";
+} from "./auth.js?v33";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v33";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v33";
+import { renderBillingFields } from "./billing-fields.js?v33";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
