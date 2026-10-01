@@ -316,6 +316,22 @@ function itemsSummary(items) {
   return names.length > 2 ? `${shown} y ${names.length - 2} más` : shown;
 }
 
+// Foto que sube el equipo desde la app de administración al entregar el pedido
+function renderDeliveryPhoto(order) {
+  const url = order.delivery_photo?.url ? escapeHtml(order.delivery_photo.url) : "";
+  if (!url) return "";
+  const reference = escapeHtml(order.order_reference || order.id);
+  return `
+      <div class="account-payment">
+        <span><i class="fa-solid fa-camera" aria-hidden="true"></i> Foto de la entrega</span>
+        <div class="account-card-actions">
+          <a class="account-action" href="${url}" target="_blank" rel="noopener"><i class="fa-solid fa-eye" aria-hidden="true"></i>Ver</a>
+          <button type="button" class="account-action" data-download="${url}" data-filename="entrega-${reference}.webp"><i class="fa-solid fa-download" aria-hidden="true"></i>Descargar</button>
+          <button type="button" class="account-action" data-share="${url}"><i class="fa-solid fa-share-nodes" aria-hidden="true"></i>Compartir</button>
+        </div>
+      </div>`;
+}
+
 function renderPayments(order) {
   const payments = order.payments || { manual: [], tropipay: [] };
   const reference = escapeHtml(order.order_reference || order.id);
@@ -390,6 +406,7 @@ async function loadOrders() {
         ${items ? `<p class="account-order-items">${escapeHtml(items)}</p>` : ""}
         ${place ? `<p class="account-muted"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Para ${escapeHtml(place)}</p>` : ""}
         ${renderPayments(order)}
+        ${renderDeliveryPhoto(order)}
       </li>`;
   }).join("")}</ul>`;
 }
