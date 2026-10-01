@@ -506,12 +506,8 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
 5. Push de `preview/tropipay-base` para la preview de Vercel; luego `master` cuando el usuario lo diga.
 
 **Conocido sin arreglar:**
-- `payment_transactions.status` no admite `amount_mismatch` (falta migración): el aviso al admin sale, pero el estado no se guarda.
 - El test Android (`readyexpressnow-android-compat.mjs`) busca el antiguo modal de checkout y su mock rompe el `EventSource`: 5 fallos ajenos a los cambios.
 
-**Datos de prueba en producción** (borrar cuando el usuario lo indique):
-- Órdenes `REN-260923-03A8`, `REN-260923-515C`, `REN-260923-7845`, `REN-260930-3223` (pendiente, enlace sandbox sin pagar) y `REN-260930-3BF8` (pagada en sandbox por conciliación, `printed_at` marcado sin imprimir, "PRUEBA QA - NO ENTREGAR").
-- Cuentas `qa.tropipay@readyexpressnow.test` y `qa.cliente@versabold.com` (creada por API admin, email confirmado).
 
 **Pruebas locales:** el backend local usa la base de Supabase de **producción** y TropiPay **sandbox**. Con Playwright, lanzar Chromium con `--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests`. Tarjetas de prueba (Trust Payments): `4111110000000211` o `4111111111111111` aprobadas **solo con CVV `123`** (otro CVV → "Security code mismatch"), `4000000000000812` rechazada; la pasarela pide fecha de nacimiento. El error de consola `applePay.paymentRequest.countryCode is not allowed to be empty` viene del iframe de Trust Payments del sandbox y no bloquea el pago. Para servir el frontend en local usar `npx http-server frontend -p 5173` (`serve` quita la query `?return=` al redirigir; en local solo `localhost:5173` está en CORS del backend de producción).
 
@@ -520,4 +516,7 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
 - **Backend en producción** (`4000d28`, `440edd0`, `8995b75`): TropiPay devuelve `expires_in` como **timestamp Unix absoluto** (el token dura 2 h); antes se sumaba a la hora actual, el token nunca se renovaba y a las 2 h todo fallaba con `EXPIRED_TOKEN`. Ahora se calcula bien, la petición de token se comparte entre pagos simultáneos y ante un 401 se renueva una vez. El asistente de IA conoce el pago con tarjeta (`CARD_PAYMENT_KNOWLEDGE` en `chat.service.js`); antes decía que no se aceptaban tarjetas.
 - **Frontend** (`fd9c728`, rama `preview/tropipay-base`, **sin merge a `master`**): TropiPay se muestra como "Tarjeta de débito o crédito" (`display_name`; `method_name` interno sigue siendo "TropiPay"). Sin sesión, la tarjeta abre un aviso con "Iniciar sesión" / "Crear cuenta gratis" y, tras entrar, vuelve al checkout con la tarjeta elegida (`ren_pending_card_payment`). Login y registro conservan `?return=`. Ayuda reescrita. Cache-buster `?v30`.
 - El script `readyexpressnow-android-compat.mjs` ya no está en la ruta indicada arriba (carpeta reorganizada).
-- Datos de prueba nuevos: orden `REN-261001-175F` (pagada en sandbox, "PRUEBA QA - NO ENTREGAR").
+- **Frontend en producción** (`dd455ed` en `master`): todos los imports a `?v33` (antes los imports internos de los JS seguían en `?v30` y servían módulos viejos de caché).
+- **Base de producción vaciada para empezar de cero** (2026-10-01, por indicación del usuario): borradas todas las filas de `orders`, `payment_transactions`, `payment_events`, `payments`, `delivery_confirmations` y `notifications`, los archivos de los buckets `payments` y `delivery-confirmations`, y las cuentas QA. Catálogo, chat y clientes reales intactos.
+- Migración **pendiente de ejecutar** en Supabase: `backend/migrations/20261001_payment_status_amount_mismatch.sql` (admite el estado `amount_mismatch`; backend `c0e3be5`).
+- Para pasar TropiPay a real: `TROPIPAY_URL_BASE=https://www.tropipay.com`, credenciales reales (la firma del webhook usa `TROPIPAY_API_KEY`/`TROPIPAY_API_SECRET`, que no son el client id/secret), URL de notificación en el panel real y un pago real pequeño mirando en logs que el webhook llega con firma válida (nunca se ha probado con un aviso real).
