@@ -17,9 +17,9 @@ async function tropipayFetch(path, options = {}) {
   return body;
 }
 
-async function getAccessToken() {
+async function getAccessToken({ forceRefresh = false } = {}) {
   const now = Date.now();
-  if (tokenCache && tokenCache.expiresAt > now + TOKEN_MARGIN_MS) return tokenCache.value;
+  if (!forceRefresh && tokenCache && tokenCache.expiresAt > now + TOKEN_MARGIN_MS) return tokenCache.value;
 
   const clientId = process.env.TROPIPAY_CLIENT_ID;
   const clientSecret = process.env.TROPIPAY_CLIENT_SECRET;
@@ -34,6 +34,24 @@ async function getAccessToken() {
   if (!body?.access_token) throw new Error("TropiPay no devolvió access_token");
   tokenCache = { value: body.access_token, expiresAt: now + Number(body.expires_in || 300) * 1000 };
   return tokenCache.value;
+}
+
+function isExpiredTokenError(error) {
+  return error?.status === 401 || error?.providerBody?.error?.code === "EXPIRED_TOKEN";
+}
+
+// TropiPay puede invalidar el token antes de su expires_in (p. ej. cuando otro proceso
+// con las mismas credenciales pide uno nuevo). Ante un 401 se descarta y se reintenta una vez.
+async function tropipayAuthorizedFetch(path, { headers = {}, ...options } = {}) {
+  const send = token => tropipayFetch(path, { ...options, headers: { ...headers, Authorization: `Bearer ${token}` } });
+  try {
+    return await send(await getAccessToken());
+  } catch (error) {
+    if (!isExpiredTokenError(error)) throw error;
+    tokenCache = null;
+    console.warn("[tropipay] Token rechazado; se pide uno nuevo y se reintenta");
+    return send(await getAccessToken({ forceRefresh: true }));
+  }
 }
 
 // Pide (o reutiliza) el token en segundo plano mientras se consultan la orden y la transacción
@@ -101,7 +119,6 @@ export function resolveReturnBase(returnOrigin) {
 }
 
 export async function createTropipayPayment({ order, transactionId, reference = order.order_reference || order.id, returnOrigin = null }) {
-  const token = await getAccessToken();
   const currency = String(process.env.TROPIPAY_CURRENCY || "USD").toUpperCase();
   const frontend = resolveReturnBase(returnOrigin);
   const webhook = String(process.env.TROPIPAY_NOTIFICATION_URL || `${process.env.BACKEND_PUBLIC_URL || "https://readyexpressnowbackend.versabold.com"}/api/payments/tropipay/webhook`);
@@ -148,9 +165,9 @@ export async function createTropipayPayment({ order, transactionId, reference = 
     }
   });
 
-  const payment = await tropipayFetch("/api/v3/paymentcards", {
+  const payment = await tropipayAuthorizedFetch("/api/v3/paymentcards", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(payload)
   });
 
@@ -158,8 +175,7 @@ export async function createTropipayPayment({ order, transactionId, reference = 
 }
 
 export async function getTropipayPayment(paymentcardId) {
-  const token = await getAccessToken();
-  return tropipayFetch(`/api/v3/paymentcards/${encodeURIComponent(paymentcardId)}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
+  return tropipayAuthorizedFetch(`/api/v3/paymentcards/${encodeURIComponent(paymentcardId)}`, {
+    headers: { Accept: "application/json" }
   });
 }
