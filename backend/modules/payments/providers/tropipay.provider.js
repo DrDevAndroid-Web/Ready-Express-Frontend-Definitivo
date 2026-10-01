@@ -1,5 +1,7 @@
 const TOKEN_MARGIN_MS = 60_000;
+const DEFAULT_TOKEN_TTL_MS = 5 * 60_000;
 let tokenCache = null;
+let tokenRequest = null;
 
 function baseUrl() {
   return String(process.env.TROPIPAY_URL_BASE || process.env.TROPIPAY_API_BASE_URL || "https://sandbox.tropipay.me").replace(/\/$/, "");
@@ -17,10 +19,15 @@ async function tropipayFetch(path, options = {}) {
   return body;
 }
 
-async function getAccessToken({ forceRefresh = false } = {}) {
-  const now = Date.now();
-  if (!forceRefresh && tokenCache && tokenCache.expiresAt > now + TOKEN_MARGIN_MS) return tokenCache.value;
+// TropiPay devuelve expires_in como timestamp Unix absoluto en segundos (verificado:
+// 1790831294 = 2 h después de emitirlo), no como duración. Se aceptan ambos formatos.
+export function tokenExpiresAt(expiresIn, now = Date.now()) {
+  const value = Number(expiresIn);
+  if (!Number.isFinite(value) || value <= 0) return now + DEFAULT_TOKEN_TTL_MS;
+  return value > 1e9 ? value * 1000 : now + value * 1000;
+}
 
+async function requestAccessToken() {
   const clientId = process.env.TROPIPAY_CLIENT_ID;
   const clientSecret = process.env.TROPIPAY_CLIENT_SECRET;
   if (!clientId || !clientSecret) throw new Error("Faltan TROPIPAY_CLIENT_ID o TROPIPAY_CLIENT_SECRET");
@@ -32,26 +39,39 @@ async function getAccessToken({ forceRefresh = false } = {}) {
   });
 
   if (!body?.access_token) throw new Error("TropiPay no devolvió access_token");
-  tokenCache = { value: body.access_token, expiresAt: now + Number(body.expires_in || 300) * 1000 };
+  tokenCache = { value: body.access_token, expiresAt: tokenExpiresAt(body.expires_in) };
   return tokenCache.value;
+}
+
+// Con muchos pagos a la vez, todos esperan la misma petición de token en vez de pedir uno cada uno
+async function getAccessToken() {
+  if (tokenCache && tokenCache.expiresAt > Date.now() + TOKEN_MARGIN_MS) return tokenCache.value;
+  tokenRequest ||= requestAccessToken().finally(() => { tokenRequest = null; });
+  return tokenRequest;
 }
 
 function isExpiredTokenError(error) {
   return error?.status === 401 || error?.providerBody?.error?.code === "EXPIRED_TOKEN";
 }
 
-// TropiPay puede invalidar el token antes de su expires_in (p. ej. cuando otro proceso
-// con las mismas credenciales pide uno nuevo). Ante un 401 se descarta y se reintenta una vez.
+// Si TropiPay rechaza el token antes de lo previsto, se descarta y se reintenta una vez.
+// Solo se descarta si sigue siendo el de la caché: otra petición puede haberlo renovado ya.
 async function tropipayAuthorizedFetch(path, { headers = {}, ...options } = {}) {
   const send = token => tropipayFetch(path, { ...options, headers: { ...headers, Authorization: `Bearer ${token}` } });
+  const token = await getAccessToken();
   try {
-    return await send(await getAccessToken());
+    return await send(token);
   } catch (error) {
     if (!isExpiredTokenError(error)) throw error;
-    tokenCache = null;
-    console.warn("[tropipay] Token rechazado; se pide uno nuevo y se reintenta");
-    return send(await getAccessToken({ forceRefresh: true }));
+    if (tokenCache?.value === token) tokenCache = null;
+    console.warn("[tropipay] Token rechazado; se renueva y se reintenta");
+    return send(await getAccessToken());
   }
+}
+
+export function resetTropipayTokenCache() {
+  tokenCache = null;
+  tokenRequest = null;
 }
 
 // Pide (o reutiliza) el token en segundo plano mientras se consultan la orden y la transacción
