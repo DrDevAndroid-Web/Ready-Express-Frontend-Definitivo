@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v33";
-import { authorizedFetch } from "./session.js?v33";
+import { API_BASE } from "./config.js?v34";
+import { authorizedFetch } from "./session.js?v34";
 
 export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
@@ -132,9 +132,13 @@ async function request(path, options = {}) {
     const res = await authorizedFetch(`${API_BASE}${path}`, options, (url, opts) => fetchWithTimeout(url, opts, 10000));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      const userMessage = getUserFriendlyError(err, res.status);
+      // Con `code` el backend ya manda un texto pensado para el cliente (p. ej. errores de pago con tarjeta)
+      const userMessage = err?.code && err?.error ? `❌ ${err.error}` : getUserFriendlyError(err, res.status);
       const error = new Error(userMessage);
       error.status = res.status;
+      error.code = err?.code || null;
+      error.paymentId = err?.payment_id || null;
+      error.orderReference = err?.order_reference || null;
       error.originalError = err;
       throw error;
     }

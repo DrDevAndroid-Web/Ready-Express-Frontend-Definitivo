@@ -1,12 +1,12 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v33";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v33";
-import { savePendingPayment } from "./payment.js?v33";
-import { cargarMetodosPago, CARD_METHOD_LABEL, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v33";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v33";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v33";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v33";
-import { setupCountrySelect } from "./country-select.js?v33";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v33";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v34";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v34";
+import { savePendingPayment } from "./payment.js?v34";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v34";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v34";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v34";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v34";
+import { setupCountrySelect } from "./country-select.js?v34";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v34";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -625,9 +625,10 @@ async function renderPaymentMethods() {
     container.innerHTML = `
       ${renderPaymentGroup(
         "Pagar ahora con tarjeta",
-        getAccessToken()
+        (getAccessToken()
           ? "Pago seguro en línea; tu pedido se confirma al instante."
-          : "Visa y Mastercard mediante TropiPay. Crea una cuenta gratuita para proteger el pago, conservar tu carrito y seguir el pedido.",
+          : "Visa y Mastercard mediante TropiPay. Crea una cuenta gratuita para proteger el pago, conservar tu carrito y seguir el pedido.")
+          + (getTropipayMinAmount() > 0 ? ` Pedido mínimo: $${getTropipayMinAmount().toFixed(2)}.` : ""),
         cardMethods
       )}
       ${renderPaymentGroup(
@@ -864,6 +865,17 @@ async function submitOrder(form) {
 
   if (!validatePaymentStep()) return;
 
+  // TropiPay rechaza importes por debajo de su mínimo: se avisa antes de crear el pedido
+  const cardMinimum = getTropipayMinAmount();
+  if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && cardMinimum > 0 && currentTotal < cardMinimum) {
+    const errorEl = document.getElementById("checkout-error");
+    if (errorEl) {
+      errorEl.textContent = `❌ El pago con tarjeta requiere un pedido de al menos $${cardMinimum.toFixed(2)} (el tuyo es de $${currentTotal.toFixed(2)}). Añade más productos o elige otro método de pago.`;
+      errorEl.style.display = "block";
+    }
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Creando pedido...';
 
@@ -946,6 +958,13 @@ async function submitOrder(form) {
     window.location.href = `./pago-confirmado.html?order=${encodeURIComponent(reference)}&estado=${state}&payment=manual`;
 
   } catch (err) {
+    // El pedido ya existe y la pasarela falló: la página de pago rechazado explica el motivo
+    // y deja reintentar con tarjeta o pagar este mismo pedido con otro método
+    if (err.paymentId) {
+      const params = new URLSearchParams({ order: err.orderReference || "", payment: err.paymentId });
+      window.location.href = `./pago-rechazado.html?${params}`;
+      return;
+    }
     const errorEl = document.getElementById("checkout-error");
     if (errorEl) {
       errorEl.textContent = err.message || "❌ No pudimos crear tu pedido. Intenta de nuevo o contáctanos: +53 56189395";

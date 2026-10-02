@@ -1,10 +1,10 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v33";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v33";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v33";
-import { renderBillingFields } from "./billing-fields.js?v33";
+} from "./auth.js?v34";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v34";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v34";
+import { renderBillingFields } from "./billing-fields.js?v34";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -39,7 +39,8 @@ const TROPIPAY_STATUS = {
   pending: ["Pendiente", "warning"],
   successful: ["Pagado", "success"],
   failed: ["Rechazado", "danger"],
-  cancelled: ["Sustituido", "muted"]
+  cancelled: ["Sustituido", "muted"],
+  amount_mismatch: ["En revisión", "warning"]
 };
 // La orden aún puede pagarse (con TropiPay u otro método)
 const ORDER_AWAITING_PAYMENT = ["pending", "processing", "payment_rejected"];
@@ -360,6 +361,7 @@ function renderPayments(order) {
     return `
       <div class="account-payment">
         <span><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Pago con tarjeta <span class="account-badge is-${tone}">${escapeHtml(label)}</span></span>
+        ${payment.id === latestTropipayId && payment.failure_message ? `<p class="account-payment-reason">${escapeHtml(payment.failure_message)}</p>` : ""}
         ${canRetry ? `
           <div class="account-card-actions">
             <button type="button" class="account-action" data-retry-payment="${id}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i>Reintentar pago</button>

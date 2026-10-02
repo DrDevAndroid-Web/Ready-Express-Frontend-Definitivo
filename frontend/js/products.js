@@ -1,5 +1,5 @@
-import { getCatalog, getInfo } from "./api.js?v33";
-import { addItem } from "./cart.js?v33";
+import { getCatalog, getInfo } from "./api.js?v34";
+import { addItem } from "./cart.js?v34";
 
 const CONTACT_WHATSAPP = "5356189395";
 

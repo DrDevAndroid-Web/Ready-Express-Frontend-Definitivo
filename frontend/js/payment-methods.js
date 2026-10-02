@@ -1,8 +1,11 @@
-import { getInfo } from "./api.js?v33";
+import { getInfo } from "./api.js?v34";
 
 let methodosCache = null;
 let ultimaCarga = null;
 let tropipayEnabled = false;
+// Importe mínimo que TropiPay acepta con tarjeta (lo da el backend en /info)
+let tropipayMinAmount = 0;
+export const getTropipayMinAmount = () => tropipayMinAmount;
 
 export const PAYMENT_FLOW_PROOF_UPLOAD = "proof_upload";
 export const PAYMENT_FLOW_ASSISTED = "assisted";
@@ -86,6 +89,7 @@ export async function cargarMetodosPago(forzar = false) {
   try {
     const info = await getInfo();
     tropipayEnabled = info?.tropipay_enabled === true;
+    tropipayMinAmount = Number(info?.tropipay_min_amount) || 0;
     const metodos = (info.payment_methods || [])
       .filter(m => m.is_active !== false)
       .sort((a, b) => (a.order_index || 999) - (b.order_index || 999));

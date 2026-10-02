@@ -1,10 +1,10 @@
 // Retorno de TropiPay (pago-confirmado / pago-rechazado) y acciones de reintento.
 // La página nunca decide por la URL: pregunta el estado real al backend, que a su vez
 // lo concilia con TropiPay. Las funciones de acción también las usa "Mi cuenta".
-import { API_BASE } from "./config.js?v33";
-import { authorizedFetch, getValidAccessToken } from "./session.js?v33";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v33";
-import { hasPendingPayment, savePendingPayment } from "./payment.js?v33";
+import { API_BASE } from "./config.js?v34";
+import { authorizedFetch, getValidAccessToken } from "./session.js?v34";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v34";
+import { hasPendingPayment, savePendingPayment } from "./payment.js?v34";
 
 const WHATSAPP_NUMBER = "5356189395";
 const POLL_INTERVAL_MS = 3000;
@@ -154,14 +154,29 @@ function renderPaid() {
   actionLink("Volver a la tienda", "fa-store", "./index.html");
 }
 
+// Motivos en los que volver a intentar con tarjeta no sirve: hay que cambiar de método o de datos
+const NO_CARD_RETRY = new Set(["CARD_MIN_AMOUNT", "CARD_INVALID_AMOUNT"]);
+
 function renderUnpaid(paymentId, status, { stillPending }) {
   const reference = status.order_reference || "";
+  const failure = status.failure_code || "";
   setView(stillPending
     ? { icon: "fa-hourglass-half", title: "Tu pago aún no está confirmado", message: "Si acabas de pagar, la confirmación del banco puede tardar unos minutos. Si no llegaste a completar el pago, puedes intentarlo de nuevo." }
-    : { icon: "fa-circle-xmark", tone: "error", title: "El pago no se completó", message: "No se pudo cobrar la tarjeta. Suele deberse a fondos insuficientes, a la verificación de seguridad del banco (3D Secure) o a un dato de la tarjeta. No se te ha cobrado nada." });
+    : {
+      icon: failure === "PAYMENT_REVIEW" ? "fa-magnifying-glass-dollar" : "fa-circle-xmark",
+      tone: failure === "PAYMENT_REVIEW" ? undefined : "error",
+      title: failure === "CARD_UNAVAILABLE" ? "No pudimos abrir el pago con tarjeta" : failure === "PAYMENT_REVIEW" ? "Estamos revisando tu pago" : "El pago no se completó",
+      // El backend explica el motivo (fondos insuficientes, 3D Secure, datos de facturación...)
+      message: status.failure_message || "No se pudo cobrar la tarjeta. Suele deberse a fondos insuficientes, a la verificación de seguridad del banco (3D Secure) o a un dato de la tarjeta. No se te ha cobrado nada."
+    });
 
+  if (failure === "CARD_PAYER_DATA") {
+    actionLink("Revisar mis datos de facturación", "fa-user-pen", "./cuenta.html#perfil", { secondary: false });
+  }
   if (!status.can_retry) {
-    $("#message").textContent = "Este pago ya no se puede completar en línea. Escríbenos por WhatsApp y te ayudamos.";
+    if (failure !== "PAYMENT_REVIEW") $("#message").textContent = "Este pago ya no se puede completar en línea. Escríbenos por WhatsApp y te ayudamos.";
+  } else if (NO_CARD_RETRY.has(failure)) {
+    actionButton("Pagar con otro método", "fa-money-bill-transfer", () => renderOtherMethods(status));
   } else {
     actionButton("Reintentar pago con tarjeta", "fa-rotate-right", async button => {
       showError("");
