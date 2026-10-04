@@ -1,12 +1,14 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v35";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v35";
-import { savePendingPayment } from "./payment.js?v35";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v35";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v35";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v35";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v35";
-import { setupCountrySelect } from "./country-select.js?v35";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v35";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v37";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v37";
+import { savePendingPayment } from "./payment.js?v37";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v37";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v37";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v37";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v37";
+import { setupCountrySelect } from "./country-select.js?v37";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v37";
+import { fieldErrorMessage } from "./field-messages.js?v37";
+import { showNotice } from "./notice-modal.js?v37";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -16,6 +18,8 @@ let currentTotal = 0;
 let currentSelectedMethod = storageGet("ren_selected_payment_method") || null;
 let currentSelectedMethodId = storageGet("ren_selected_payment_method_id") || null;
 let currentSelectedMethodFlow = storageGet("ren_selected_payment_flow") || "proof_upload";
+// Nombre que ve el cliente (TropiPay se muestra como "Tarjeta de débito o crédito")
+let currentSelectedMethodLabel = null;
 let currentPaymentMethods = [];
 let currentOrderReceiptData = null;
 let checkoutStep = 1;
@@ -262,7 +266,7 @@ function showFieldError(fieldName, message) {
 
 function validateField(field) {
   if (!field.validity.valid) {
-    showFieldError(field.name, field.validationMessage);
+    showFieldError(field.name, fieldErrorMessage(field));
     return false;
   }
   showFieldError(field.name, "");
@@ -293,7 +297,7 @@ function validatePaymentStep() {
   stepEl.querySelectorAll("input[required], textarea[required], select[required]").forEach(field => {
     if (field.disabled) return;
     if (!field.checkValidity()) {
-      showFieldError(field.name, field.type === "checkbox" ? "Debes aceptar los términos de la pasarela de pago para pagar con tarjeta" : field.validationMessage);
+      showFieldError(field.name, fieldErrorMessage(field));
       firstInvalid ||= field;
     }
   });
@@ -406,7 +410,7 @@ function preconnectTropipay() {
   });
 }
 
-function toggleTropipayPayerFields(show) {
+function toggleTropipayPayerFields(show, { scroll = true } = {}) {
   const fieldset = document.getElementById("tropipay-payer-fields");
   if (!fieldset) return;
   const wasHidden = fieldset.hidden;
@@ -414,10 +418,11 @@ function toggleTropipayPayerFields(show) {
   fieldset.disabled = !show;
   if (show) {
     preconnectTropipay();
-    // El bloque está debajo de todos los métodos: llevarlo a la vista al elegir TropiPay
-    if (wasHidden) {
+    // Justo debajo del grupo de la tarjeta, no al final de todos los métodos
+    document.querySelector(`.method-card[data-payment-flow="${PAYMENT_FLOW_TROPIPAY}"]`)?.closest(".checkout-payment-group")?.after(fieldset);
+    if (wasHidden && scroll) {
       const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      requestAnimationFrame(() => fieldset.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" }));
+      requestAnimationFrame(() => fieldset.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" }));
     }
     const form = document.getElementById("checkout-form");
     setupTropipayPayerFields(form);
@@ -429,14 +434,18 @@ function validateCheckoutStep(step) {
   const stepEl = document.querySelector(`[data-checkout-step="${step}"]`);
   if (!stepEl) return true;
 
-  let valid = true;
+  let firstInvalid = null;
   stepEl.querySelectorAll("input[required], textarea[required], select[required]").forEach(field => {
     if (!field.checkValidity()) {
-      showFieldError(field.name, field.validationMessage);
-      valid = false;
+      showFieldError(field.name, fieldErrorMessage(field));
+      firstInvalid ||= field;
     }
   });
-  return valid;
+  if (firstInvalid) {
+    firstInvalid.focus();
+    firstInvalid.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }
+  return !firstInvalid;
 }
 
 // ── Navegación entre pasos ────────────────────────────────────
@@ -608,6 +617,9 @@ async function renderPaymentMethods() {
   const container = document.getElementById("checkout-methods-container");
   if (!container) return;
 
+  // El bloque del titular pudo moverse junto a la tarjeta: devolverlo antes de repintar
+  const payerFields = document.getElementById("tropipay-payer-fields");
+  if (payerFields && payerFields.previousElementSibling !== container) container.after(payerFields);
   container.innerHTML = '<div style="text-align:center;padding:20px"><span class="spinner"></span></div>';
 
   try {
@@ -627,7 +639,7 @@ async function renderPaymentMethods() {
         "Pagar ahora con tarjeta",
         (getAccessToken()
           ? "Pago seguro en línea; tu pedido se confirma al instante."
-          : "Visa y Mastercard mediante TropiPay. Crea una cuenta gratuita para proteger el pago, conservar tu carrito y seguir el pedido.")
+          : "Visa y Mastercard mediante TropiPay. Necesitas una cuenta gratuita: se crea en un minuto y confirmas tu email con un enlace.")
           + (getTropipayMinAmount() > 0 ? ` Pedido mínimo: $${getTropipayMinAmount().toFixed(2)}.` : ""),
         cardMethods
       )}
@@ -649,10 +661,10 @@ async function renderPaymentMethods() {
       : null;
     storageRemove(PENDING_CARD_KEY);
     if (pendingCard) {
-      selectPaymentMethod(pendingCard);
+      selectPaymentMethod(pendingCard, { scroll: false });
     } else if (currentSelectedMethod) {
       const prevCard = container.querySelector(`[data-method="${cssEscape(currentSelectedMethod)}"]`);
-      if (prevCard) selectPaymentMethod(prevCard);
+      if (prevCard) selectPaymentMethod(prevCard, { scroll: false });
     }
 
     bindMethodLogoFallback(container);
@@ -737,7 +749,7 @@ function cardAuthGateHtml() {
   return `
         <div class="method-auth-gate" role="region" aria-label="Inicia sesión para pagar con tarjeta" hidden>
           <p class="method-auth-title">${svgIcon("lock", 18)} Continúa con una cuenta segura</p>
-          <p>La cuenta protege tu pago y te permite seguir el pedido. <strong>Tu carrito y los datos del envío ya están guardados.</strong></p>
+          <p>Crear la cuenta lleva un minuto. Te enviaremos un enlace para confirmar tu email y volverás aquí. <strong>Tu carrito y los datos del envío quedan guardados.</strong></p>
           <div class="method-auth-actions">
             <a class="method-auth-btn is-primary" href="./registro-v25.html?return=checkout">Crear cuenta y continuar</a>
             <a class="method-auth-btn" href="./login-v25.html?return=checkout">Ya tengo cuenta</a>
@@ -746,7 +758,7 @@ function cardAuthGateHtml() {
         </div>`;
 }
 
-function showCardAuthGate(card) {
+function showCardAuthGate(card, { scroll = true } = {}) {
   // El aviso va justo después de la tarjeta (no dentro: tiene enlaces y la tarjeta es role=radio)
   const gate = card.nextElementSibling?.classList.contains("method-auth-gate") ? card.nextElementSibling : null;
   if (!gate) return;
@@ -755,10 +767,10 @@ function showCardAuthGate(card) {
   storageSet(PENDING_CARD_KEY, "1");
   gate.hidden = false;
   card.classList.add("needs-auth");
-  gate.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  if (scroll) gate.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
 }
 
-function selectPaymentMethod(card) {
+function selectPaymentMethod(card, { scroll = true } = {}) {
   const requestedFlow = card.dataset.paymentFlow || "proof_upload";
   document.querySelectorAll(".method-card").forEach(c => {
     c.classList.remove("selected");
@@ -771,13 +783,14 @@ function selectPaymentMethod(card) {
   card.classList.add("selected");
   card.setAttribute("aria-checked", "true");
   currentSelectedMethod = card.dataset.method;
+  currentSelectedMethodLabel = card.querySelector(".method-info strong")?.textContent.trim() || currentSelectedMethod;
   currentSelectedMethodId = card.dataset.methodId || null;
   currentSelectedMethodFlow = card.dataset.paymentFlow || "proof_upload";
 
   document.querySelectorAll(".method-auth-gate").forEach(gate => { gate.hidden = true; });
   const needsAccount = requestedFlow === PAYMENT_FLOW_TROPIPAY && !getAccessToken();
   if (requestedFlow !== PAYMENT_FLOW_TROPIPAY) storageRemove(PENDING_CARD_KEY);
-  toggleTropipayPayerFields(currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && !needsAccount);
+  toggleTropipayPayerFields(currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && !needsAccount, { scroll });
 
   const instrEl = card.querySelector(".method-instructions");
   const instrText = card.querySelector(".instructions-text");
@@ -806,7 +819,7 @@ function selectPaymentMethod(card) {
   storageSet("ren_selected_payment_flow", currentSelectedMethodFlow);
   updateSubmitButton();
   renderCheckoutReview();
-  if (needsAccount) showCardAuthGate(card);
+  if (needsAccount) showCardAuthGate(card, { scroll });
 }
 
 function copyToClipboard(text, btn) {
@@ -868,11 +881,16 @@ async function submitOrder(form) {
   // TropiPay rechaza importes por debajo de su mínimo: se avisa antes de crear el pedido
   const cardMinimum = getTropipayMinAmount();
   if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY && cardMinimum > 0 && currentTotal < cardMinimum) {
-    const errorEl = document.getElementById("checkout-error");
-    if (errorEl) {
-      errorEl.textContent = `❌ El pago con tarjeta requiere un pedido de al menos $${cardMinimum.toFixed(2)} (el tuyo es de $${currentTotal.toFixed(2)}). Añade más productos o elige otro método de pago.`;
-      errorEl.style.display = "block";
-    }
+    showNotice({
+      icon: "card",
+      tone: "warning",
+      title: "Pedido mínimo para tarjeta",
+      body: `<p>El pago con tarjeta requiere un pedido de al menos <strong>$${cardMinimum.toFixed(2)}</strong>. El tuyo es de $${currentTotal.toFixed(2)}.</p><p>Añade productos o elige otro método de pago.</p>`,
+      actions: [
+        { label: "Elegir otro método", onClick: c => { c.close(); document.getElementById("checkout-methods-container")?.scrollIntoView({ block: "start", behavior: "smooth" }); } },
+        { label: "Añadir productos", href: "./index.html", variant: "secondary" }
+      ]
+    });
     return;
   }
 
@@ -965,11 +983,16 @@ async function submitOrder(form) {
       window.location.href = `./pago-rechazado.html?${params}`;
       return;
     }
-    const errorEl = document.getElementById("checkout-error");
-    if (errorEl) {
-      errorEl.textContent = err.message || "❌ No pudimos crear tu pedido. Intenta de nuevo o contáctanos: +53 56189395";
-      errorEl.style.display = "block";
-    }
+    showNotice({
+      icon: "alert",
+      tone: "error",
+      title: "No pudimos crear tu pedido",
+      body: `<p>${escapeHtml(err.message || "Ocurrió un error inesperado.")}</p><p>Tu carrito y tus datos siguen guardados. Vuelve a intentarlo o escríbenos.</p>`,
+      actions: [
+        { label: "Intentar de nuevo", onClick: c => c.close() },
+        { label: "Escribir por WhatsApp", href: "https://wa.me/5356189395", external: true, variant: "secondary" }
+      ]
+    });
     btn.disabled = false;
     updateSubmitButton();
   }
@@ -1052,7 +1075,7 @@ function renderCheckoutReview() {
     <div class="checkout-review-row"><span>Envía</span><strong>${escapeHtml(sender)}</strong></div>
     <div class="checkout-review-row"><span>Recibe</span><strong>${escapeHtml(receiver)}</strong></div>
     <div class="checkout-review-row"><span>Dirección</span><strong>${escapeHtml(address)}</strong></div>
-    <div class="checkout-review-row"><span>Método</span><strong>${escapeHtml(currentSelectedMethod || "Selecciona uno")}</strong></div>
+    <div class="checkout-review-row"><span>Método</span><strong>${escapeHtml(currentSelectedMethodLabel || currentSelectedMethod || "Selecciona uno")}</strong></div>
   `;
 }
 

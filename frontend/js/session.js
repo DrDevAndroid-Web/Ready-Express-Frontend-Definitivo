@@ -1,6 +1,6 @@
 // Sesión del cliente: los access_token de Supabase caducan (≈1 h). Antes de usarlos se
 // renuevan con el refresh_token, y ante un 401 se renueva y se reintenta una sola vez.
-import { API_BASE } from "./config.js?v35";
+import { API_BASE } from "./config.js?v37";
 
 const ACCESS_KEY = "ren_access_token";
 const REFRESH_KEY = "ren_refresh_token";

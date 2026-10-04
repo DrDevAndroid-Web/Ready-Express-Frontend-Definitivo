@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v35";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v35";
+import { API_BASE } from "./config.js?v37";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v37";
 const ACCESS_KEY = "ren_access_token";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
 export function getCurrentUser() { try { return JSON.parse(localStorage.getItem("ren_user") || "null"); } catch { return null; } }
@@ -18,8 +18,14 @@ function getDeviceId() {
     return ""; // almacenamiento bloqueado: el backend usa el user agent
   }
 }
-async function authRequest(path, options = {}) { const response = await authorizedFetch(`${API_BASE}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } }); const body = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(body.error || "No se pudo completar la operación"); error.status = response.status; throw error; } return body; }
+async function authRequest(path, options = {}) { const response = await authorizedFetch(`${API_BASE}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } }); const body = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(body.error || "No se pudo completar la operación"); error.status = response.status; error.code = body.code || ""; throw error; } return body; }
 export async function registerCustomer(data) { const result = await authRequest("/auth/register", { method: "POST", body: JSON.stringify({ ...data, device_id: getDeviceId() }) }); if (result.access_token) saveSession(result); return result; }
+// Confirma la cuenta con el código del email y deja la sesión iniciada
+export async function verifyEmailCode(email, code) { const result = await authRequest("/auth/verify-email-code", { method: "POST", body: JSON.stringify({ email, code, device_id: getDeviceId() }) }); saveSession(result); return result; }
+export async function resendConfirmationEmail(email) { return authRequest("/auth/resend-confirmation", { method: "POST", body: JSON.stringify({ email }) }); }
+// Login rechazado porque la cuenta aún no confirmó el email (el backend antiguo solo manda el texto)
+export function isEmailNotConfirmed(err) { return err?.code === "email_not_confirmed" || /confirma tu email/i.test(err?.message || ""); }
+export function isExistingAccount(err) { return err?.status === 409 || /ya existe una cuenta/i.test(err?.message || ""); }
 export async function requestPasswordReset(email) { return authRequest("/auth/recover-password", { method: "POST", body: JSON.stringify({ email }) }); }
 // Página a la que volver tras iniciar sesión (?return=). Solo páginas propias conocidas,
 // para que el parámetro no sirva para redirigir a otro sitio.

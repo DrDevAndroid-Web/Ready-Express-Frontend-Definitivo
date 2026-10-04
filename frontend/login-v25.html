@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v35">
+  <link rel="stylesheet" href="./css/styles.css?v37">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -48,15 +48,23 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, loginCustomer, safeReturnPath } from './js/auth.js?v35';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v35';
+    import { applyReturnContext, isEmailNotConfirmed, loginCustomer, safeReturnPath } from './js/auth.js?v37';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v37';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v37';
     bindPasswordToggles();
     applyReturnContext();
     const form = document.querySelector('#form');
     const error = document.querySelector('#error');
+    // Viene de "Ya tienes una cuenta": email escrito y sin la invitación a registrarse
+    const emailParam = new URLSearchParams(location.search).get('email');
+    if (emailParam) {
+      form.elements.email.value = emailParam;
+      document.querySelector('.auth-new-customer')?.setAttribute('hidden', '');
+      form.elements.password.focus();
+    }
     form.addEventListener('submit', async e => {
       e.preventDefault();
-      if (!focusFirstInvalid(form)) return showMessage(error, 'Introduce tu email y contraseña.', 'error');
+      if (!focusFirstInvalid(form)) return showMessage(error, 'Revisa los campos marcados.', 'error');
       const button = form.querySelector('[type=submit]');
       const data = Object.fromEntries(new FormData(form));
       showMessage(error, '');
@@ -65,8 +73,9 @@
         await loginCustomer(data.email, data.password);
         if (!safeReturnPath()) location.href = './cuenta.html';
       } catch (err) {
-        showMessage(error, err.message, 'error');
         setLoading(button, false);
+        if (isEmailNotConfirmed(err)) return showEmailConfirmModal({ email: data.email, password: data.password, reason: 'pending' });
+        showMessage(error, err.message, 'error');
       }
     });
   </script>

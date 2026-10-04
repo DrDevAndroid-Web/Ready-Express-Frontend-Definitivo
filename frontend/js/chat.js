@@ -1,5 +1,5 @@
-import { addItem } from "./cart.js?v35";
-import { API_BASE } from "./api.js?v35";
+import { addItem, getCart } from "./cart.js?v37";
+import { API_BASE } from "./api.js?v37";
 
 const CHAT_API = API_BASE;
 let productCache = null;
@@ -140,7 +140,8 @@ function connectSSE() {
 
 // ─── Burbuja proactiva ────────────────────────────────────────────────────────
 function showProactiveBubble() {
-  if (proactiveAlreadyShown() || open) return;
+  // Quien ya tiene productos en el carrito está comprando: no interrumpir
+  if (proactiveAlreadyShown() || open || getCart().length) return;
 
   const bubble = document.createElement("div");
   bubble.id = "ren-proactive-bubble";

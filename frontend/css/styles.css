@@ -14,6 +14,7 @@
   --gray: #666666;
   --gray-dark: #333333;
   --border: #d0d0d0;
+  --on-accent: #0A2E6E;
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
   --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.18);
@@ -22,9 +23,7 @@
   --transition: 0.25s ease;
 }
 
-/* ── Font Loading ── */
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap');
-
+/* ── Font Loading ── (cada página carga Lexend y Source Sans 3 con <link>) */
 /* Font Face Fallback */
 @font-face {
   font-family: 'Lexend';
@@ -156,7 +155,7 @@ a:focus,
   transform: translateY(-1px);
 }
 .cart-btn {
-  position: relative; background: var(--orange); color: var(--navy-dark);
+  position: relative; background: var(--orange); color: var(--on-accent);
   border-radius: 50px; padding: 8px 18px; font-size: 0.95rem; font-weight: 700;
   display: flex; align-items: center; gap: 8px;
   transition: background 0.25s ease-out, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
@@ -377,7 +376,7 @@ a:focus,
   transition: all var(--transition);
 }
 .tab-btn:hover { border-color: var(--orange); color: var(--navy-dark); }
-.tab-btn.active { background: var(--orange); color: var(--navy-dark); border-color: var(--orange); }
+.tab-btn.active { background: var(--orange); color: var(--on-accent); border-color: var(--orange); }
 
 /* ── Products Grid ── */
 .products-grid, .combos-grid {
@@ -429,7 +428,7 @@ a:focus,
 .img-placeholder small { font-size: 0.75rem; }
 .price-badge {
   position: absolute; top: 10px; right: 10px;
-  background: var(--orange); color: var(--navy-dark);
+  background: var(--orange); color: var(--on-accent);
   padding: 4px 10px; border-radius: 50px; font-size: 0.8rem; font-weight: 700;
 }
 .product-info { padding: 18px; flex: 1; display: flex; flex-direction: column; }
@@ -562,7 +561,7 @@ a:focus,
 .step h3 { color: var(--white); font-size: 1.35rem; font-weight: 700; margin-bottom: 12px; }
 .step p { color: rgba(255,255,255,0.85); font-size: 1.5 rem; line-height: 1.7; }
 .step-num {
-  display: inline-block; background: var(--orange); color: var(--navy-dark);
+  display: inline-block; background: var(--orange); color: var(--on-accent);
   width: 24px; height: 24px; border-radius: 50%; font-size: 0.75rem; font-weight: 700;
   line-height: 24px; text-align: center; margin-bottom: 6px;
 }
@@ -716,7 +715,7 @@ footer ul li a:hover { color: var(--orange-light); }
 .cart-total-row span { font-size: 1.1rem; }
 .cart-total-row strong { font-size: 1.2rem; color: var(--navy); }
 #cart-checkout-btn {
-  width: 100%; padding: 14px; background: var(--orange); color: var(--navy-dark);
+  width: 100%; padding: 14px; background: var(--orange); color: var(--on-accent);
   border-radius: 50px; font-size: 1rem; font-weight: 700;
   transition: background var(--transition);
 }
@@ -794,7 +793,7 @@ button:disabled {
 }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-submit {
-  width: 100%; padding: 14px; background: var(--orange); color: var(--navy-dark);
+  width: 100%; padding: 14px; background: var(--orange); color: var(--on-accent);
   border-radius: 50px; font-size: 1rem; font-weight: 700; margin-top: 8px;
   transition: background var(--transition);
 }
@@ -1157,7 +1156,7 @@ button:disabled {
   align-items: center;
   background: var(--orange);
   border-radius: 50%;
-  color: var(--navy-dark);
+  color: var(--on-accent);
   display: flex;
   font-size: 0.88rem;
   font-weight: 800;
@@ -1715,9 +1714,9 @@ button:disabled {
     font-weight: 700;
     border-radius: 6px;
     background: var(--orange);
-    color: var(--white);
+    color: var(--on-accent);
     width: 100%;
-    height: 38px;
+    min-height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2753,7 +2752,7 @@ body.modal-open .cart-panel {
 .checkout-ai-form button {
   background: var(--orange);
   border-radius: 999px;
-  color: var(--navy-dark);
+  color: var(--on-accent);
   font-size: 0.86rem;
   font-weight: 800;
   min-height: 40px;
@@ -3833,3 +3832,111 @@ body.modal-open .cart-panel {
   .help-visual-topic summary { font-size: 1rem; min-height: 64px; padding: 12px 14px; }
   .help-shot-grid { grid-auto-columns: minmax(245px, 82vw); padding: 14px; }
 }
+
+/* ── Avisos importantes en modal (notice-modal.js) ── */
+body.notice-open { overflow: hidden; }
+.notice-modal {
+  width: min(440px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  margin: auto;
+  padding: 32px 28px 24px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--white);
+  color: var(--gray-dark);
+  box-shadow: 0 24px 64px rgba(10, 46, 110, 0.24);
+  text-align: center;
+}
+.notice-modal::backdrop { background: rgba(10, 23, 46, 0.55); backdrop-filter: blur(2px); }
+.notice-modal[open] { animation: notice-in 0.22s ease-out; }
+.notice-modal.is-fallback { position: fixed; inset: 0; z-index: 2000; }
+@keyframes notice-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .notice-modal[open] { animation: none; } }
+.notice-modal__close {
+  position: absolute; top: 10px; right: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: transparent; color: var(--gray); cursor: pointer;
+}
+.notice-modal__close:hover { background: var(--gray-light); color: var(--gray-dark); }
+.notice-modal__icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; margin-bottom: 16px; border-radius: 50%;
+  background: #e3f2fd; color: var(--navy);
+}
+.notice-modal.is-success .notice-modal__icon { background: var(--green-pale); color: var(--green); }
+.notice-modal.is-warning .notice-modal__icon { background: #FFF4E5; color: #8A4B00; }
+.notice-modal.is-error .notice-modal__icon { background: #fdecea; color: #b71c1c; }
+.notice-modal__title {
+  margin: 0 0 10px;
+  font-family: 'Lexend', 'Source Sans 3', sans-serif;
+  font-size: 1.35rem; line-height: 1.3; font-weight: 700; color: var(--navy);
+}
+.notice-modal__body { font-size: 1rem; line-height: 1.55; color: #4a4a4a; }
+.notice-modal__body p { margin: 0 0 8px; }
+.notice-modal__body strong { color: var(--gray-dark); overflow-wrap: anywhere; }
+.notice-modal__status {
+  margin: 12px 0 0; padding: 10px 12px; border-radius: var(--radius-sm);
+  font-size: 0.95rem; line-height: 1.45; background: #e3f2fd; color: var(--navy);
+}
+.notice-modal__status[data-type="success"] { background: var(--green-pale); color: #1b5e20; }
+.notice-modal__status[data-type="error"] { background: #fdecea; color: #b71c1c; }
+.notice-modal__actions { display: grid; gap: 10px; margin-top: 20px; }
+.notice-modal__btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 12px 18px; border-radius: var(--radius-sm);
+  font: inherit; font-weight: 700; font-size: 1rem; text-decoration: none;
+  cursor: pointer; touch-action: manipulation;
+  transition: background var(--transition), border-color var(--transition);
+}
+.notice-modal__btn.is-primary { background: var(--navy); color: var(--white); border: 2px solid var(--navy); }
+.notice-modal__btn.is-primary:hover:not(:disabled) { background: var(--on-accent); border-color: var(--on-accent); }
+.notice-modal__btn.is-secondary { background: var(--white); color: var(--navy); border: 2px solid var(--navy); }
+.notice-modal__btn.is-secondary:hover:not(:disabled) { background: #f5f9ff; }
+.notice-modal__btn.is-link { min-height: 44px; padding: 8px; background: none; border: 0; color: var(--navy); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+.notice-modal__btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.notice-modal__btn:focus-visible, .notice-modal__close:focus-visible { outline: 3px solid var(--navy-light); outline-offset: 2px; }
+.notice-modal__note { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid #eceef1; font-size: 0.9rem; line-height: 1.5; color: var(--gray); }
+.notice-modal__form { display: grid; gap: 6px; margin-top: 12px; text-align: left; }
+.notice-modal__form label { font-weight: 700; color: var(--gray-dark); }
+.notice-modal__form input { min-height: 48px; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font: inherit; font-size: 16px; }
+.notice-modal__form input[aria-invalid="true"] { border-color: #c62828; }
+@media (max-width: 480px) { .notice-modal { padding: 28px 20px 20px; } .notice-modal__title { font-size: 1.2rem; } }
+
+/* ── Errores bajo cada campo en las páginas de cuenta ── */
+.auth-field-error { margin: 4px 0 0; color: #b71c1c; font-size: 0.9rem; font-weight: 600; line-height: 1.4; }
+.auth-field input[aria-invalid="true"], .auth-field select[aria-invalid="true"] { border-color: #c62828; }
+.auth-new-customer[hidden] { display: none; }
+.auth-wizard-steps--two { grid-template-columns: repeat(2, 1fr); }
+.auth-wizard-panel h2:focus { outline: none; }
+.auth-confirm-actions { display: grid; gap: 10px; margin-top: 16px; }
+.auth-confirm-actions .auth-btn { text-decoration: none; }
+
+/* ── Checkout: ajustes de lectura y jerarquía ── */
+/* El aviso "agregado al carrito" no tapa el total del carrito ni los modales */
+body.modal-open .toast.show, body.notice-open .toast.show { opacity: 0; }
+/* Un solo botón principal por pantalla: "Preguntar" pasa a secundario */
+.checkout-ai-form button { background: var(--white); color: var(--navy); border: 2px solid var(--navy); }
+.checkout-ai-form button:hover { background: #f5f9ff; }
+/* Números de cuenta en una sola línea; el botón Copiar baja si no cabe */
+.method-account-copy { flex-wrap: wrap; }
+.account-number-text { white-space: nowrap; word-break: normal; overflow-wrap: normal; font-size: clamp(1rem, 4.6vw, 1.25rem); }
+/* Bloque del titular justo bajo la tarjeta */
+.checkout-payment-group + .tropipay-payer { margin-top: -4px; }
+.notice-modal__btn.is-link + .notice-modal__btn.is-link { margin-top: -8px; }
+/* Código de confirmación del email dentro del modal */
+.notice-modal__code { display: grid; gap: 6px; margin: 16px 0 0; text-align: center; }
+.notice-modal__code label { font-weight: 700; color: var(--gray-dark); font-size: 0.95rem; }
+.notice-modal__code input {
+  width: 100%; min-height: 60px; padding: 8px 12px;
+  border: 2px solid var(--border); border-radius: 12px; background: var(--white);
+  font-family: 'Lexend', 'Source Sans 3', sans-serif; font-size: 1.75rem; font-weight: 700;
+  letter-spacing: 0.45em; text-indent: 0.45em; text-align: center; color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+.notice-modal__code input::placeholder { color: #c9ced6; }
+.notice-modal__code input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.15); }
+.notice-modal__code input[aria-invalid="true"] { border-color: #c62828; }
+.notice-modal__code input:disabled { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+.notice-modal__code small { color: var(--gray); font-size: 0.88rem; }

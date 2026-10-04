@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>Cuenta confirmada | Ready Express Now</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="./css/styles.css?v37">
+  <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
+  <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
+</head>
+<body class="auth-page">
+  <header class="auth-header">
+    <div class="auth-header-inner">
+      <a class="auth-brand" href="./index.html"><img src="./images/logo-100.webp" alt="" width="36" height="36">Ready Express Now</a>
+      <a class="auth-back" href="./index.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i>Tienda</a>
+    </div>
+  </header>
+  <main class="auth-main" id="main">
+    <!-- Respaldo visible si se cierra el aviso: mismas acciones que el modal -->
+    <section class="auth-card" aria-labelledby="page-title">
+      <h1 id="page-title">Confirmando tu cuenta…</h1>
+      <p class="auth-lead" id="lead"></p>
+      <div class="auth-confirm-actions" id="actions"></div>
+    </section>
+  </main>
+  <script type="module">
+    import { storeSession } from './js/session.js?v37';
+    import { resendConfirmationEmail } from './js/auth.js?v37';
+    import { escapeHtml, showNotice } from './js/notice-modal.js?v37';
+
+    // Supabase vuelve aquí con la sesión en el fragmento (#access_token=…&type=signup)
+    // o con el error del enlace (#error_code=otp_expired…)
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const query = new URLSearchParams(location.search);
+    const accessToken = hash.get('access_token');
+    const refreshToken = hash.get('refresh_token');
+    const errorCode = hash.get('error_code') || query.get('error_code');
+    if (location.hash) history.replaceState(null, '', location.pathname);
+
+    const title = document.getElementById('page-title');
+    const lead = document.getElementById('lead');
+    const actionsEl = document.getElementById('actions');
+
+    function hasCart() {
+      try { return (JSON.parse(localStorage.getItem('ren_cart') || '[]') || []).length > 0; } catch { return false; }
+    }
+
+    function tokenUser(token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return { id: payload.sub, email: payload.email };
+      } catch { return null; }
+    }
+
+    // Pinta el respaldo de la página y abre el modal con el mismo contenido
+    function render({ heading, text, icon, tone, actions, note }) {
+      title.textContent = heading;
+      lead.innerHTML = text;
+      actionsEl.innerHTML = '';
+      actions.filter(a => a.href).forEach((action, index) => {
+        const link = document.createElement('a');
+        link.className = index === 0 ? 'auth-btn' : 'auth-btn auth-btn--secondary';
+        link.href = action.href;
+        link.textContent = action.label;
+        actionsEl.appendChild(link);
+      });
+      showNotice({ icon, tone, title: heading, body: `<p>${text}</p>`, note, actions });
+    }
+
+    function renderExpired() {
+      const ctrl = showNotice({
+        icon: 'alert',
+        tone: 'warning',
+        title: 'El enlace ya no es válido',
+        body: `<p>Caducó o ya se usó. Si ya confirmaste tu email, inicia sesión. Si no, te enviamos un código y un enlace nuevos.</p>
+          <form class="notice-modal__form" id="resend-form" novalidate>
+            <label for="resend-email">Tu email</label>
+            <input id="resend-email" type="email" autocomplete="email" inputmode="email" required>
+          </form>`,
+        actions: [
+          { id: 'send', label: 'Enviar email nuevo', onClick: send },
+          { label: 'Iniciar sesión', href: './login-v25.html', variant: 'secondary' }
+        ]
+      });
+      const input = ctrl.el.querySelector('#resend-email');
+      ctrl.el.querySelector('#resend-form').addEventListener('submit', e => { e.preventDefault(); send(ctrl); });
+      async function send(c) {
+        if (!input.checkValidity()) {
+          input.setAttribute('aria-invalid', 'true');
+          input.focus();
+          return c.setStatus('Escribe un email válido, por ejemplo nombre@correo.com.', 'error');
+        }
+        input.removeAttribute('aria-invalid');
+        c.setBusy('send', true, 'Enviando…');
+        try {
+          await resendConfirmationEmail(input.value.trim());
+          c.setStatus(`Listo. Revisa ${input.value.trim()} y abre el enlace nuevo.`, 'success');
+        } catch (err) {
+          c.setStatus(err.status === 404 ? 'No pudimos enviarlo ahora. Inténtalo en unos minutos.' : err.message, 'error');
+        } finally {
+          c.setBusy('send', false);
+        }
+      }
+      title.textContent = 'El enlace ya no es válido';
+      lead.textContent = 'Caducó o ya se usó. Inicia sesión o pide un enlace nuevo desde el inicio de sesión.';
+      actionsEl.innerHTML = '<a class="auth-btn" href="./login-v25.html">Iniciar sesión</a>';
+    }
+
+    if (accessToken) {
+      const user = tokenUser(accessToken);
+      storeSession({ access_token: accessToken, refresh_token: refreshToken, user });
+      const email = user?.email ? ` <strong>${escapeHtml(user.email)}</strong>` : '';
+      if (hasCart()) {
+        render({
+          icon: 'check', tone: 'success', heading: 'Email confirmado',
+          text: `Tu cuenta${email} ya está activa. Tu pedido sigue guardado: continúa donde lo dejaste.`,
+          actions: [
+            { label: 'Continuar con mi pedido', href: './checkout.html' },
+            { label: 'Ir a Mi cuenta', href: './cuenta.html', variant: 'secondary' }
+          ]
+        });
+      } else {
+        render({
+          icon: 'check', tone: 'success', heading: 'Email confirmado',
+          text: `Tu cuenta${email} ya está activa.`,
+          note: 'Si empezaste la compra en otro dispositivo o navegador, vuelve allí e inicia sesión: tu pedido sigue guardado en ese equipo.',
+          actions: [
+            { label: 'Ir a la tienda', href: './index.html' },
+            { label: 'Ir a Mi cuenta', href: './cuenta.html', variant: 'secondary' }
+          ]
+        });
+      }
+    } else if (errorCode || hash.get('error')) {
+      renderExpired();
+    } else {
+      render({
+        icon: 'user', tone: 'info', heading: 'Inicia sesión para continuar',
+        text: 'Si ya confirmaste tu email, entra con tu cuenta para seguir con tu pedido.',
+        actions: [
+          { label: 'Iniciar sesión', href: hasCart() ? './login-v25.html?return=checkout' : './login-v25.html' },
+          { label: 'Ir a la tienda', href: './index.html', variant: 'secondary' }
+        ]
+      });
+    }
+  </script>
+</body>
+</html>

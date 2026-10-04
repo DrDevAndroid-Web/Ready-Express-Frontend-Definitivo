@@ -1,4 +1,5 @@
 // Utilidades de UI compartidas por las páginas de cuenta (login, registro, recuperación).
+import { fieldErrorMessage } from "./field-messages.js?v37";
 
 export function showMessage(el, text, type = "info") {
   if (!el) return;
@@ -35,14 +36,41 @@ export function bindPasswordToggles(root = document) {
   });
 }
 
-// Marca como inválido el primer campo que falle la validación nativa y le da foco
+// Muestra bajo cada campo inválido un mensaje propio (field-messages.js) y da foco al primero.
+// Al corregir el campo, su mensaje desaparece.
 export function focusFirstInvalid(form) {
-  // Solo controles: un <fieldset> con campos inválidos también casa con :invalid y no recibe foco
-  const invalid = form.querySelector("input:invalid, select:invalid, textarea:invalid");
-  form.querySelectorAll("[aria-invalid]").forEach(el => el.removeAttribute("aria-invalid"));
-  if (invalid) {
-    invalid.setAttribute("aria-invalid", "true");
-    invalid.focus();
+  const controls = [...form.querySelectorAll("input, select, textarea")].filter(el => el.type !== "hidden" && !el.disabled && !el.closest("[hidden]"));
+  let first = null;
+  controls.forEach(control => {
+    const message = control.validity.valid ? "" : fieldErrorMessage(control);
+    setFieldError(control, message);
+    if (message) first ||= control;
+  });
+  first?.focus();
+  return !first;
+}
+
+function setFieldError(control, message) {
+  const id = `${control.id || control.name}-error`;
+  let error = document.getElementById(id);
+  if (!message) {
+    control.removeAttribute("aria-invalid");
+    error?.remove();
+    return;
   }
-  return !invalid;
+  if (!error) {
+    error = document.createElement("p");
+    error.id = id;
+    error.className = "auth-field-error";
+    const anchor = control.closest(".auth-check, .country-select-control, .auth-password") || control;
+    anchor.after(error);
+    const describedBy = new Set((control.getAttribute("aria-describedby") || "").split(" ").filter(Boolean));
+    describedBy.add(id);
+    control.setAttribute("aria-describedby", [...describedBy].join(" "));
+    const clear = () => { if (control.validity.valid) setFieldError(control, ""); };
+    control.addEventListener(control.type === "checkbox" ? "change" : "input", clear);
+    control.addEventListener("blur", clear);
+  }
+  error.textContent = message;
+  control.setAttribute("aria-invalid", "true");
 }
