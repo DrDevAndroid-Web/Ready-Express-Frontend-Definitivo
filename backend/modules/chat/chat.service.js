@@ -337,6 +337,13 @@ export async function callAI(messages, productContext, checkoutContext = null) {
   if (!AI_API_KEY) throw new Error("CHAT_AI_API_KEY no configurada");
 
   const checkoutPrompt = buildCheckoutPrompt(checkoutContext);
+  const zelleSafetyPrompt = `
+REGLA ESPECIFICA PARA DUDAS DE ZELLE:
+- Si el cliente teme que su banco bloquee una transferencia o pide otro numero personal, valida brevemente su preocupacion.
+- No des ni sugieras numeros personales alternativos y no recomiendes transferir a un destinatario no confirmado.
+- Ofrece estas dos opciones: llamar o escribir por WhatsApp al numero oficial ${SUPPORT_WHATSAPP} para confirmar los datos de Zelle, o dejar su propio numero de WhatsApp con codigo de pais para que un agente lo contacte manualmente.
+- Pregunta cual opcion prefiere y no repitas toda la explicacion que el cliente ya dio.
+`.trim();
 
   const systemPrompt = `Eres el asistente de ventas de ReadyExpressNow, servicio de envíos a Guantánamo, Cuba desde el exterior.
 
@@ -379,6 +386,8 @@ CART_ACTION:{"items":[{"nombre":"Nombre exacto del producto","cantidad":1,"preci
 
 DATOS ACTUALIZADOS DE LA TIENDA:
 ${productContext}
+
+${zelleSafetyPrompt}
 
 ${checkoutPrompt}`;
 
