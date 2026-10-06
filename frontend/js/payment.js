@@ -23,7 +23,7 @@ function storageRemove(key) {
 }
 
 export function savePendingPayment(orderId, total, items = [], methodName = "", checkoutToken = "") {
-  storageSet(
+  return storageSet(
     PENDING_PAYMENT_KEY,
     JSON.stringify({
       orderId,
@@ -499,5 +499,4 @@ function showSuccess() {
   try { window.scrollTo({ top: 0, behavior: "smooth" }); }
   catch { window.scrollTo(0, 0); }
 }
-
 

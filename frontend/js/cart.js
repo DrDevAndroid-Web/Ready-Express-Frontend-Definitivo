@@ -1,23 +1,28 @@
-const STORAGE_KEY = "ren_cart";
+import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v37";
 
-let cart = loadCart();
+let cart = getCartSnapshot();
 
-function storageGet(key) {
-  try { return localStorage.getItem(key); } catch { return null; }
+function saveCart(nextCart = cart) {
+  const saved = persistCart(nextCart);
+  if (!saved) showCartStorageWarning();
+  return saved;
 }
 
-function storageSet(key, value) {
-  try { localStorage.setItem(key, value); return true; } catch { return false; }
+function showCartStorageWarning() {
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = "No pudimos guardar el carrito en este dispositivo. No cierres la página.";
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 4500);
 }
 
-function loadCart() {
-  try { return JSON.parse(storageGet(STORAGE_KEY)) || []; }
-  catch { return []; }
-}
-
-function saveCart() {
-  storageSet(STORAGE_KEY, JSON.stringify(cart));
-}
+subscribeCart(nextCart => {
+  cart = nextCart;
+  if (document.readyState !== "loading") {
+    renderCart();
+    updateCartBadge();
+  }
+});
 
 function parseComponentQuantity(value) {
   const numeric = Number(value);
@@ -97,15 +102,16 @@ export function updateQty(id, category, delta) {
 }
 
 export function clearCart() {
+  const previous = cart;
   cart = [];
-  saveCart();
+  if (!saveCart()) cart = previous;
   renderCart();
   updateCartBadge();
+  return cart.length === 0;
 }
 
 export function getCart() {
-  if (!cart.length) cart = loadCart();
-  return cart;
+  return getCartSnapshot();
 }
 
 export function getTotal() {
@@ -193,6 +199,7 @@ export function renderCart() {
 }
 
 export function initCart() {
+  if (!getCartStorageStatus().ok) showCartStorageWarning();
   renderCart();
   updateCartBadge();
 

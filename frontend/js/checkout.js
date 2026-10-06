@@ -954,12 +954,6 @@ async function submitOrder(form) {
       created_at: order.created_at || new Date().toISOString()
     };
 
-    if (currentSelectedMethodFlow !== PAYMENT_FLOW_ASSISTED && !isTropipay) {
-      savePendingPayment(currentOrderId, currentTotal, orderData.items, "", order.checkout_token);
-    }
-    clearCart();
-    clearCheckoutStep();
-
     const reference = order.order_reference || order.id;
     if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY) {
       btn.innerHTML = '<span class="spinner"></span> Abriendo el pago seguro...';
@@ -968,9 +962,19 @@ async function submitOrder(form) {
         saveBillingToProfile(orderData.payer)
       ]);
       if (!payment?.payment_url) throw new Error("La pasarela de pago no devolvió un enlace. Inténtalo de nuevo.");
+      // El carrito solo se consume cuando ya existe un enlace de pago válido.
+      if (!clearCart()) throw new Error("No pudimos guardar el estado del carrito. Conservamos tus productos para reintentar.");
+      clearCheckoutStep();
       window.location.href = payment.payment_url;
       return;
     }
+
+    if (currentSelectedMethodFlow !== PAYMENT_FLOW_ASSISTED) {
+      const pendingSaved = savePendingPayment(currentOrderId, currentTotal, orderData.items, "", order.checkout_token);
+      if (!pendingSaved) throw new Error("No pudimos guardar la información de pago en este dispositivo. Conservamos tu carrito para que puedas reintentarlo.");
+    }
+    if (!clearCart()) throw new Error("No pudimos guardar el estado del carrito. Conservamos tus productos para reintentar.");
+    clearCheckoutStep();
 
     const state = currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED ? "revision" : "revision";
     window.location.href = `./pago-confirmado.html?order=${encodeURIComponent(reference)}&estado=${state}&payment=manual`;
