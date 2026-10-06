@@ -1,10 +1,10 @@
 // Retorno de TropiPay (pago-confirmado / pago-rechazado) y acciones de reintento.
 // La página nunca decide por la URL: pregunta el estado real al backend, que a su vez
 // lo concilia con TropiPay. Las funciones de acción también las usa "Mi cuenta".
-import { API_BASE } from "./config.js?v37";
-import { authorizedFetch, getValidAccessToken } from "./session.js?v37";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v37";
-import { hasPendingPayment, savePendingPayment } from "./payment.js?v37";
+import { API_BASE } from "./config.js?v38";
+import { authorizedFetch, getValidAccessToken } from "./session.js?v38";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v38";
+import { hasPendingPayment, savePendingPayment } from "./payment.js?v38";
 
 const WHATSAPP_NUMBER = "5356189395";
 const POLL_INTERVAL_MS = 3000;

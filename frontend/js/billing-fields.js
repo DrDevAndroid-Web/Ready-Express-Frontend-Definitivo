@@ -1,6 +1,6 @@
 // Datos de facturación para pagar con tarjeta (TropiPay). Se piden una vez, en el registro,
 // y se editan en "Mi cuenta"; el checkout los reutiliza sin volver a pedirlos.
-import { getCountryName, setupCountrySelect } from "./country-select.js?v37";
+import { getCountryName, setupCountrySelect } from "./country-select.js?v38";
 
 export const TROPIPAY_TERMS_URL = "https://www.tropipay.com/terms";
 
