@@ -519,7 +519,7 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
 - **Frontend en producción** (`dd455ed` en `master`): todos los imports a `?v33` (antes los imports internos de los JS seguían en `?v30` y servían módulos viejos de caché).
 - **Base de producción vaciada para empezar de cero** (2026-10-01, por indicación del usuario): borradas todas las filas de `orders`, `payment_transactions`, `payment_events`, `payments`, `delivery_confirmations` y `notifications`, los archivos de los buckets `payments` y `delivery-confirmations`, y las cuentas QA. Catálogo, chat y clientes reales intactos.
 - Migración **pendiente de ejecutar** en Supabase: `backend/migrations/20261001_payment_status_amount_mismatch.sql` (admite el estado `amount_mismatch`; backend `c0e3be5`).
-- Para pasar TropiPay a real: `TROPIPAY_URL_BASE=https://www.tropipay.com`, credenciales reales (la firma del webhook usa `TROPIPAY_API_KEY`/`TROPIPAY_API_SECRET`, que no son el client id/secret), URL de notificación en el panel real y un pago real pequeño mirando en logs que el webhook llega con firma válida (nunca se ha probado con un aviso real).
+- Para pasar TropiPay a real: `TROPIPAY_URL_BASE=https://www.tropipay.com`, credenciales reales (TropiPay usa un único par: la firma del webhook `signaturev3` se calcula con `TROPIPAY_CLIENT_ID`/`TROPIPAY_CLIENT_SECRET`; las antiguas `TROPIPAY_API_KEY`/`TROPIPAY_API_SECRET` ya no se usan y deben quitarse del hosting), URL de notificación en el panel real y un pago real pequeño mirando en logs que el webhook llega con firma válida (nunca se ha probado con un aviso real).
 
 ## Sesión 2026-10-04 — UX del checkout y confirmación de email (sin commit)
 
@@ -527,4 +527,35 @@ Todo está commiteado en la rama local **`preview/tropipay-base`** (sin push; `m
 - **Enlace de confirmación** → `frontend/cuenta-confirmada.html` (guarda la sesión del fragmento y ofrece volver al pedido; enlace caducado → reenvío). Backend: `emailRedirectTo` en `signUp`, `POST /api/auth/resend-confirmation`, login devuelve `code: "email_not_confirmed"`, registro con email existente → 409 (Supabase devuelve `identities: []`), dirección de entrega guardada en el registro (`direccion_entrega`). Backend 279/279.
 - **Código de 6 dígitos**: el email trae `{{ .Token }}` y el enlace. El modal pide el código (se envía solo al completar 6 cifras) → `POST /api/auth/verify-email-code` (`verifyOtp` tipo `email`, respaldo `signup`) devuelve la sesión y vuelve al pedido sin salir de la página. Requiere "Email OTP Length" = 6 en Supabase. Backend 285/285. Cache-buster `?v37`.
 - Registro en 2 pasos (cuenta + tarjeta); mensajes de validación propios (`js/field-messages.js`) bajo cada campo; texto sobre verde con `--on-accent` (6,5:1). Cache-buster `?v36`.
-- **Pendiente para desplegar**: backend primero; añadir `https://www.readyexpressnow.com/cuenta-confirmada.html` (y `http://localhost:5173/cuenta-confirmada.html`) en Supabase → Redirect URLs; pegar `backend/email-templates/supabase-confirm-signup.html` en la plantilla "Confirm signup" (asunto: "Tu código de Ready Express Now"); sin ella el email no trae código y solo funciona el enlace. Sin el backend nuevo, el frontend funciona igual que antes (el reenvío muestra un aviso y la dirección no se guarda).
+- **Desplegado y verificado en producción** (backend `4453b09`, frontend `f993a3b` en `master`): plantilla "Confirm signup" pegada (copiarla del archivo, no del terminal: se cortaban líneas y `{{ .Email }` rompía el email), Site URL con `www`. Registro real con código del email → sesión y vuelta al checkout OK. Las cuentas de prueba qa1004 y qa1005 se borraron.
+
+## Sesión 2026-10-08 — tarjeta (TropiPay) desactivada y catálogo en 2 columnas
+
+- **Pago con tarjeta desactivado en el frontend** mientras se corrige la pasarela: `CARD_PAYMENTS_ENABLED = false` en `frontend/js/config.js` oculta el método en el checkout (`payment-methods.js`), el botón "Reintentar pago" de "Mi cuenta" (`account.js`) y "Reintentar pago con tarjeta" en la página de retorno (`payment-return.js`, ofrece otro método). Textos de portada, checkout y ayuda ya no prometen tarjeta. **Para reactivar**: poner `true`, restaurar los textos (ver el commit) y subir el cache-buster. El backend sigue intacto (`tropipay_enabled` en `/info`).
+- Catálogo en **2 columnas en móvil** (≤600 px; bloque al final de `css/styles.css`): `repeat(2, minmax(0, 1fr))` para que Safari iOS no desborde; listas de componentes: 3 primeros + "…"; `:hover` neutralizado en táctil. Verificado con Playwright en WebKit (iPhone 13 y 320 px) y Chromium (Pixel 7). Cache-buster `?v40`.
+
+## Pendiente TropiPay — corregir antes de reactivar la tarjeta (auditoría 2026-10-08)
+
+La documentación oficial (doc.tropipay.com, `basics/verify-payments`, `api-reference/payment-cards`) es inconsistente; lo marcado "confirmar" hay que validarlo con un aviso real de sandbox o con soporte de TropiPay.
+
+**Crítico**
+1. **Confirmación no reintentable** (`tropipay.service.js` → `confirmTropipayPayment`/`claimEvent`): el evento `payment_successful` se registra *antes* de actualizar pago y orden. Si Supabase falla entre medias, el webhook responde 500 pero los reintentos y la conciliación devuelven `ALREADY_PROCESSED` → orden cobrada y nunca confirmada. Registrar el evento después de aplicar los cambios, o permitir reprocesar si la transacción no está `successful` (ideal: función SQL/transacción).
+2. **Búsqueda de la transacción del webhook** (`supabase-payment.repository.js` → `findByProviderReference`): usa `data.reference`, pero en el ejemplo oficial `data.reference` es el código de cobro (= `charges[].orderCode`) y la referencia del paylink está en `data.paymentcard.reference`. Buscar por `data.paymentcardId` (= `provider_payment_id`), luego `data.paymentcard.reference`, luego `data.reference`, comprobando coherencia. Hoy un fallo aquí responde 200 (TropiPay deja de reintentar) y solo lo salva la conciliación.
+
+**Alto**
+3. `webhookAmountMatches` acepta céntimos *o* unidades (orden de 1500 USD ↔ aviso `1500` = 15 USD cuadra). Exigir solo céntimos y validar `data.currency` con `transaction.currency` (hoy no se valida la moneda).
+4. Cualquier aviso firmado sin `status === "OK"` se trata como rechazo; tratar como fallo solo `"KO"` e ignorar/loguear el resto (existe otro formato, `payment_in_state_change`, sin `status`).
+5. Ejecutar en Supabase `backend/migrations/20261001_payment_status_amount_mismatch.sql` (sin ella `amount_mismatch` no se guarda).
+6. Capturar un webhook real de sandbox (tarjetas doc: `4111111111111111` OK, `4000000000000002` rechazo, OTP `123456`), guardarlo como fixture y testear: firma (`sha256(bankOrderCode + client_id + sha1(client_secret) + originalCurrencyAmount)` — que apiKey/apiSecret = client_id/secret es suposición, **confirmar**), campo de referencia y que `originalCurrencyAmount` va en céntimos.
+
+**Medio**
+7. Paylink sin caducidad: añadir `expirationDays` (1–2) en `createTropipayPayment`.
+8. El webhook espera a `printOrder` antes de responder: responder tras guardar en BD e imprimir en segundo plano.
+9. Doble cobro (OK sobre transacción `cancelled` u orden ya pagada por otra transacción): alertar en vez de reconfirmar y reenviar avisos.
+10. `createTropipayPaymentForOrder` devuelve la fila completa (`raw_payload`, `bank_order_code`) al navegador: devolver solo `{ id, payment_url, status }`.
+11. Validar `id` y `shortUrl` en la respuesta de `POST /paymentcards` (si faltan, error y transacción `failed`).
+12. La conciliación depende de `paymentInfo.paid` del GET `/paymentcards/{id}`, que la doc no documenta (verificado solo en sandbox): confirmar con TropiPay.
+
+**Bajo**: fallar al arrancar si falta `TROPIPAY_URL_BASE` en producción (hoy cae a sandbox en silencio); minimizar `raw_payload` (guarda `clientData`, IP, últimos 4 de la tarjeta); tratar `23505` en creación concurrente devolviendo el enlace existente; loguear cabeceras de 429.
+
+**Ya correcto (no rehacer)**: token `client_credentials` con `expires_in` absoluto o duración y renovación ante 401; orden y transacción creadas antes del enlace; importe en céntimos; `urlSuccess`/`urlFailed` no deciden nada; firma con `timingSafeEqual`; índice único de idempotencia; job de conciliación cada 5 min (cambios del backend aún **sin commit** en `backend/`).

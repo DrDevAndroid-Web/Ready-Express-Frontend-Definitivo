@@ -1,4 +1,5 @@
-import { getInfo } from "./api.js?v38";
+import { getInfo } from "./api.js?v40";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v40";
 
 let methodosCache = null;
 let ultimaCarga = null;
@@ -88,7 +89,7 @@ export async function cargarMetodosPago(forzar = false) {
 
   try {
     const info = await getInfo();
-    tropipayEnabled = info?.tropipay_enabled === true;
+    tropipayEnabled = CARD_PAYMENTS_ENABLED && info?.tropipay_enabled === true;
     tropipayMinAmount = Number(info?.tropipay_min_amount) || 0;
     const metodos = (info.payment_methods || [])
       .filter(m => m.is_active !== false)

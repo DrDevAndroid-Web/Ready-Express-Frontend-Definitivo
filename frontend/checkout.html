@@ -7,7 +7,7 @@
   <title>Finalizar pedido | Ready Express Now</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/styles.css?v38">
+  <link rel="stylesheet" href="./css/styles.css?v40">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
   <style>
@@ -53,7 +53,7 @@
               <div class="form-group"><label for="receiver_phone">Teléfono de la persona que recibe <span class="required">*</span></label><input type="tel" id="receiver_phone" name="receiver_phone" placeholder="+53 5XXX-XXXX" required><p class="field-error" id="error-receiver_phone"></p></div>
               <div class="form-group"><label for="delivery_notes">Notas de entrega</label><textarea id="delivery_notes" name="delivery_notes" rows="2" placeholder="Referencias adicionales para la entrega (opcional)"></textarea></div>
             </div>
-            <div class="checkout-safe-note"><strong>Tus datos quedan guardados.</strong> Si pagas con tarjeta, te pediremos crear una cuenta gratuita y confirmar tu email; vuelves aquí sin perder nada.</div>
+            <div class="checkout-safe-note"><strong>Tus datos quedan guardados.</strong> Si sales de esta página, al volver los encontrarás donde los dejaste.</div>
             <p class="form-error" id="checkout-error-step1" style="display:none"></p>
             <div class="checkout-actions"><a href="./index.html" class="checkout-back-btn checkout-shop-link">← Seguir comprando</a><button type="button" id="checkout-next-btn" class="form-submit" style="flex:1">Continuar al pago →</button></div>
           </div>
@@ -115,7 +115,7 @@
     </section>
   </main>
   <script type="module">
-    import { initCheckout } from "./js/checkout.js?v38";
+    import { initCheckout } from "./js/checkout.js?v40";
     initCheckout();
   </script>
 </body>

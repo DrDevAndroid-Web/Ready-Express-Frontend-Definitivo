@@ -1,14 +1,14 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v38";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v38";
-import { savePendingPayment } from "./payment.js?v38";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v38";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v38";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v38";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v38";
-import { setupCountrySelect } from "./country-select.js?v38";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v38";
-import { fieldErrorMessage } from "./field-messages.js?v38";
-import { showNotice } from "./notice-modal.js?v38";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v40";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v40";
+import { savePendingPayment } from "./payment.js?v40";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v40";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v40";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v40";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v40";
+import { setupCountrySelect } from "./country-select.js?v40";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v40";
+import { fieldErrorMessage } from "./field-messages.js?v40";
+import { showNotice } from "./notice-modal.js?v40";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -22,6 +22,9 @@ let currentSelectedMethodFlow = storageGet("ren_selected_payment_flow") || "proo
 let currentSelectedMethodLabel = null;
 let currentPaymentMethods = [];
 let currentOrderReceiptData = null;
+// Pedido con tarjeta ya creado cuyo enlace de pago falló antes de abrir la transacción:
+// al reintentar con los mismos datos se reutiliza en vez de crear otro pedido
+let pendingCardOrder = null;
 let checkoutStep = 1;
 let deliveryLocations = [];
 let deliveryLocationsLoaded = false;
@@ -943,8 +946,12 @@ async function submitOrder(form) {
     status: currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED ? "awaiting_manual_payment" : "pending",
   };
 
+  const fingerprint = isTropipay ? JSON.stringify(orderData) : null;
+
   try {
-    const order = await createOrder(orderData);
+    const order = fingerprint && pendingCardOrder?.fingerprint === fingerprint
+      ? pendingCardOrder.order
+      : await createOrder(orderData);
     currentOrderId = order.id;
     currentTotal   = Number(order.total ?? orderData.total);
     currentOrderReceiptData = {
@@ -957,11 +964,13 @@ async function submitOrder(form) {
     const reference = order.order_reference || order.id;
     if (currentSelectedMethodFlow === PAYMENT_FLOW_TROPIPAY) {
       btn.innerHTML = '<span class="spinner"></span> Abriendo el pago seguro...';
+      pendingCardOrder = { fingerprint, order };
       const [payment] = await Promise.all([
         createTropipayPayment(order.id, order.checkout_token),
         saveBillingToProfile(orderData.payer)
       ]);
       if (!payment?.payment_url) throw new Error("La pasarela de pago no devolvió un enlace. Inténtalo de nuevo.");
+      pendingCardOrder = null;
       // El carrito solo se consume cuando ya existe un enlace de pago válido.
       if (!clearCart()) throw new Error("No pudimos guardar el estado del carrito. Conservamos tus productos para reintentar.");
       clearCheckoutStep();
@@ -980,9 +989,12 @@ async function submitOrder(form) {
     window.location.href = `./pago-confirmado.html?order=${encodeURIComponent(reference)}&estado=${state}&payment=manual`;
 
   } catch (err) {
+    // Pedido ya pagado, cancelado o inaccesible: el siguiente intento crea uno nuevo
+    if (err.status === 404 || err.status === 409) pendingCardOrder = null;
     // El pedido ya existe y la pasarela falló: la página de pago rechazado explica el motivo
     // y deja reintentar con tarjeta o pagar este mismo pedido con otro método
     if (err.paymentId) {
+      pendingCardOrder = null;
       const params = new URLSearchParams({ order: err.orderReference || "", payment: err.paymentId });
       window.location.href = `./pago-rechazado.html?${params}`;
       return;

@@ -3,8 +3,8 @@
 // aquí y el cliente sigue con su pedido sin salir de la página.
 // Si usa el enlace, se detecta solo: abierto en este navegador, la otra pestaña guarda la
 // sesión (evento storage); al volver a esta pestaña se reintenta el login.
-import { isEmailNotConfirmed, loginCustomer, resendConfirmationEmail, safeReturnPath, verifyEmailCode } from "./auth.js?v38";
-import { escapeHtml, showNotice } from "./notice-modal.js?v38";
+import { isEmailNotConfirmed, loginCustomer, resendConfirmationEmail, safeReturnPath, verifyEmailCode } from "./auth.js?v40";
+import { escapeHtml, showNotice } from "./notice-modal.js?v40";
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_S = 60;

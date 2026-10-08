@@ -1,5 +1,5 @@
-import { addItem, getCart } from "./cart.js?v38";
-import { API_BASE } from "./api.js?v38";
+import { addItem, getCart } from "./cart.js?v40";
+import { API_BASE } from "./api.js?v40";
 
 const CHAT_API = API_BASE;
 let productCache = null;

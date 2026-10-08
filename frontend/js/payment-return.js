@@ -1,10 +1,10 @@
 // Retorno de TropiPay (pago-confirmado / pago-rechazado) y acciones de reintento.
 // La página nunca decide por la URL: pregunta el estado real al backend, que a su vez
 // lo concilia con TropiPay. Las funciones de acción también las usa "Mi cuenta".
-import { API_BASE } from "./config.js?v38";
-import { authorizedFetch, getValidAccessToken } from "./session.js?v38";
-import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v38";
-import { hasPendingPayment, savePendingPayment } from "./payment.js?v38";
+import { API_BASE, CARD_PAYMENTS_ENABLED } from "./config.js?v40";
+import { authorizedFetch, getValidAccessToken } from "./session.js?v40";
+import { cargarMetodosPago, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_PROOF_UPLOAD } from "./payment-methods.js?v40";
+import { hasPendingPayment, savePendingPayment } from "./payment.js?v40";
 
 const WHATSAPP_NUMBER = "5356189395";
 const POLL_INTERVAL_MS = 3000;
@@ -175,7 +175,7 @@ function renderUnpaid(paymentId, status, { stillPending }) {
   }
   if (!status.can_retry) {
     if (failure !== "PAYMENT_REVIEW") $("#message").textContent = "Este pago ya no se puede completar en línea. Escríbenos por WhatsApp y te ayudamos.";
-  } else if (NO_CARD_RETRY.has(failure)) {
+  } else if (!CARD_PAYMENTS_ENABLED || NO_CARD_RETRY.has(failure)) {
     actionButton("Pagar con otro método", "fa-money-bill-transfer", () => renderOtherMethods(status));
   } else {
     actionButton("Reintentar pago con tarjeta", "fa-rotate-right", async button => {

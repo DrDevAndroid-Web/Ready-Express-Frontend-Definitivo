@@ -1,10 +1,11 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v38";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v38";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v38";
-import { renderBillingFields } from "./billing-fields.js?v38";
+} from "./auth.js?v40";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v40";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v40";
+import { renderBillingFields } from "./billing-fields.js?v40";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v40";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -354,7 +355,7 @@ function renderPayments(order) {
   const latestTropipayId = payments.tropipay?.[0]?.id;
   const tropipay = (payments.tropipay || []).map(payment => {
     const [label, tone] = TROPIPAY_STATUS[payment.status] || [payment.status || "Pendiente", "info"];
-    const canRetry = payment.id === latestTropipayId
+    const canRetry = CARD_PAYMENTS_ENABLED && payment.id === latestTropipayId
       && ["pending", "processing", "failed"].includes(payment.status)
       && ORDER_AWAITING_PAYMENT.includes(order.status);
     const id = escapeHtml(payment.id);

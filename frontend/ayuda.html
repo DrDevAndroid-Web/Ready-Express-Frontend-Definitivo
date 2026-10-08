@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  <link rel="stylesheet" href="./css/styles.css?v38" />
+  <link rel="stylesheet" href="./css/styles.css?v40" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -70,7 +70,7 @@
         <h1>Tu cuenta, tu pedido y tu pago, paso a paso</h1>
         <p>
           Aquí tienes todo lo que necesitas: cómo crear tu cuenta, iniciar sesión, hacer el pedido y pagar
-          con tarjeta de débito o crédito, Zelle o TocoPay. Si algo falla, también te explicamos qué hacer.
+          con Zelle o TocoPay (el pago con tarjeta vuelve pronto). Si algo falla, también te explicamos qué hacer.
         </p>
         <div class="help-actions">
           <a href="./index.html#combos" class="btn-primary">Empezar pedido</a>
@@ -206,7 +206,7 @@
       <div class="help-section-header">
         <span class="section-tag">Pago con tarjeta</span>
         <h2>Pagar con tarjeta de débito o crédito</h2>
-        <p>La forma más rápida: el pedido se confirma al instante, sin capturas ni esperas. Aceptamos Visa y Mastercard, de débito o crédito.</p>
+        <p class="help-note"><strong>Temporalmente no disponible.</strong> Estamos mejorando el pago con tarjeta. Mientras tanto, paga con Zelle, TocoPay o pide ayuda por WhatsApp.</p>
       </div>
       <div class="help-timeline">
         <article class="help-step-card">
@@ -580,7 +580,7 @@
   </footer>
 
   <script type="module">
-    import { cargarMetodosPago, renderMetodosEnAyuda } from './js/payment-methods.js?v38';
+    import { cargarMetodosPago, renderMetodosEnAyuda } from './js/payment-methods.js?v40';
 
     function initMobileNav() {
       const menuBtn = document.getElementById('menu-btn');
