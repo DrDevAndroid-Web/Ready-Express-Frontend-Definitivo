@@ -1,9 +1,9 @@
-import { initCart, getCart } from "./cart.js?v41";
-import { initProducts } from "./products.js?v41";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v41";
-import { redirectToPendingPayment } from "./payment.js?v41";
-import { inicializarMetodosPago } from "./payment-methods.js?v41";
-import { getLocalizaciones } from "./api.js?v41";
+import { initCart, getCart } from "./cart.js?v42";
+import { initProducts } from "./products.js?v42";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v42";
+import { redirectToPendingPayment } from "./payment.js?v42";
+import { inicializarMetodosPago } from "./payment-methods.js?v42";
+import { getLocalizaciones } from "./api.js?v42";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
