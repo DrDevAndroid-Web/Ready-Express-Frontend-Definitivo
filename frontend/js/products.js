@@ -1,5 +1,6 @@
-import { getCatalog, getInfo } from "./api.js?v40";
-import { addItem } from "./cart.js?v40";
+import { getCatalog, getInfo } from "./api.js?v41";
+import { addItem } from "./cart.js?v41";
+import { openProductModal } from "./product-modal.js?v41";
 
 const CONTACT_WHATSAPP = "5356189395";
 
@@ -108,6 +109,56 @@ function normalize(item, defaultCategory) {
   };
 }
 
+// Ficha que muestra el modal, guardada aparte para no inflar el carrito ni el pedido.
+// clave "source:id" → { product, ficha }
+const detailRegistry = new Map();
+
+function detailKey(product) {
+  return `${product.source}:${product.id}`;
+}
+
+function comboComponents(item) {
+  const details = item.detalles;
+  if (details && typeof details === "object" && !Array.isArray(details)) {
+    return Object.entries(details)
+      .map(([nombre, valor]) => ({ nombre: String(nombre).trim(), valor: String(valor ?? "").trim() }))
+      .filter(component => component.nombre);
+  }
+  return normalizeComboItems(item).map(component => ({ nombre: component.nombre, valor: String(component.cantidad) }));
+}
+
+function electroFeatures(item) {
+  const raw = item.caracteristicas;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(feature => ({ nombre: String(feature?.nombre ?? "").trim(), valor: String(feature?.valor ?? "").trim() }))
+    .filter(feature => feature.nombre);
+}
+
+function registerDetail(product, ficha) {
+  detailRegistry.set(detailKey(product), { product, ficha });
+}
+
+function openDetail(key) {
+  const entry = detailRegistry.get(key);
+  if (!entry) return;
+  openProductModal({
+    product: entry.product,
+    ficha: entry.ficha,
+    whatsappUrl: `https://wa.me/${CONTACT_WHATSAPP}?text=${encodeURIComponent(`Hola, quiero consultar el precio de: ${entry.product.nombre}`)}`,
+    onAdd: (product, qty) => addItem(product, qty)
+  });
+}
+
+function bindDetailGrid(grid) {
+  if (!grid || grid.dataset.detailBound) return;
+  grid.dataset.detailBound = "1";
+  grid.addEventListener("click", event => {
+    const opener = event.target.closest("[data-detail]");
+    if (opener && grid.contains(opener)) openDetail(opener.dataset.detail);
+  });
+}
+
 function renderSkeleton(count = 6) {
   return Array(count).fill(0).map(() => `
     <div class="product-card skeleton">
@@ -120,18 +171,27 @@ function renderSkeleton(count = 6) {
     </div>`).join("");
 }
 
-function renderCard(product) {
+function renderCard(product, { detail = false } = {}) {
   const dataAttr = escapeHtml(JSON.stringify(product));
   const priceDisplay = product.precio > 0 ? `$${product.precio.toFixed(2)}` : "Consultar precio";
+  const key = detail ? escapeHtml(detailKey(product)) : "";
+  const media = product.imagen
+    ? `<img src="${escapeHtml(product.imagen)}" alt="${escapeHtml(product.nombre)}" loading="lazy">`
+    : `<div class="img-placeholder"><span>📦</span><small>Imagen próximamente</small></div>`;
+  // La imagen abre la ficha con el ratón o el dedo; para teclado y lector de pantalla
+  // el botón accesible es el nombre (así no hay dos paradas de tabulación iguales).
   return `
-    <div class="product-card">
-      <div class="product-img">
-        ${product.imagen
-          ? `<img src="${escapeHtml(product.imagen)}" alt="${escapeHtml(product.nombre)}" loading="lazy">`
-          : `<div class="img-placeholder"><span>📦</span><small>Imagen próximamente</small></div>`}
-      </div>
+    <div class="product-card${detail ? " has-detail" : ""}">
+      ${detail
+        ? `<button type="button" class="product-img product-open" data-detail="${key}" tabindex="-1" aria-hidden="true">
+            ${media}
+            <span class="product-open-hint"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Ver detalles</span>
+          </button>`
+        : `<div class="product-img">${media}</div>`}
       <div class="product-info">
-        <h3 class="product-name">${escapeHtml(product.nombre)}</h3>
+        <h3 class="product-name">${detail
+          ? `<button type="button" class="product-name-btn" data-detail="${key}" aria-haspopup="dialog">${escapeHtml(product.nombre)}</button>`
+          : escapeHtml(product.nombre)}</h3>
         ${product.descripcion ? `<div class="product-desc">${product.descripcion}</div>` : ""}
         <p class="product-price">${priceDisplay}</p>
         <div class="card-actions">
@@ -157,13 +217,20 @@ async function loadCombos(source = null) {
 
   try {
     const data = Array.isArray(source) ? source : [];
-    const items = data.map((i) => ({ ...normalize(i, "Combos"), source: "combo" })).filter((i) => i.disponible);
+    const items = data
+      .filter((i) => i.disponible !== false)
+      .map((i) => {
+        const product = { ...normalize(i, "Combos"), source: "combo" };
+        registerDetail(product, { componentes: comboComponents(i) });
+        return product;
+      });
 
     if (!items.length) {
       grid.innerHTML = `<div class="empty-state"><span>🍱</span><p>No hay combos disponibles en este momento</p></div>`;
       return;
     }
-    grid.innerHTML = items.map(renderCard).join("");
+    grid.innerHTML = items.map(item => renderCard(item, { detail: true })).join("");
+    bindDetailGrid(grid);
   } catch (err) {
     grid.innerHTML = "";
     if (errorEl) {
@@ -379,22 +446,27 @@ async function loadElectro(source = null) {
     const data = Array.isArray(source) ? source : [];
     const items = data
       .filter((i) => i.disponible !== false)
-      .map((i) => ({
-        id: i.id,
-        source: "electro",
-        category: "Productos Varios",
-        nombre: [i.item, i.tipo].filter(Boolean).join(" — "),
-        precio: parseFloat(i.precio || 0),
-        descripcion: i.tipo || "",
-        imagen: i.img || null,
-        disponible: i.disponible !== false,
-      }));
+      .map((i) => {
+        const product = {
+          id: i.id,
+          source: "electro",
+          category: "Productos Varios",
+          nombre: [i.item, i.tipo].filter(Boolean).join(" — "),
+          precio: parseFloat(i.precio || 0),
+          descripcion: i.tipo || "",
+          imagen: i.img || null,
+          disponible: i.disponible !== false,
+        };
+        registerDetail(product, { descripcion: i.descripcion || "", caracteristicas: electroFeatures(i) });
+        return product;
+      });
 
     if (!items.length) {
       grid.innerHTML = `<div class="empty-state"><span>⚡</span><p>No hay productos varios disponibles en este momento</p></div>`;
       return;
     }
-    grid.innerHTML = items.map(renderCard).join("");
+    grid.innerHTML = items.map(item => renderCard(item, { detail: true })).join("");
+    bindDetailGrid(grid);
   } catch (err) {
     grid.innerHTML = "";
     if (errorEl) {

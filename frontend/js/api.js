@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v40";
-import { authorizedFetch } from "./session.js?v40";
+import { API_BASE } from "./config.js?v41";
+import { authorizedFetch } from "./session.js?v41";
 
 export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
