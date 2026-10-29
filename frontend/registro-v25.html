@@ -4,10 +4,11 @@
   <title>Crear cuenta | Ready Express Now</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v42">
+  <link rel="stylesheet" href="./css/styles.css?v43">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -62,11 +63,11 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v42';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v42';
-    import { renderBillingFields } from './js/billing-fields.js?v42';
-    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v42';
-    import { escapeHtml, showNotice } from './js/notice-modal.js?v42';
+    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v43';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v43';
+    import { renderBillingFields } from './js/billing-fields.js?v43';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v43';
+    import { escapeHtml, showNotice } from './js/notice-modal.js?v43';
     bindPasswordToggles();
     applyReturnContext();
     const billing = renderBillingFields(document.querySelector('#billing-fields'));

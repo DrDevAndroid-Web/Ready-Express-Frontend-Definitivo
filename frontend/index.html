@@ -3,24 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Envía comida a tu familia en Guantánamo desde el exterior. Combos de alimentos esenciales con entrega garantizada. Paga con Zelle o TocoPay, o con ayuda por WhatsApp." />
-  <title>Ready Express Now - Envío de Comida a Guantánamo</title>
+  <meta name="description" content="Envía combos de comida y alimentos a tu familia en Guantánamo. Entrega garantizada en 24–72 h. Paga con Zelle o TocoPay." />
+  <title>Envío de Combos de Comida a Guantánamo</title>
   <link rel="canonical" href="https://www.readyexpressnow.com/" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://www.readyexpressnow.com/" />
-  <meta property="og:title" content="Ready Express Now — Envío de comida a Guantánamo" />
+  <meta property="og:title" content="Envío de Combos de Comida a Guantánamo" />
   <meta property="og:description" content="Envía combos de alimentos a tu familia en Guantánamo. Paga con Zelle o TocoPay, o con ayuda por WhatsApp. Entrega garantizada en 24–72h." />
-  <meta property="og:image" content="https://www.readyexpressnow.com/images/hero-main.jpg" />
+  <meta property="og:image" content="https://www.readyexpressnow.com/images/og-image.jpg" />
   <meta property="og:locale" content="es_CU" />
-  <meta property="og:image:alt" content="Productos y combos de alimentos para enviar a Guantánamo" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Familia en Guantánamo recibiendo alimentos enviados desde el exterior" />
   <meta property="og:site_name" content="Ready Express Now" />
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Ready Express Now — Envío de comida a Guantánamo" />
+  <meta name="twitter:title" content="Envío de Combos de Comida a Guantánamo" />
   <meta name="twitter:description" content="Envía combos de alimentos a tu familia en Guantánamo. Paga con Zelle o TocoPay, o con ayuda por WhatsApp. Entrega garantizada en 24–72h." />
-  <meta name="twitter:image" content="https://www.readyexpressnow.com/images/hero-main.jpg" />
+  <meta name="twitter:image" content="https://www.readyexpressnow.com/images/og-image.jpg" />
 
   <!-- Preconnect to Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
@@ -31,7 +33,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v42" />
+  <link rel="preload" as="image" href="./images/hero-home-desktop.webp" media="(min-width: 901px)" fetchpriority="high">
+  <link rel="preload" as="image" href="./images/hero-home-mobile.webp" media="(max-width: 900px)" fetchpriority="high">
+  <link rel="stylesheet" href="./css/styles.css?v43" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -102,10 +106,9 @@
   <section class="hero" id="inicio">
     <div class="hero-inner">
       <div class="hero-content">
-        <h1>Envía comida a tu familia en Guantánamo<br><span>de forma rápida y segura</span></h1>
+        <h1>Combos de comida para Guantánamo</h1>
         <p class="hero-desc">
-          Combos de alimentos esenciales con entrega garantizada.
-          Compra en minutos, sin complicaciones.
+          Llegamos a casi todos los rincones de Guantánamo, de forma rápida y segura.
         </p>
         <div class="hero-actions">
           <a href="#combos" class="btn-primary">Ver combos</a>
@@ -113,22 +116,7 @@
             Hablar por WhatsApp
           </a>
         </div>
-        <p class="hero-payment-note"><i class="fa-solid fa-lock" aria-hidden="true"></i> Zelle o TocoPay · sin cuenta obligatoria · ayuda por WhatsApp</p>
-        <div class="hero-stats">
-
-          <div class="hero-stat">
-            <strong>100%</strong>
-            <small>Pago seguro</small>
-          </div>
-          <div class="hero-stat">
-            <strong>Rápido</strong>
-            <small>Entrega garantizada</small>
-          </div>
-        </div>
       </div>
-      <div class="hero-img">
-        <img src="./images/hero-main.jpg" alt="Envío de comida a Guantánamo"
-             onerror="this.parentElement.innerHTML='<div class=&quot;img-placeholder&quot;></div>'">
     </div>
   </section>
 
@@ -139,8 +127,8 @@
         <div class="carousel-inner">
           <div class="carousel-item active">
             <picture>
-              <source media="(min-width: 768px)" srcset="./images/carrusel-1-wide.png">
-              <img src="./images/carrusel-1-mobile.png" class="d-block w-100" alt="Combos de alimentos esenciales listos para enviar a Guantánamo" loading="lazy">
+              <source media="(min-width: 768px)" srcset="./images/carrusel-1-wide.webp">
+              <img src="./images/carrusel-1-mobile.webp" class="d-block w-100" alt="Combos de alimentos esenciales listos para enviar a Guantánamo">
             </picture>
             <div class="carousel-caption d-none d-md-block">
               <h5>Combos listos para enviar</h5>
@@ -149,18 +137,18 @@
           </div>
           <div class="carousel-item">
             <picture>
-              <source media="(min-width: 768px)" srcset="./images/carrusel-2-wide.png">
-              <img src="./images/carrusel-2-mobile.png" class="d-block w-100" alt="Pago 100% seguro con Zelle y TocoPay desde cualquier parte del mundo" loading="lazy">
+              <source media="(min-width: 768px)" srcset="./images/carrusel-2-wide.webp">
+              <img src="./images/carrusel-2-mobile.webp" class="d-block w-100" alt="Pago 100% seguro con Zelle y TocoPay desde cualquier parte del mundo" loading="lazy">
             </picture>
             <div class="carousel-caption d-none d-md-block">
               <h5>Pago 100% seguro</h5>
-          <p>Acepta tarjetas de débito/crédito, Zelle y TocoPay desde cualquier parte del mundo</p>
+          <p>Paga con Zelle o TocoPay desde cualquier parte del mundo</p>
             </div>
           </div>
           <div class="carousel-item">
             <picture>
-              <source media="(min-width: 768px)" srcset="./images/carrusel-3-wide.png">
-              <img src="./images/carrusel-3-mobile.png" class="d-block w-100" alt="Entrega garantizada en Guantánamo — confirmación por WhatsApp cuando llega el pedido" loading="lazy">
+              <source media="(min-width: 768px)" srcset="./images/carrusel-3-wide.webp">
+              <img src="./images/carrusel-3-mobile.webp" class="d-block w-100" alt="Entrega garantizada en Guantánamo — confirmación por WhatsApp cuando llega el pedido" loading="lazy">
             </picture>
             <div class="carousel-caption d-none d-md-block">
               <h5>Entrega garantizada en Guantánamo</h5>
@@ -188,7 +176,7 @@
     <!-- Combos Section -->
     <section class="section" id="combos">
       <div class="section-header">
-        <h2>Combos listos para enviar</h2>
+        <h2>Combos de alimentos</h2>
         <p>Alimentos esenciales seleccionados. Ideal para apoyo inmediato a tu familia.</p>
       </div>
       <p id="combos-error"></p>
@@ -894,7 +882,7 @@
   }
   </script>
 
-  <script type="module" src="./js/app.js?v42"></script>
+  <script type="module" src="./js/app.js?v43"></script>
   <script>
     document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
       document.getElementById('cart-btn')?.click();
@@ -907,6 +895,6 @@
     });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  <script type="module" src="./js/chat.js?v42"></script>
+  <script type="module" src="./js/chat.js?v43"></script>
 </body>
 </html>

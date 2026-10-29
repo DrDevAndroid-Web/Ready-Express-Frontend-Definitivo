@@ -1,14 +1,14 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v42";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v42";
-import { savePendingPayment } from "./payment.js?v42";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v42";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v42";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v42";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v42";
-import { setupCountrySelect } from "./country-select.js?v42";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v42";
-import { fieldErrorMessage } from "./field-messages.js?v42";
-import { showNotice } from "./notice-modal.js?v42";
+import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v43";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v43";
+import { savePendingPayment } from "./payment.js?v43";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v43";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v43";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v43";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v43";
+import { setupCountrySelect } from "./country-select.js?v43";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v43";
+import { fieldErrorMessage } from "./field-messages.js?v43";
+import { showNotice } from "./notice-modal.js?v43";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";

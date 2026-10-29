@@ -1,4 +1,4 @@
-import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v42";
+import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v43";
 
 let cart = getCartSnapshot();
 
