@@ -2,6 +2,7 @@ import "./config/env.js";
 import app from "./app.js";
 import { startHandoffTimeoutJob } from "./modules/chat/handoff-timeout.job.js";
 import { startLocationRealtime } from "./modules/locations/locations.service.js";
+import { startTropipayReconcileJob } from "./modules/payments/tropipay-reconcile.job.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -17,6 +18,7 @@ const server = app.listen(PORT, () => {
   console.log("Servidor corriendo en puerto", PORT);
   startHandoffTimeoutJob();
   startLocationRealtime();
+  startTropipayReconcileJob();
 });
 
 server.on("error", (err) => {

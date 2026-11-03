@@ -18,9 +18,11 @@ function limiter(max, windowMinutes, message) {
 
 export const authLimiter = limiter(20, 15, "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.");
 export const passwordRecoveryLimiter = limiter(5, 60, "Demasiadas solicitudes de recuperación. Inténtalo más tarde.");
+export const confirmationEmailLimiter = limiter(5, 60, "Ya enviamos varios emails. Espera unos minutos e inténtalo de nuevo.");
 export const orderLimiter = limiter(20, 15, "Demasiados pedidos seguidos. Espera unos minutos.");
 export const paymentLimiter = limiter(15, 15, "Demasiados intentos de pago. Espera unos minutos.");
 // La página de retorno consulta ~10 veces por visita; cada consulta puede llamar a la API de TropiPay
 export const paymentStatusLimiter = limiter(120, 15, "Demasiadas consultas del pago. Espera un momento.");
 export const chatSessionLimiter = limiter(10, 15, "Demasiadas conversaciones nuevas. Espera unos minutos.");
 export const chatMessageLimiter = limiter(40, 15, "Estás enviando mensajes muy rápido. Espera un momento.");
+export const referralClaimLimiter = limiter(10, 60, "Demasiados intentos de referido. Espera unos minutos.");

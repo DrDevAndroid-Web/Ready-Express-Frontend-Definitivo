@@ -55,6 +55,29 @@ export async function getDeliveryConfirmationUrl(orderId) {
   return { ...data, signed_url: signed.signedUrl };
 }
 
+// Foto de entrega más reciente de cada orden, con URL firmada (1 h), para "Mi cuenta" del cliente
+export async function getDeliveryPhotosForOrders(orderIds = []) {
+  const photos = new Map();
+  if (!orderIds.length) return photos;
+  const { data, error } = await supabase
+    .from("delivery_confirmations")
+    .select("order_id, bucket_name, object_path, status, created_at")
+    .in("order_id", orderIds)
+    .neq("status", "rejected")
+    .order("created_at", { ascending: false });
+  throwIfSupabaseError(error, "No se pudieron cargar las fotos de entrega");
+  for (const row of data || []) {
+    if (photos.has(row.order_id)) continue;
+    const { data: signed, error: signedError } = await supabase.storage.from(row.bucket_name).createSignedUrl(row.object_path, 60 * 60);
+    if (signedError) {
+      console.error("[entrega] No se pudo firmar la foto de entrega:", signedError.message);
+      continue;
+    }
+    photos.set(row.order_id, { url: signed.signedUrl, uploaded_at: row.created_at });
+  }
+  return photos;
+}
+
 export async function getPaymentDeliveryConfirmationUrl(paymentTransactionId) {
   if (!paymentTransactionId) throw createBadRequest("La transacción es requerida");
   const { data, error } = await supabase

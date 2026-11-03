@@ -170,7 +170,8 @@ describe("throwIfSupabaseError", () => {
     } catch (e) {
       assert.ok(e instanceof HttpError);
       assert.equal(e.status, 500);
-      assert.equal(e.message, "connection failed");
+      assert.equal(e.message, "Error en Supabase");
+      assert.equal(e.details, null);
     }
   });
 });

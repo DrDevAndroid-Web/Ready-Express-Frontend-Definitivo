@@ -46,7 +46,7 @@ describe("buildTropipayClient — objeto client de TropiPay", () => {
     const client = buildTropipayClient({ sender_name: "Juan", sender_phone: "1" });
     assert.equal(client.email, "");
     assert.equal(client.countryIso, "");
-    assert.deepEqual(missingTropipayClientFields(client), ["apellidos", "email", "direccion", "pais", "aceptacion de terminos"]);
+    assert.deepEqual(missingTropipayClientFields(client), ["apellidos", "email", "dirección de facturación", "país", "aceptación de los términos"]);
   });
 });
 
@@ -57,7 +57,7 @@ describe("webhookAmountMatches — importe del aviso de TropiPay", async () => {
   const { webhookAmountMatches } = await import("../modules/payments/tropipay.service.js");
 
   it("acepta el importe en centavos", () => assert.equal(webhookAmountMatches(5700, 57), true));
-  it("acepta el importe en unidades", () => assert.equal(webhookAmountMatches("57.00", 57), true));
+  it("rechaza el importe en unidades aunque coincida numéricamente", () => assert.equal(webhookAmountMatches("57.00", 57), false));
   it("rechaza un importe menor", () => assert.equal(webhookAmountMatches(100, 57), false));
   it("rechaza un importe ausente", () => assert.equal(webhookAmountMatches(undefined, 57), false));
 });

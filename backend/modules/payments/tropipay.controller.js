@@ -43,10 +43,27 @@ export async function retryTropipayPaymentController(req, res) {
   }
 }
 
+// Se procesa antes de responder: TropiPay reintenta el aviso hasta recibir un 200,
+// así que un fallo (p. ej. Supabase caído) responde 500 para que vuelva a llegar.
+// Una transacción que no existe responde 200: reintentarla no la haría aparecer.
+export async function handleTropipayWebhook(payload, processWebhook = processTropipayWebhook) {
+  if (!verifyTropipaySignature(payload)) return { status: 401, body: { error: "Firma TropiPay inválida" } };
+  try {
+    await processWebhook(payload);
+    return { status: 200, body: { received: true } };
+  } catch (error) {
+    if (error?.status === 404) {
+      console.warn("[tropipay:webhook]", error.message, payload?.data?.reference || payload?.reference || "");
+      return { status: 200, body: { received: true } };
+    }
+    console.error("[tropipay:webhook]", error?.message || error);
+    return { status: 500, body: { error: "No se pudo procesar el aviso" } };
+  }
+}
+
 export async function tropipayWebhookController(req, res) {
-  if (!verifyTropipaySignature(req.body)) return res.status(401).json({ error: "Firma TropiPay inválida" });
-  res.status(200).json({ received: true });
-  processTropipayWebhook(req.body).catch(error => console.error("[tropipay:webhook]", error));
+  const { status, body } = await handleTropipayWebhook(req.body);
+  res.status(status).json(body);
 }
 
 export function tropipayConfigurationController(_req, res) {

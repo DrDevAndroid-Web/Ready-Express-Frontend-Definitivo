@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Tu código de confirmación</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f5f6f8; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+  <!-- Texto de vista previa en la bandeja de entrada -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+    Tu código es {{ .Token }}. Escríbelo en Ready Express Now para activar tu cuenta.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f5f6f8;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+          <!-- Marca -->
+          <tr>
+            <td align="center" style="padding:0 0 20px;">
+              <a href="https://www.readyexpressnow.com" style="text-decoration:none;">
+                <img src="https://www.readyexpressnow.com/images/logo-512.png" width="56" height="56" alt="Ready Express Now" style="display:block; border:0; border-radius:12px;">
+              </a>
+            </td>
+          </tr>
+
+          <!-- Tarjeta -->
+          <tr>
+            <td style="background-color:#ffffff; border-radius:16px; padding:36px 32px; border:1px solid #e3e6ea; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#333333;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="font-size:24px; line-height:32px; font-weight:700; color:#0D47A1; padding-bottom:12px;">
+                    Confirma tu email
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:16px; line-height:24px; color:#555555; padding-bottom:24px;">
+                    Escribe este código en la tienda para activar tu cuenta<br>
+                    <strong style="color:#333333;">{{ .Email }}</strong>
+                  </td>
+                </tr>
+
+                <!-- Código -->
+                <tr>
+                  <td align="center" style="padding-bottom:24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" style="background-color:#f0f5fc; border:1px solid #d6e2f5; border-radius:12px; padding:16px 28px; font-family:'Courier New', Courier, monospace; font-size:36px; line-height:44px; font-weight:700; letter-spacing:10px; color:#0A2E6E;">
+                          {{ .Token }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Separador -->
+                <tr>
+                  <td align="center" style="font-size:14px; line-height:21px; color:#666666; padding-bottom:16px;">
+                    ¿Prefieres no escribirlo? Confirma con un clic:
+                  </td>
+                </tr>
+
+                <!-- Botón (compatible con Outlook) -->
+                <tr>
+                  <td align="center" style="padding-bottom:28px;">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ .ConfirmationURL }}" style="height:48px; v-text-anchor:middle; width:240px;" arcsize="16%" strokecolor="#0D47A1" fillcolor="#ffffff">
+                      <center style="color:#0D47A1; font-family:Arial, sans-serif; font-size:16px; font-weight:bold;">Confirmar email</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <!--[if !mso]><!-->
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block; background-color:#ffffff; color:#0D47A1; border:2px solid #0D47A1; font-size:16px; font-weight:700; line-height:44px; padding:0 28px; border-radius:8px; text-decoration:none; min-width:180px; text-align:center;">Confirmar email</a>
+                    <!--<![endif]-->
+                  </td>
+                </tr>
+
+                <tr>
+                  <td align="center" style="font-size:14px; line-height:21px; color:#666666; padding-bottom:24px;">
+                    El código y el enlace solo se pueden usar una vez.<br>
+                    Si caducan, pide uno nuevo desde la tienda.
+                  </td>
+                </tr>
+
+                <!-- Enlace de respaldo -->
+                <tr>
+                  <td style="border-top:1px solid #e3e6ea; padding-top:20px; font-size:13px; line-height:20px; color:#666666;">
+                    ¿El botón no funciona? Copia y pega este enlace en tu navegador:<br>
+                    <a href="{{ .ConfirmationURL }}" style="color:#1565C0; word-break:break-all;">{{ .ConfirmationURL }}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Aviso de seguridad -->
+          <tr>
+            <td style="padding:20px 8px 0; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:13px; line-height:20px; color:#666666; text-align:center;">
+              <strong style="color:#333333;">¿No creaste esta cuenta?</strong> Ignora este correo: no se activará.<br>
+              Nunca te pediremos este código por WhatsApp, teléfono o email.
+            </td>
+          </tr>
+
+          <!-- Pie -->
+          <tr>
+            <td style="padding:24px 8px 0; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size:12px; line-height:18px; color:#999999; text-align:center;">
+              ¿Necesitas ayuda? <a href="https://wa.me/5356189395" style="color:#1565C0; text-decoration:underline;">Escríbenos por WhatsApp</a><br>
+              Ready Express Now · Envíos de comida y productos a Cuba
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

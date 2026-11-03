@@ -27,9 +27,12 @@ export function sendError(res, err, fallback = "Error interno del servidor") {
   const isServerError = status >= 500;
   const message = isServerError && !(err instanceof HttpError) ? fallback : (err?.message || fallback);
   const details = isServerError ? null : err?.details;
+  // Campos públicos que un HttpError propio decide exponer (p. ej. `code` para el frontend), también en 5xx
+  const exposed = err instanceof HttpError && err.expose ? err.expose : {};
 
   return res.status(status).json({
     error: message,
+    ...exposed,
     ...(details ? { details } : {})
   });
 }
@@ -49,6 +52,10 @@ export function createNotFound(message, details = null) {
 
 export function createConflict(message, details = null) {
   return new HttpError(409, message, details);
+}
+
+export function createServiceUnavailable(message, details = null) {
+  return new HttpError(503, message, details);
 }
 
 export function createClientClosedRequest(message, details = null) {
@@ -108,9 +115,7 @@ export function throwIfSupabaseError(error, message = "Error en Supabase") {
     );
   }
 
-  throw new HttpError(500, error.message || message, {
-    code: error.code,
-    hint: error.hint,
-    details: error.details
-  });
+  // No propagar mensajes de Postgres/PostgREST: pueden revelar tablas, columnas
+  // y restricciones internas. El detalle queda solo en los logs del servidor.
+  throw new HttpError(500, message);
 }

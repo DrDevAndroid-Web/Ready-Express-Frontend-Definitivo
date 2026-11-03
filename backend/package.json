@@ -6,9 +6,10 @@
   "scripts": {
     "test": "node --test",
     "test:verbose": "node --test --test-reporter=spec",
-    "test:unit": "node --test test/utils.test.js test/pdf.test.js test/image.test.js test/whatsapp.test.js",
-    "test:http": "node --test test/endpoints.test.js test/auth.test.js test/orders.test.js test/payments.test.js",
-    "test:ci": "node --test test/utils.test.js test/pdf.test.js test/image.test.js test/endpoints.test.js test/auth.test.js test/orders.test.js test/payments.test.js",
+    "test:unit": "node --test test/utils.test.js test/pdf.test.js test/image.test.js test/whatsapp.test.js test/billing.test.js test/payment-preferences-migration.test.js test/referral-push-migration.test.js test/referral-rules.test.js test/referral-migrations.test.js",
+    "test:http": "node --test test/endpoints.test.js test/auth.test.js test/orders.test.js test/payments.test.js test/referral-admin-access.test.js",
+    "test:ci": "node --test test/utils.test.js test/pdf.test.js test/image.test.js test/billing.test.js test/payment-preferences-migration.test.js test/referral-push-migration.test.js test/referral-rules.test.js test/referral-migrations.test.js test/endpoints.test.js test/auth.test.js test/orders.test.js test/payments.test.js test/referral-admin-access.test.js",
+    "referrals:staging:preflight": "node scripts/referrals-staging-preflight.mjs",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
@@ -27,7 +28,8 @@
     "nodemailer": "^10.0.10",
     "pdfkit": "^0.18.0",
     "resend": "^6.12.3",
-    "sharp": "^0.35.4"
+    "sharp": "^0.35.4",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

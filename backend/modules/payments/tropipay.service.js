@@ -1,11 +1,13 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createBadRequest, createConflict, createNotFound, HttpError } from "../../utils/http-error.js";
+import { classifyCreateFailure, describeDecline, minAmountMessage, paymentError, toTropipayHttpError, tropipayMinAmount } from "./tropipay-errors.js";
 import { buildTropipayClient, createTropipayPayment, getTropipayPayment, missingTropipayClientFields, warmTropipayToken } from "./providers/tropipay.provider.js";
 import { assertOrderAccess, notifyConfirmedOrder, printOrder } from "../orders/orders.service.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
 import * as paymentRepository from "./adapters/supabase-payment.repository.js";
 import * as paymentEventRepository from "./adapters/supabase-payment-event.repository.js";
 import * as orderRepository from "./adapters/supabase-order.repository.js";
+import { qualifyReferralForOrder } from "../referrals/referral.qualification.service.js";
 
 // Dependencias de los casos de uso; los tests las sustituyen por dobles
 const defaultDeps = {
@@ -17,6 +19,7 @@ const defaultDeps = {
   warmTropipayToken,
   notifyConfirmedOrder,
   printOrder,
+  qualifyReferralForOrder,
   notify: (type, data) => NotificationManager.sendNotification(type, data)
 };
 
@@ -77,7 +80,9 @@ function assertPayableWithTropipay(order) {
   if (order.status === "paid" || order.payment_status === "successful") throw createConflict("La orden ya está pagada");
   if (order.status === "cancelled") throw createConflict("La orden está cancelada");
   const missing = missingTropipayClientFields(buildTropipayClient(order));
-  if (missing.length) throw createBadRequest(`Faltan datos del pagador para TropiPay: ${missing.join(", ")}`);
+  if (missing.length) throw paymentError(422, "CARD_PAYER_DATA", `Faltan datos de facturación para pagar con tarjeta: ${missing.join(", ")}. Complétalos en Mi cuenta → Perfil e inténtalo de nuevo.`, { missing });
+  // Se comprueba antes de abrir la transacción: TropiPay lo rechazaría con TOO_LOW_AMOUNT
+  if (Number(order.total) < tropipayMinAmount()) throw paymentError(422, "CARD_MIN_AMOUNT", minAmountMessage(), { min_amount: tropipayMinAmount() });
 }
 
 // Crea la transacción y su enlace en TropiPay. `reference` es la referencia única
@@ -93,8 +98,11 @@ async function openTropipayLink(order, { reference, customerId = null, returnOri
     ]);
     return updated;
   } catch (error) {
-    await deps.paymentRepository.updatePayment(transaction.id, { status: "failed", raw_payload: error.providerBody || { message: error.message }, updated_at: new Date().toISOString() });
-    throw error;
+    await deps.paymentRepository.updatePayment(transaction.id, { status: "failed", raw_payload: { source: "create", provider: error.providerBody || null, message: error.message }, updated_at: new Date().toISOString() });
+    // Con payment_id el frontend lleva al cliente a la página de reintento / otro método de esta misma orden
+    const friendly = toTropipayHttpError(error);
+    friendly.expose = { ...friendly.expose, payment_id: transaction.id, order_reference: order.order_reference || null };
+    throw friendly;
   }
 }
 
@@ -115,26 +123,61 @@ async function loadVerifiedTransaction(transactionId, access, deps) {
   // Sin acceso, 404: no revela qué pagos existen
   assertOrderAccess(transaction?.orders, access);
 
-  let paymentcard = null;
-  let providerUnavailable = false;
-  if (RETRYABLE_STATUSES.has(transaction.status) && transaction.provider_payment_id && !isPaid(transaction)) {
-    paymentcard = await deps.getTropipayPayment(transaction.provider_payment_id).catch(error => {
-      console.warn("[tropipay:status] No se pudo consultar el enlace en TropiPay:", error?.message || error);
-      providerUnavailable = true;
-      return null;
-    });
+  const { paymentcard, providerUnavailable, confirmed } = await reconcileWithProvider(transaction, "poll", deps);
+  if (confirmed) transaction = await deps.paymentRepository.findById(transactionId);
+  return { transaction, paymentcard, providerUnavailable };
+}
 
-    if (paymentcard?.paymentInfo?.paid === true) {
-      await confirmTropipayPayment(transaction, {
-        source: "poll",
-        payload: { source: "poll", paymentcard },
-        amount: paymentcard.amount
-      }, deps);
-      transaction = await deps.paymentRepository.findById(transactionId);
-    }
+// Consulta el enlace en TropiPay si el pago sigue abierto y lo confirma si consta pagado.
+// `source` queda en el evento: "poll" (página de retorno) o "reconcile" (revisión periódica).
+async function reconcileWithProvider(transaction, source, deps) {
+  if (!RETRYABLE_STATUSES.has(transaction.status) || !transaction.provider_payment_id || isPaid(transaction)) {
+    return { paymentcard: null, providerUnavailable: false, confirmed: false };
   }
 
-  return { transaction, paymentcard, providerUnavailable };
+  let providerUnavailable = false;
+  const paymentcard = await deps.getTropipayPayment(transaction.provider_payment_id).catch(error => {
+    console.warn(`[tropipay:${source}] No se pudo consultar el enlace en TropiPay:`, error?.message || error);
+    providerUnavailable = true;
+    return null;
+  });
+
+  if (paymentcard?.paymentInfo?.paid !== true) return { paymentcard, providerUnavailable, confirmed: false };
+  const result = await confirmTropipayPayment(transaction, {
+    source,
+    payload: { source, paymentcard },
+    amount: paymentcard.amount
+  }, deps);
+  return { paymentcard, providerUnavailable, confirmed: true, result };
+}
+
+const RECONCILE_WINDOW_MS = 48 * 60 * 60_000;
+// Margen para que el webhook o la página de retorno lleguen primero
+const RECONCILE_MIN_AGE_MS = 2 * 60_000;
+const STALE_LINK_MS = 15 * 60_000;
+
+// Revisión periódica: confirma los pagos cobrados cuyo webhook no llegó (o falló al procesarse)
+// y el cliente no volvió a la página de retorno, y cierra las transacciones sin enlace.
+export async function reconcilePendingTropipayPayments(deps = defaultDeps, now = Date.now()) {
+  const stale = await deps.paymentRepository.failStaleWithoutLink({ before: new Date(now - STALE_LINK_MS).toISOString() });
+  const transactions = await deps.paymentRepository.findReconcilable({
+    since: new Date(now - RECONCILE_WINDOW_MS).toISOString(),
+    before: new Date(now - RECONCILE_MIN_AGE_MS).toISOString()
+  });
+
+  const summary = { checked: 0, confirmed: 0, unavailable: 0, closedWithoutLink: stale.length };
+  // De uno en uno: son pocos y así no se satura la API de TropiPay
+  for (const transaction of transactions) {
+    summary.checked++;
+    try {
+      const { providerUnavailable, result } = await reconcileWithProvider(transaction, "reconcile", deps);
+      if (providerUnavailable) summary.unavailable++;
+      if (result?.processed) summary.confirmed++;
+    } catch (error) {
+      console.error("[tropipay:reconcile]", transaction.id, error?.message || error);
+    }
+  }
+  return summary;
 }
 
 export async function getTropipayStatus(transactionId, access = {}, deps = defaultDeps) {
@@ -191,6 +234,18 @@ function isLinkActive(transaction, paymentcard) {
     && paymentcard?.paymentInfo?.paid !== true;
 }
 
+// Motivo legible del fallo, sin exponer raw_payload: rechazo de la tarjeta (aviso KO de TropiPay),
+// fallo al abrir el enlace o un importe que no cuadra y queda en revisión
+export function publicFailure(transaction) {
+  if (transaction.status === "amount_mismatch") {
+    return { failure_code: "PAYMENT_REVIEW", failure_message: "Recibimos un pago con un importe distinto al del pedido y lo estamos revisando. No vuelvas a pagar: te escribiremos pronto." };
+  }
+  if (transaction.status !== "failed") return {};
+  const raw = transaction.raw_payload || {};
+  const failure = raw.status === "KO" ? describeDecline(raw) : classifyCreateFailure(raw.provider ?? raw);
+  return { failure_code: failure.code, failure_message: failure.message };
+}
+
 // Solo lo que necesita la página de retorno: sin raw_payload ni datos de la orden
 export function toPublicStatus(transaction, paymentcard = null) {
   const order = transaction.orders || {};
@@ -205,6 +260,7 @@ export function toPublicStatus(transaction, paymentcard = null) {
     currency: transaction.currency,
     order_status: order.status || null,
     can_retry: !closed,
+    ...publicFailure(transaction),
     ...(!closed && isLinkActive(transaction, paymentcard) ? { retry_url: transaction.payment_url } : {})
   };
 }
@@ -214,8 +270,9 @@ export function verifyTropipaySignature(payload) {
   const received = data?.signaturev3 || data?.signatureV3 || payload?.signaturev3 || payload?.signatureV3;
   const bankOrderCode = data?.bankOrderCode || payload?.bankOrderCode;
   const originalAmount = data?.originalCurrencyAmount || payload?.originalCurrencyAmount;
-  const apiKey = process.env.TROPIPAY_API_KEY || process.env.TROPIPAY_CLIENT_ID;
-  const apiSecret = process.env.TROPIPAY_API_SECRET || process.env.TROPIPAY_CLIENT_SECRET;
+  // TropiPay usa un único par de credenciales: la "API key/secret" de la firma son el client id/secret
+  const apiKey = process.env.TROPIPAY_CLIENT_ID;
+  const apiSecret = process.env.TROPIPAY_CLIENT_SECRET;
   if (!received || !bankOrderCode || !originalAmount || !apiKey || !apiSecret) return false;
   const expected = createHash("sha256").update(`${bankOrderCode}${apiKey}${createHash("sha1").update(apiSecret).digest("hex")}${originalAmount}`).digest("hex");
   const a = Buffer.from(String(received).toLowerCase());
@@ -223,13 +280,13 @@ export function verifyTropipaySignature(payload) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-// TropiPay informa el importe en centavos (como lo enviamos al crear el enlace);
-// se acepta también en unidades por tolerancia ante cambios de formato.
+// TropiPay informa el importe en centavos, igual que el importe enviado al crear
+// el enlace. No aceptar unidades: 15 USD no debe poder validar una orden de 1500 USD.
 export function webhookAmountMatches(rawAmount, expectedAmount) {
   const received = Number(rawAmount);
   const expected = Number(expectedAmount);
   if (!Number.isFinite(received) || !Number.isFinite(expected)) return false;
-  return received === Math.round(expected * 100) || Math.abs(received - expected) < 0.01;
+  return received === Math.round(expected * 100);
 }
 
 export async function processTropipayWebhook(payload, deps = defaultDeps) {
@@ -237,14 +294,18 @@ export async function processTropipayWebhook(payload, deps = defaultDeps) {
   const reference = data?.reference || payload?.reference;
   const providerPaymentId = String(data?.paymentcardId || data?.paymentcard?.id || data?.id || "");
   const status = String(payload?.status || "").toUpperCase();
-  const successful = status === "OK";
   const signatureVerified = verifyTropipaySignature(payload);
   if (!signatureVerified) return { processed: false, reason: "INVALID_SIGNATURE" };
+
+  if (!['OK', 'KO'].includes(status)) {
+    console.warn("[tropipay:webhook] Estado no procesable", status || "(vacío)");
+    return { processed: false, reason: "UNSUPPORTED_STATUS", status: status || null };
+  }
 
   const transaction = await deps.paymentRepository.findByProviderReference(reference, providerPaymentId);
   if (!transaction) throw createNotFound("Transacción TropiPay no encontrada");
 
-  if (successful) {
+  if (status === "OK") {
     return confirmTropipayPayment(transaction, {
       source: "webhook",
       payload,
@@ -254,7 +315,8 @@ export async function processTropipayWebhook(payload, deps = defaultDeps) {
     }, deps);
   }
 
-  if (!await claimEvent(transaction, "payment_failed", payload, deps)) {
+  // Cada intento de cobro rechazado es un evento distinto: el enlace sigue activo tras un rechazo
+  if (!await claimEvent(transaction, "payment_failed", payload, deps, data?.bankOrderCode)) {
     return { processed: false, reason: "ALREADY_PROCESSED", transactionId: transaction.id, status: transaction.status };
   }
 
@@ -271,16 +333,18 @@ export async function processTropipayWebhook(payload, deps = defaultDeps) {
   return { processed: true, transactionId: transaction.id, status: "failed" };
 }
 
-// Registra el evento una sola vez por transacción y tipo. Devuelve false si ya
-// lo había registrado el webhook o la conciliación (lo que llegue segundo no hace nada).
-async function claimEvent(transaction, eventType, payload, deps) {
-  if (await deps.paymentEventRepository.exists(transaction.id, eventType)) return false;
+// Registra el evento una sola vez por transacción y tipo (o por intento de cobro, con
+// `attempt`). Devuelve false si ya lo había registrado el webhook o la conciliación
+// (lo que llegue segundo no hace nada).
+async function claimEvent(transaction, eventType, payload, deps, attempt = null) {
+  // Con intento, solo decide el índice único: puede haber varios eventos del mismo tipo
+  if (!attempt && await deps.paymentEventRepository.exists(transaction.id, eventType)) return false;
   const recorded = await deps.paymentEventRepository.record({
     payment_transaction_id: transaction.id,
     event_type: eventType,
-    idempotency_key: `tropipay:${transaction.id}:${eventType}`,
+    idempotency_key: `tropipay:${transaction.id}:${eventType}${attempt ? `:${attempt}` : ""}`,
     payload,
-    signature_verified: payload?.source !== "poll",
+    signature_verified: !["poll", "reconcile"].includes(payload?.source),
     processed_at: new Date().toISOString()
   });
   return Boolean(recorded);
@@ -312,6 +376,11 @@ async function confirmTropipayPayment(transaction, { source, payload, amount, pr
     updated_at: new Date().toISOString()
   });
   await deps.orderRepository.updatePaymentState(transaction.order_id, "successful", "paid");
+  if (typeof deps.qualifyReferralForOrder === "function") {
+    await deps.qualifyReferralForOrder(transaction.order_id).catch(error => {
+      console.error("[tropipay:referral-qualification]", error?.message || error);
+    });
+  }
   deps.notify("payment_successful", { paymentId: transaction.id, orderId: transaction.order_id, orderReference: transaction.external_reference, source, message: "Pago TropiPay confirmado" });
 
   // Los avisos de la orden (APK, email, Telegram, SMS) se retuvieron al crearla: salen ahora

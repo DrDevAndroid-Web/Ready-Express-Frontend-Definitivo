@@ -7,6 +7,7 @@ import { notifyPaymentReceived, notifyPaymentApproved, notifyPaymentRejected } f
 import { NotificationManager } from "../notifications/notifications.service.js";
 import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
 import { assertOrderAccess } from "../orders/orders.service.js";
+import { qualifyReferralForOrder } from "../referrals/referral.qualification.service.js";
 
 // Estados en los que la orden acepta un comprobante (reintento tras un rechazo incluido)
 const ORDER_STATUSES_ACCEPTING_PROOF = ["pending", "payment_rejected"];
@@ -147,7 +148,7 @@ export async function processPayment(file, orderId, method, expectedAmount, acce
   };
 }
 
-export async function getPendingPayments() {
+export async function getPendingPayments(limit = 100, offset = 0) {
   assertSupabaseServiceRole();
   const { data, error } = await supabase
     .from("payments")
@@ -176,14 +177,15 @@ export async function getPendingPayments() {
       )
     `)
     .eq("validation_status", "pending_review")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   throwIfSupabaseError(error, "No se pudieron cargar los pagos pendientes");
   await logPaymentDiagnosticsIfEmpty("pending_review", data);
   return withSignedPaymentImages(data);
 }
 
-export async function getApprovedPayments() {
+export async function getApprovedPayments(limit = 100, offset = 0) {
   assertSupabaseServiceRole();
   const { data, error } = await supabase
     .from("payments")
@@ -212,7 +214,8 @@ export async function getApprovedPayments() {
       )
     `)
     .eq("validation_status", "approved")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   throwIfSupabaseError(error, "No se pudieron cargar los pagos aprobados");
   await logPaymentDiagnosticsIfEmpty("approved", data);
@@ -344,6 +347,14 @@ export async function verifyPayment(paymentId, action) {
     .eq("id", payment.order_id);
 
   throwIfSupabaseError(orderError, "No se pudo actualizar el estado de la orden");
+
+  if (action === "approve") {
+    await qualifyReferralForOrder(payment.order_id).catch(error => {
+      // La aprobación del pago no se revierte por un fallo transitorio del ledger;
+      // la operación queda registrada y puede reintentarse de forma idempotente.
+      console.error("[payments:referral-qualification]", error?.message || error);
+    });
+  }
 
   let printEmailSent = false;
   let printEmailError = null;

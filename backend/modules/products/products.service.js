@@ -1,5 +1,6 @@
 import { assertSupabaseServiceRole } from "../../config/supabase.js";
 import { createBadRequest, createNotFound } from "../../utils/http-error.js";
+import { tropipayMinAmount } from "../payments/tropipay-errors.js";
 import * as catalogRepository from "./adapters/supabase-catalog.repository.js";
 import * as catalogStorage from "./adapters/supabase-catalog.storage.js";
 
@@ -68,7 +69,7 @@ export async function getPublicCatalog() {
   const [combos, productos, electrodomesticos] = await Promise.all([
     catalogRepository.listPublic("food_combos", "id,nombre,categoria,precio,detalles,img,disponible"),
     catalogRepository.listPublic("Productos", "id,nombre,precio,categoria,detalles,img,disponible"),
-    catalogRepository.listPublic("Electrodomesticos", "id,item,tipo,precio,img,disponible")
+    catalogRepository.listPublic("Electrodomesticos", "id,item,tipo,descripcion,caracteristicas,precio,img,disponible")
   ]);
   const results = [combos, productos, electrodomesticos];
   results.forEach(result => { if (result.error) throw result.error; });
@@ -82,7 +83,7 @@ export async function getPublicCatalog() {
 export async function createElectrodomestico(electro, file) {
   assertSupabaseServiceRole();
   const id = await createCompactNumericId("Electrodomesticos");
-  const created = getSingleRow(await catalogRepository.insert("Electrodomesticos", { id, item: requireText(electro.item, "El item del electrodomestico es requerido"), tipo: electro.tipo, precio: electro.precio, disponible: electro.disponible }, "No se pudo crear el electrodomestico"), "No se pudo crear el electrodomestico");
+  const created = getSingleRow(await catalogRepository.insert("Electrodomesticos", { id, item: requireText(electro.item, "El item del electrodomestico es requerido"), tipo: electro.tipo, precio: electro.precio, disponible: electro.disponible, ...electroDetails(electro) }, "No se pudo crear el electrodomestico"), "No se pudo crear el electrodomestico");
   if (!file) return created;
   const img = await catalogStorage.replaceImage(created.id, null, ELECTRO_BUCKET, file);
   return getSingleRow(await catalogRepository.update("Electrodomesticos", created.id, { img }, "No se pudo guardar la imagen del electrodomestico"), "No se pudo guardar la imagen del electrodomestico");
@@ -99,7 +100,7 @@ export async function deleteElectrodomestico(id) {
 export async function updateElectrodomestico(id, electro, file) {
   assertSupabaseServiceRole();
   const electroId = requireText(id, "El id del electrodomestico es requerido");
-  const updates = { item: requireText(electro.item, "El item del electrodomestico es requerido"), tipo: electro.tipo, precio: electro.precio, disponible: electro.disponible };
+  const updates = { item: requireText(electro.item, "El item del electrodomestico es requerido"), tipo: electro.tipo, precio: electro.precio, disponible: electro.disponible, ...electroDetails(electro) };
   if (file) updates.img = await catalogStorage.replaceImage(electroId, electro.imagenActual, ELECTRO_BUCKET, file);
   return getSingleRow(await catalogRepository.update("Electrodomesticos", electroId, updates, "No se pudo actualizar el electrodomestico"), "No se encontro el electrodomestico para actualizar");
 }
@@ -108,8 +109,45 @@ export async function getInfo() {
   const { data: info, error } = await catalogRepository.getInfo();
   if (error) return { error };
   // TropiPay forma parte fija del checkout. Las credenciales siguen siendo privadas
-  // y se validan al crear el pago, nunca se exponen en esta respuesta pública.
-  return { data: { ...info?.[0], payment_methods: await catalogRepository.getPaymentMethods(), tropipay_enabled: true } };
+  // y se validan al crear el pago, nunca se exponen en esta respuesta pública. El mínimo
+  // permite al checkout no ofrecer la tarjeta en pedidos que TropiPay rechazaría.
+  return { data: { ...info?.[0], payment_methods: await catalogRepository.getPaymentMethods(), tropipay_enabled: true, tropipay_min_amount: tropipayMinAmount() } };
+}
+
+const MAX_DESCRIPTION = 2000;
+const MAX_FEATURES = 30;
+
+// Solo se escriben los campos que llegan: una versión anterior de la APK que no los
+// manda no borra la descripción ni las características guardadas.
+function electroDetails(electro) {
+  const details = {};
+  if (electro.descripcion !== undefined) details.descripcion = normalizeDescription(electro.descripcion);
+  if (electro.caracteristicas !== undefined) details.caracteristicas = normalizeFeatures(electro.caracteristicas);
+  return details;
+}
+
+export function normalizeDescription(value) {
+  const text = String(value ?? "").trim();
+  if (text.length > MAX_DESCRIPTION) throw createBadRequest(`La descripcion no puede superar ${MAX_DESCRIPTION} caracteres`);
+  return text || null;
+}
+
+export function normalizeFeatures(value) {
+  let raw = value;
+  if (raw === null || raw === "") return [];
+  if (typeof raw === "string") {
+    try { raw = JSON.parse(raw); } catch { throw createBadRequest("El campo caracteristicas debe contener un JSON valido"); }
+  }
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) raw = Object.entries(raw).map(([nombre, valor]) => ({ nombre, valor }));
+  if (!Array.isArray(raw)) throw createBadRequest("El campo caracteristicas debe ser una lista");
+  const features = raw
+    .map(feature => ({ nombre: String(feature?.nombre ?? "").trim(), valor: String(feature?.valor ?? "").trim() }))
+    .filter(feature => feature.nombre);
+  if (features.length > MAX_FEATURES) throw createBadRequest(`Maximo ${MAX_FEATURES} caracteristicas`);
+  if (features.some(feature => feature.nombre.length > 60 || feature.valor.length > 200)) {
+    throw createBadRequest("Cada caracteristica admite hasta 60 caracteres de nombre y 200 de valor");
+  }
+  return features;
 }
 
 function createCompactId(prefix) { return `${prefix}-${Date.now().toString(36)}`; }

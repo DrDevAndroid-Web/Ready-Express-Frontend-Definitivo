@@ -32,6 +32,14 @@ async function postOrder(body) {
   });
 }
 
+async function postQuote(body) {
+  return fetch(`${baseUrl}/api/orders/quote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
+
 // Orden base válida para construir variaciones negativas
 const validBase = {
   items: [{ nombre: "Combo Pollo", precio: 15, cantidad: 2 }],
@@ -44,6 +52,13 @@ const validBase = {
 };
 
 describe("POST /api/orders — validación de órdenes (normalizeOrderInput)", () => {
+  it("rechaza una orden completa sin sesión autenticada", async () => {
+    const res = await postOrder(validBase);
+    const body = await res.json();
+    assert.equal(res.status, 401);
+    assert.match(body.error, /iniciar sesión/i);
+  });
+
   it("rechaza body vacío — falta al menos un item", async () => {
     const res = await postOrder({});
     const body = await res.json();
@@ -118,6 +133,15 @@ describe("POST /api/orders — validación de órdenes (normalizeOrderInput)", (
     const body = await res.json();
     assert.equal(res.status, 400);
     assert.match(body.error, /direccion/i);
+  });
+});
+
+describe("POST /api/orders/quote — validación de cotización", () => {
+  it("rechaza una cotización sin items antes de consultar el catálogo", async () => {
+    const res = await postQuote({});
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.match(body.error, /cotización.*item/i);
   });
 });
 

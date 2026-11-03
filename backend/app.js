@@ -6,7 +6,8 @@ import { sendError, createBadRequest, clientClosedRequest } from "./utils/http-e
 
 const app = express();
 
-app.set("trust proxy", 1);
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS || "1", 10);
+app.set("trust proxy", Number.isFinite(trustProxyHops) && trustProxyHops >= 0 ? trustProxyHops : 1);
 
 // Los orquestadores suelen comprobar `/` para decidir si el contenedor está sano.
 // Estas rutas no dependen de servicios externos y deben responder inmediatamente.
@@ -25,7 +26,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Checkout-Token']
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 // Express 5 deja req.body sin definir si la petición no trae cuerpo JSON: las rutas que lo
 // desestructuran fallaban con 500 en vez de responder 400 (multer lo reemplaza en las subidas)
 app.use((req, _res, next) => {

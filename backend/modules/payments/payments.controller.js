@@ -2,6 +2,12 @@ import { processPayment, getPendingPayments, getApprovedPayments, verifyPayment 
 import { sendError } from "../../utils/http-error.js";
 import { getOrderAccess } from "../orders/orders.controller.js";
 
+function pagination(query) {
+  const limit = Math.min(100, Math.max(1, Number.parseInt(query.limit, 10) || 50));
+  const offset = Math.max(0, Number.parseInt(query.offset, 10) || 0);
+  return { limit, offset };
+}
+
 export async function uploadPayment(req, res) {
   try {
     // Sin multipart (petición mal formada) multer no rellena req.body
@@ -24,7 +30,8 @@ export async function getPendingPaymentsController(req, res) {
     console.info("[payments:pending] consultando pagos pendientes", {
       user: req.user?.email || req.user?.id || "unknown"
     });
-    const result = await getPendingPayments();
+    const { limit, offset } = pagination(req.query);
+    const result = await getPendingPayments(limit, offset);
     console.info("[payments:pending] pagos pendientes cargados", {
       count: Array.isArray(result) ? result.length : 0
     });
@@ -40,7 +47,8 @@ export async function getApprovedPaymentsController(req, res) {
     console.info("[payments:approved] consultando pagos aprobados", {
       user: req.user?.email || req.user?.id || "unknown"
     });
-    const result = await getApprovedPayments();
+    const { limit, offset } = pagination(req.query);
+    const result = await getApprovedPayments(limit, offset);
     console.info("[payments:approved] pagos aprobados cargados", {
       count: Array.isArray(result) ? result.length : 0
     });

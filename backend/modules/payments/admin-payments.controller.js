@@ -1,12 +1,21 @@
 import { supabase } from "../../config/supabase.js";
 import { sendError, throwIfSupabaseError } from "../../utils/http-error.js";
 import { printOrder } from "../orders/orders.service.js";
+
+function pagination(query) {
+  const limit = Math.min(100, Math.max(1, Number.parseInt(query.limit, 10) || 50));
+  const offset = Math.max(0, Number.parseInt(query.offset, 10) || 0);
+  return { limit, offset };
+}
+
 export async function listAdminTransactions(req, res) {
   try {
+    const { limit, offset } = pagination(req.query);
     let query = supabase
       .from("payment_transactions")
       .select("*, orders(id, order_reference, customer_name, customer_email, total, status, payment_status, delivery_status, printed_at), delivery_confirmations(id, status, created_at, object_path, bucket_name, verified_at)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
     if (req.query.provider) query = query.eq("provider", req.query.provider);
     if (req.query.status) query = query.eq("status", req.query.status);
     const { data, error } = await query;
@@ -18,5 +27,5 @@ export async function listAdminTransactions(req, res) {
     })));
   } catch (error) { sendError(res, error); }
 }
-export async function getAdminTransactionEvents(req, res) { try { const { data, error } = await supabase.from("payment_events").select("*").eq("payment_transaction_id", req.params.id).order("received_at", { ascending: false }); throwIfSupabaseError(error, "No se pudieron cargar los eventos del pago"); res.json(data || []); } catch (error) { sendError(res, error); } }
+export async function getAdminTransactionEvents(req, res) { try { const { limit, offset } = pagination(req.query); const { data, error } = await supabase.from("payment_events").select("*").eq("payment_transaction_id", req.params.id).order("received_at", { ascending: false }).range(offset, offset + limit - 1); throwIfSupabaseError(error, "No se pudieron cargar los eventos del pago"); res.json(data || []); } catch (error) { sendError(res, error); } }
 export async function retryAdminPrint(req, res) { try { res.json(await printOrder(req.params.orderId)); } catch (error) { sendError(res, error); } }

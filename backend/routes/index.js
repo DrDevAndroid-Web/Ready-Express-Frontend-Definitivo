@@ -1,7 +1,7 @@
 import express from "express";
 import paymentMethodsRouter from "./payment-methods.js";
 
-import { createOrderController, getOrdersController, getCustomerOrdersController, cancelOrderController, getOrderByIdController, printOrderController } from "../modules/orders/orders.controller.js"
+import { createOrderController, quoteOrderController, getOrdersController, getCustomerOrdersController, cancelOrderController, getOrderByIdController, printOrderController } from "../modules/orders/orders.controller.js"
 import {
   uploadPayment,
   getPendingPaymentsController,
@@ -52,24 +52,28 @@ import {
 } from "../modules/chat/chat.controller.js";
 
 import { upload } from "../middlewares/upload.js";
-import { authLimiter, chatMessageLimiter, chatSessionLimiter, orderLimiter, passwordRecoveryLimiter, paymentLimiter, paymentStatusLimiter } from "../middlewares/rate-limits.js";
-import { optionalSupabaseUser, requireAdmin, requireDeliveryOperator, requireRecoverySession, requireSupabaseUser, tokenFromQuery } from "../middlewares/auth.js";
+import { authLimiter, confirmationEmailLimiter, chatMessageLimiter, chatSessionLimiter, orderLimiter, passwordRecoveryLimiter, paymentLimiter, paymentStatusLimiter, referralClaimLimiter } from "../middlewares/rate-limits.js";
+import { optionalSupabaseUser, requireAdmin, requireDeliveryOperator, requireRecoverySession, requireRoles, requireSupabaseUser, tokenFromQuery } from "../middlewares/auth.js";
 import { supabase, supabaseAuth } from "../config/supabase.js";
 import { createBadRequest, sendError } from "../utils/http-error.js";
+import { notifyNewDeviceLogin } from "../modules/auth/login-alert.service.js";
 
 // Mensajes de Supabase Auth traducidos; el resto no se reenvía al cliente (pueden ser internos)
 function authErrorMessage(error) {
   const message = String(error?.message || "");
   if (/invalid login credentials/i.test(message)) return "Email o contraseña incorrectos";
-  if (/email not confirmed/i.test(message)) return "Confirma tu email antes de iniciar sesión";
+  if (/email not confirmed/i.test(message)) return "Confirma tu email antes de iniciar sesión. Te enviamos un enlace al registrarte.";
   if (/refresh token/i.test(message)) return "La sesión expiró. Inicia sesión de nuevo.";
   return "No se pudo iniciar sesión";
 }
-import { registerCustomer, getCustomerProfile, updateCustomerProfile, listCustomerAddresses, createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from "../modules/customers/customer.service.js";
+import { registerCustomer, resendConfirmationEmail, verifyEmailCode, getCustomerProfile, updateCustomerProfile, getPaymentPreferences, updatePaymentPreferences, listCustomerAddresses, createCustomerAddress, updateCustomerAddress, deleteCustomerAddress } from "../modules/customers/customer.service.js";
 import { createTropipayPaymentController, getTropipayStatusController, retryTropipayPaymentController, tropipayWebhookController, tropipayConfigurationController } from "../modules/payments/tropipay.controller.js";
 import { listAdminTransactions, getAdminTransactionEvents, retryAdminPrint } from "../modules/payments/admin-payments.controller.js";
 import { getFeesReportController, getPricingSettingsController, updatePricingSettingsController } from "../modules/settings/settings.controller.js";
 import { uploadDeliveryConfirmationController, getDeliveryConfirmationController, getPaymentDeliveryConfirmationController, updateDeliveryConfirmationController } from "../modules/media/media.controller.js";
+import { getPublicReferralProgramController, claimReferralCodeController, getMyReferralCodeController, attachReferralClaimController, getMyReferralSummaryController } from "../modules/referrals/referral.controller.js";
+import { getAdminReferralProgramController, updateAdminReferralProgramController, createAdminReferralRuleController, updateAdminReferralRuleController, listAdminReferralsController, listAdminReferralRewardsController, getAdminReferralStatsController, reverseAdminReferralRewardController } from "../modules/referrals/referral.admin.controller.js";
+import { getReferralPushPreferences, getReferralPushPublicKey, updateReferralPushPreferences } from "../modules/notifications/referral-push.service.js";
 
 const router = express.Router();
 
@@ -85,7 +89,7 @@ router.get("/auth/config", (_req, res) => {
 
 router.post("/auth/login", authLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, device_id: deviceId } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: "Email y contraseña son requeridos" });
@@ -97,8 +101,13 @@ router.post("/auth/login", authLimiter, async (req, res) => {
     });
 
     if (error) {
-      return res.status(401).json({ error: authErrorMessage(error) });
+      // code: el frontend muestra el aviso de confirmar el email con opción de reenviarlo
+      const code = /email not confirmed/i.test(error.message || "") ? "email_not_confirmed" : undefined;
+      return res.status(401).json({ error: authErrorMessage(error), ...(code ? { code } : {}) });
     }
+
+    // Aviso por email si entra desde un dispositivo nuevo; en segundo plano, no retrasa el login
+    notifyNewDeviceLogin({ user: data.user, deviceId, userAgent: req.get("user-agent"), ip: req.ip });
 
     res.json({
       access_token: data.session?.access_token,
@@ -118,7 +127,29 @@ router.post("/auth/login", authLimiter, async (req, res) => {
 
 router.post("/auth/register", authLimiter, async (req, res, next) => {
   try {
-    res.status(201).json(await registerCustomer(req.body));
+    const result = await registerCustomer(req.body);
+    // El dispositivo del registro queda como conocido (sin aviso): solo avisarán los siguientes
+    if (result.access_token) notifyNewDeviceLogin({ user: result.user, deviceId: req.body?.device_id, userAgent: req.get("user-agent"), ip: req.ip });
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/auth/resend-confirmation", confirmationEmailLimiter, async (req, res, next) => {
+  try {
+    res.json(await resendConfirmationEmail(req.body?.email));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/auth/verify-email-code", authLimiter, async (req, res, next) => {
+  try {
+    const result = await verifyEmailCode(req.body?.email, req.body?.code);
+    // Primer acceso de la cuenta: deja el dispositivo como conocido, sin aviso
+    notifyNewDeviceLogin({ user: result.user, deviceId: req.body?.device_id, userAgent: req.get("user-agent"), ip: req.ip });
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -174,7 +205,9 @@ router.post("/auth/refresh", authLimiter, async (req, res) => {
     });
 
     if (error) {
-      return res.status(401).json({ error: authErrorMessage(error) });
+      // code: el frontend muestra el aviso de confirmar el email con opción de reenviarlo
+      const code = /email not confirmed/i.test(error.message || "") ? "email_not_confirmed" : undefined;
+      return res.status(401).json({ error: authErrorMessage(error), ...(code ? { code } : {}) });
     }
 
     res.json({
@@ -224,6 +257,15 @@ router.get("/admin/payments", requireSupabaseUser, requireAdmin, listAdminTransa
 router.get("/admin/configuracion/precios", requireSupabaseUser, requireAdmin, getPricingSettingsController);
 router.put("/admin/configuracion/precios", requireSupabaseUser, requireAdmin, updatePricingSettingsController);
 router.get("/admin/reporte-tarifas", requireSupabaseUser, requireAdmin, getFeesReportController);
+// Configuración y observabilidad de referidos: solo admin, no operador/repartidor.
+router.get("/admin/referrals/program", requireSupabaseUser, requireRoles("admin"), getAdminReferralProgramController);
+router.patch("/admin/referrals/program", requireSupabaseUser, requireRoles("admin"), updateAdminReferralProgramController);
+router.post("/admin/referrals/rules", requireSupabaseUser, requireRoles("admin"), createAdminReferralRuleController);
+router.patch("/admin/referrals/rules/:id", requireSupabaseUser, requireRoles("admin"), updateAdminReferralRuleController);
+router.get("/admin/referrals", requireSupabaseUser, requireRoles("admin"), listAdminReferralsController);
+router.get("/admin/referral-rewards", requireSupabaseUser, requireRoles("admin"), listAdminReferralRewardsController);
+router.post("/admin/referral-rewards/:id/reverse", requireSupabaseUser, requireRoles("admin"), reverseAdminReferralRewardController);
+router.get("/admin/referrals/stats", requireSupabaseUser, requireRoles("admin"), getAdminReferralStatsController);
 router.get("/admin/payments/:id/events", requireSupabaseUser, requireAdmin, getAdminTransactionEvents);
 router.get("/admin/payments/:id/evidence-url", requireSupabaseUser, requireAdmin, getPaymentDeliveryConfirmationController);
 router.post("/admin/orders/:orderId/retry-print", requireSupabaseUser, requireAdmin, retryAdminPrint);
@@ -237,6 +279,20 @@ router.patch("/auth/profile", requireSupabaseUser, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+router.get("/account/payment-preferences", requireSupabaseUser, async (req, res, next) => {
+  try { res.json(await getPaymentPreferences(req.user.id)); } catch (err) { next(err); }
+});
+
+router.patch("/account/payment-preferences", requireSupabaseUser, async (req, res, next) => {
+  try { res.json(await updatePaymentPreferences(req.user.id, req.body)); } catch (err) { next(err); }
+});
+router.get("/account/referral-push", requireSupabaseUser, async (req, res, next) => {
+  try { res.json({ ...await getReferralPushPreferences(req.user.id), ...getReferralPushPublicKey() }); } catch (err) { next(err); }
+});
+router.patch("/account/referral-push", requireSupabaseUser, async (req, res, next) => {
+  try { res.json({ ...await updateReferralPushPreferences(req.user.id, req.body), ...getReferralPushPublicKey() }); } catch (err) { next(err); }
 });
 
 router.get("/account/addresses", requireSupabaseUser, async (req, res, next) => { try { res.json(await listCustomerAddresses(req.user.id)); } catch (err) { next(err); } });
@@ -260,10 +316,16 @@ router.post("/electrodomesticos", requireSupabaseUser, requireAdmin, upload.sing
 router.delete("/electrodomesticos/:id", requireSupabaseUser, requireAdmin, deleteElectro);
 router.put("/electrodomesticos/:id", requireSupabaseUser, requireAdmin, upload.single("imagen"), updateElectro);
 router.get("/info", getInfo);
+router.get("/referrals/program", getPublicReferralProgramController);
+router.post("/referrals/claim", referralClaimLimiter, optionalSupabaseUser, claimReferralCodeController);
+router.get("/account/referral-code", requireSupabaseUser, getMyReferralCodeController);
+router.post("/account/referral-claim", referralClaimLimiter, requireSupabaseUser, attachReferralClaimController);
+router.get("/account/referrals", requireSupabaseUser, getMyReferralSummaryController);
 router.get("/orders", requireSupabaseUser, requireAdmin, getOrdersController);
 
 // ORDERS
 router.post("/orders", orderLimiter, optionalSupabaseUser, createOrderController);
+router.post("/orders/quote", orderLimiter, optionalSupabaseUser, quoteOrderController);
 router.get("/account/orders", requireSupabaseUser, getCustomerOrdersController);
 router.get("/orders/:id", optionalSupabaseUser, getOrderByIdController);
 router.patch("/orders/:id/cancel", optionalSupabaseUser, cancelOrderController);

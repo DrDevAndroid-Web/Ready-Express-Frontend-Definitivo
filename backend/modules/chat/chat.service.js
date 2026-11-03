@@ -143,21 +143,23 @@ export async function getSession(sessionId) {
   return data;
 }
 
-export async function getAllSessions() {
+export async function getAllSessions(limit = 50, offset = 0) {
   const { data, error } = await supabase
     .from("chat_sessions")
     .select("*")
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return data;
 }
 
-export async function getSessionMessages(sessionId) {
+export async function getSessionMessages(sessionId, limit = 100, offset = 0) {
   const { data, error } = await supabase
     .from("chat_messages")
     .select("*")
     .eq("session_id", sessionId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .range(offset, offset + limit - 1);
   if (error) throw error;
   return data;
 }

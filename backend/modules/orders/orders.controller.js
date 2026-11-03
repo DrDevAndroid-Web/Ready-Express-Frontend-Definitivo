@@ -1,13 +1,23 @@
-import { createOrder, cancelOrder, printOrder, assertOrderAccess } from "./orders.service.js";
+import { createOrder, quoteOrder, cancelOrder, printOrder, assertOrderAccess } from "./orders.service.js";
 import { ADMIN_ROLES, getUserRoles } from "../../middlewares/auth.js";
 import { assertSupabaseServiceRole, supabase, supabaseKeyInfo } from "../../config/supabase.js";
 import { sendError, throwIfSupabaseError } from "../../utils/http-error.js";
 import { getPaymentImageUrl } from "../payments/payments.service.js";
+import { getDeliveryPhotosForOrders } from "../media/media.service.js";
+import { publicFailure } from "../payments/tropipay.service.js";
 
 export async function createOrderController(req, res) {
   try {
     const order = await createOrder(req.body, req.user?.id || null);
     res.json(order);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function quoteOrderController(req, res) {
+  try {
+    res.json(await quoteOrder(req.body, req.user?.id || null));
   } catch (err) {
     sendError(res, err);
   }
@@ -125,7 +135,7 @@ export async function getCustomerOrdersController(req, res) {
     if (!orderIds.length) return res.json([]);
     const [{ data: manualPayments, error: manualError }, { data: tropipay, error: tropipayError }] = await Promise.all([
       supabase.from("payments").select("id, order_id, method, amount, image_url, validation_status, created_at").in("order_id", orderIds).order("created_at", { ascending: false }),
-      supabase.from("payment_transactions").select("id, order_id, provider, provider_payment_id, external_reference, amount, currency, status, payment_url, created_at, updated_at").in("order_id", orderIds).eq("provider", "tropipay").order("created_at", { ascending: false })
+      supabase.from("payment_transactions").select("id, order_id, provider, provider_payment_id, external_reference, amount, currency, status, payment_url, raw_payload, created_at, updated_at").in("order_id", orderIds).eq("provider", "tropipay").order("created_at", { ascending: false })
     ]);
     throwIfSupabaseError(manualError, "No se pudieron cargar los comprobantes");
     throwIfSupabaseError(tropipayError, "No se pudieron cargar los pagos TropiPay");
@@ -135,8 +145,14 @@ export async function getCustomerOrdersController(req, res) {
       const list = byOrder.get(payment.order_id) || { manual: [], tropipay: [] };
       list.manual.push({ ...payment, signed_url }); byOrder.set(payment.order_id, list);
     }
-    for (const payment of tropipay || []) { const list = byOrder.get(payment.order_id) || { manual: [], tropipay: [] }; list.tropipay.push(payment); byOrder.set(payment.order_id, list); }
-    res.json((data || []).map(order => ({ ...order, payments: byOrder.get(order.id) || { manual: [], tropipay: [] } })));
+    // raw_payload solo sirve para explicar el fallo; al cliente nunca le llega
+    for (const { raw_payload: _raw, ...payment } of tropipay || []) {
+      const list = byOrder.get(payment.order_id) || { manual: [], tropipay: [] };
+      list.tropipay.push({ ...payment, ...publicFailure({ ...payment, raw_payload: _raw }) });
+      byOrder.set(payment.order_id, list);
+    }
+    const deliveryPhotos = await getDeliveryPhotosForOrders(orderIds);
+    res.json((data || []).map(order => ({ ...order, payments: byOrder.get(order.id) || { manual: [], tropipay: [] }, delivery_photo: deliveryPhotos.get(order.id) || null })));
   } catch (err) {
     sendError(res, err);
   }

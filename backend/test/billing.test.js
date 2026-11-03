@@ -10,7 +10,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= [
 process.env.SUPABASE_ANON_KEY ||= "anon-key";
 
 const { parseBirthDate } = await import("../utils/billing.js");
-const { normalizeBilling } = await import("../modules/customers/customer.service.js");
+const { normalizeBilling, normalizePaymentPreferences } = await import("../modules/customers/customer.service.js");
 const { normalizePayer } = await import("../modules/orders/orders.service.js");
 const { buildTropipayClient } = await import("../modules/payments/providers/tropipay.provider.js");
 const { default: app } = await import("../app.js");
@@ -58,6 +58,20 @@ describe("normalizeBilling — datos de facturación del perfil", () => {
   it("estado/provincia es opcional", () => assert.equal(normalizeBilling({ ...billing, estado_region: "" }).estado_region, null));
 });
 
+describe("normalizePaymentPreferences — métodos elegidos por el cliente", () => {
+  it("normaliza, elimina duplicados y exige al menos uno", () => {
+    assert.deepEqual(normalizePaymentPreferences([" Zelle ", "tocopay", "zelle"]), ["zelle", "tocopay"]);
+    assert.throws(() => normalizePaymentPreferences([]), /al menos un método/i);
+  });
+  it("mantiene tarjeta bloqueada temporalmente", () => {
+    const previous = process.env.CARD_PAYMENTS_ENABLED;
+    delete process.env.CARD_PAYMENTS_ENABLED;
+    assert.throws(() => normalizePaymentPreferences(["tropipay"]), /no está disponible/i);
+    if (previous === undefined) delete process.env.CARD_PAYMENTS_ENABLED;
+    else process.env.CARD_PAYMENTS_ENABLED = previous;
+  });
+});
+
 describe("Pagador de la orden y client de TropiPay", () => {
   const data = { customer_email: "ana@example.com", payer: { country_iso: "US", address: "100 Test Street", city: "Miami", post_code: "33101", birth_date: "1990-01-15", terms_accepted: true } };
 
@@ -78,23 +92,23 @@ describe("Pagador de la orden y client de TropiPay", () => {
   });
 });
 
-describe("POST /api/auth/register — datos de facturación obligatorios", () => {
-  const account = { email: "nuevo@example.com", password: "12345678", nombre: "Ana", apellidos: "Prueba", telefono: "+1" };
+describe("POST /api/auth/register — preferencias de pago", () => {
+  const account = { email: "nuevo@example.com", password: "12345678", confirm_password: "12345678", nombre: "Ana", apellidos: "Prueba", telefono: "+1" };
   const register = body => fetch(`${baseUrl}/api/auth/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-  it("sin datos de facturación → 400 antes de crear el usuario", async () => {
+  it("sin método elegido → 400 antes de crear el usuario", async () => {
     const res = await register(account);
     assert.equal(res.status, 400);
-    assert.match((await res.json()).error, /terminos/i);
+    assert.match((await res.json()).error, /método/i);
   });
-  it("sin fecha de nacimiento → 400", async () => {
-    const res = await register({ ...account, ...billing, fecha_nacimiento: "" });
+  it("contraseña y confirmación distintas → 400 antes de crear el usuario", async () => {
+    const res = await register({ ...account, confirm_password: "87654321", preferred_payment_methods: ["zelle"] });
     assert.equal(res.status, 400);
-    assert.match((await res.json()).error, /nacimiento/i);
+    assert.match((await res.json()).error, /contraseñas no coinciden/i);
   });
-  it("menor de edad → 400", async () => {
-    const res = await register({ ...account, ...billing, fecha_nacimiento: yearsAgo(16) });
+  it("tarjeta temporalmente oculta → 400", async () => {
+    const res = await register({ ...account, preferred_payment_methods: ["tropipay"] });
     assert.equal(res.status, 400);
-    assert.match((await res.json()).error, /mayor de edad/i);
+    assert.match((await res.json()).error, /no está disponible/i);
   });
 });

@@ -11,7 +11,9 @@ async function tropipayFetch(path, options = {}) {
   const response = await fetch(`${baseUrl()}${path}`, options);
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    const error = new Error(body?.message || body?.error || `TropiPay respondió HTTP ${response.status}`);
+    // TropiPay responde { error: { type, code, message, details, i18n } }
+    const providerMessage = body?.error?.message || body?.message || (typeof body?.error === "string" ? body.error : null);
+    const error = new Error(`TropiPay HTTP ${response.status}${body?.error?.code ? ` ${body.error.code}` : ""}: ${providerMessage || "sin detalle"}`);
     error.status = response.status;
     error.providerBody = body;
     throw error;
@@ -84,8 +86,6 @@ export function getTropipayConfigurationStatus() {
     baseUrl: baseUrl(),
     hasClientId: Boolean(process.env.TROPIPAY_CLIENT_ID),
     hasClientSecret: Boolean(process.env.TROPIPAY_CLIENT_SECRET),
-    hasApiKey: Boolean(process.env.TROPIPAY_API_KEY || process.env.TROPIPAY_CLIENT_ID),
-    hasApiSecret: Boolean(process.env.TROPIPAY_API_SECRET || process.env.TROPIPAY_CLIENT_SECRET),
     currency: String(process.env.TROPIPAY_CURRENCY || "USD").toUpperCase()
   };
 }
@@ -116,7 +116,7 @@ export function buildTropipayClient(order) {
 
 // Devuelve la lista de campos requeridos que faltan (vacía si el cliente es válido)
 export function missingTropipayClientFields(client) {
-  const labels = { name: "nombre", lastName: "apellidos", email: "email", phone: "telefono", address: "direccion", countryIso: "pais", termsAndConditions: "aceptacion de terminos" };
+  const labels = { name: "nombre", lastName: "apellidos", email: "email", phone: "teléfono", address: "dirección de facturación", countryIso: "país", termsAndConditions: "aceptación de los términos" };
   return Object.keys(labels).filter(key => !client[key]).map(key => labels[key]);
 }
 

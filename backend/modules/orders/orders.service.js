@@ -3,7 +3,7 @@ import { sendEmail, sendCancelledOrderEmail } from "../email/email.service.js";
 import { sendPrintableOrderEmail } from "../email/resend.js";
 import { notifyNewOrder, notifyOrderCancelled } from "../telegram/telegram.service.js";
 import { NotificationManager } from "../notifications/notifications.service.js";
-import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
+import { createBadRequest, createConflict, createNotFound, createUnauthorized, throwIfSupabaseError } from "../../utils/http-error.js";
 import { notifyOrderSMS } from "../sms/sms.service.js";
 import { getDeliveryLocation } from "../locations/locations.service.js";
 import { randomBytes, timingSafeEqual } from "node:crypto";
@@ -11,9 +11,10 @@ import { priceItemsFromCatalog } from "./pricing.js";
 import { parseBirthDate } from "../../utils/billing.js";
 import { applyStoreMarkup } from "../../utils/store-pricing.js";
 import { getPricingSettings } from "../settings/pricing-settings.service.js";
+import { getReferralDiscountForOrder } from "../referrals/referral.service.js";
 
 export async function createOrder(data, customerId = null) {
-  const orderInput = await normalizeOrderInput(data, customerId);
+  const { orderInput, referralAdjustment } = await normalizeOrderInput(data, customerId);
 
   let { data: order, error } = await supabase
     .from("orders")
@@ -32,12 +33,71 @@ export async function createOrder(data, customerId = null) {
 
   throwIfSupabaseError(error, "No se pudo crear la orden");
 
+  if (referralAdjustment) {
+    const { data: adjustment, error: adjustmentError } = await supabase
+      .from("order_adjustments")
+      .insert({
+        order_id: order.id,
+        adjustment_type: "referral_discount",
+        source_id: referralAdjustment.referralId,
+        amount: referralAdjustment.amount,
+        currency: referralAdjustment.currency,
+        metadata: { rule_snapshot: referralAdjustment.ruleSnapshot }
+      })
+      .select("id,order_id,adjustment_type,amount,currency")
+      .single();
+
+    if (adjustmentError) {
+      // No se anuncian ni se cobran pedidos cuyo descuento no quedó auditado.
+      const { error: cleanupError } = await supabase.from("orders").delete().eq("id", order.id);
+      if (cleanupError) console.error("[orders:referral-cleanup]", cleanupError.message || cleanupError);
+      throwIfSupabaseError(adjustmentError, "No se pudo registrar el descuento de referido");
+    }
+    const { data: reservedReferral, error: reserveError } = await supabase
+      .from("referrals")
+      .update({ status: "purchase_pending", first_eligible_order_id: order.id, rule_snapshot: referralAdjustment.ruleSnapshot })
+      .eq("id", referralAdjustment.referralId)
+      .eq("status", "registered")
+      .is("first_eligible_order_id", null)
+      .select("id");
+    if (reserveError || !reservedReferral?.length) {
+      await supabase.from("order_adjustments").delete().eq("id", adjustment.id);
+      const { error: cleanupError } = await supabase.from("orders").delete().eq("id", order.id);
+      if (cleanupError) console.error("[orders:referral-cleanup]", cleanupError.message || cleanupError);
+      throwIfSupabaseError(reserveError, "No se pudo reservar la atribución de referido");
+      throw createConflict("La primera compra de este referido ya está en proceso");
+    }
+    order.referral_adjustment = adjustment;
+  }
+
   // Con TropiPay la orden aún no está pagada: los avisos (APK, email, Telegram, SMS)
   // esperan a que el webhook confirme el pago (ver notifyConfirmedOrder).
   if (data.payment_flow === PAYMENT_FLOW_TROPIPAY) return order;
 
   announceOrder(order);
   return order;
+}
+
+// Cotización visual del checkout. Repite la valoración del catálogo en backend;
+// nunca sustituye la validación final de createOrder.
+export async function quoteOrder(data = {}, customerId = null) {
+  const items = Array.isArray(data.items) ? data.items : [];
+  if (!items.length) throw createBadRequest("La cotización debe incluir al menos un item");
+  const requestedItems = items.map(normalizeItem);
+  const pricing = await getPricingSettings();
+  const normalizedItems = await priceItemsFromCatalog(requestedItems, { pricing });
+  const productsSubtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + item.precio_total, 0));
+  const location = data.delivery_location_id ? await getDeliveryLocation(data.delivery_location_id) : null;
+  const deliverySurcharge = roundMoney(location?.es_base ? 0 : applyStoreMarkup(Number(location?.recargo || 0), pricing));
+  const referralAdjustment = await getReferralDiscountForOrder(customerId, data.referral_claim_token, productsSubtotal, "USD");
+  const referralDiscount = referralAdjustment?.amount || 0;
+  return {
+    products_subtotal: productsSubtotal,
+    delivery_surcharge: deliverySurcharge,
+    referral_discount: referralDiscount,
+    total: roundMoney(productsSubtotal + deliverySurcharge - referralDiscount),
+    currency: referralAdjustment?.currency || "USD"
+  };
 }
 
 // Emitir SSE de inmediato. El email puede tardar o fallar,
@@ -114,6 +174,15 @@ export async function cancelOrder(orderId, access = {}) {
 
   throwIfSupabaseError(updateError, "No se pudo cancelar la orden");
   if (!cancelled?.length) throw createConflict("Solo se pueden cancelar ordenes en estado pendiente");
+
+  const { error: referralReleaseError } = await supabase
+    .from("referrals")
+    .update({ status: "registered", first_eligible_order_id: null })
+    .eq("first_eligible_order_id", orderId)
+    .eq("status", "purchase_pending");
+  if (referralReleaseError && referralReleaseError.code !== "PGRST205") {
+    console.error("[orders:referral-release]", referralReleaseError.message || referralReleaseError);
+  }
 
   NotificationManager.broadcastOrderCancelled(order);
 
@@ -211,17 +280,21 @@ async function normalizeOrderInput(data = {}, customerId = null) {
   // Precios, nombres y componentes salen del catálogo; el total enviado por el navegador se ignora
   // Mismo recargo que muestra la tienda (catálogo y entrega), igual para todos los métodos de pago
   const requestedItems = items.map(normalizeItem); // valida antes de consultar nada
+  if (!customerId) throw createUnauthorized("Debes iniciar sesión para completar la compra");
   const pricing = await getPricingSettings();
   const normalizedItems = await priceItemsFromCatalog(requestedItems, { pricing });
   const productsSubtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + item.precio_total, 0));
   let location = null;
   if (data.delivery_location_id) location = await getDeliveryLocation(data.delivery_location_id);
   const deliverySurcharge = roundMoney(location?.es_base ? 0 : applyStoreMarkup(Number(location?.recargo || 0), pricing));
-  const total = roundMoney(productsSubtotal + deliverySurcharge);
+  const referralAdjustment = await getReferralDiscountForOrder(customerId, data.referral_claim_token, productsSubtotal, "USD");
+  const referralDiscount = referralAdjustment?.amount || 0;
+  const total = roundMoney(productsSubtotal + deliverySurcharge - referralDiscount);
+  if (total <= 0) throw createBadRequest("El descuento de referido no puede cubrir todo el pedido");
 
   const status = data.status === "awaiting_manual_payment" ? "awaiting_manual_payment" : "pending";
 
-  return {
+  return { orderInput: {
     order_reference: createOrderReference(),
     checkout_token: randomBytes(24).toString("hex"),
     customer_id: customerId || null,
@@ -244,7 +317,7 @@ async function normalizeOrderInput(data = {}, customerId = null) {
     items: normalizedItems,
     total,
     status
-  };
+  }, referralAdjustment };
 }
 
 function roundMoney(value) {

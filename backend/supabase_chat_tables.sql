@@ -10,7 +10,7 @@ create table if not exists chat_clients (
 );
 
 create table if not exists chat_sessions (
-  id          text primary key default ('chat-' || substr(md5(random()::text), 1, 10)),
+  id          text primary key default ('chat-' || encode(gen_random_bytes(16), 'hex')),
   client_id   uuid references chat_clients(id) on delete cascade,
   status      text not null default 'ai' check (status in ('ai', 'handoff', 'resolved')),
   client_contact text,                  -- WhatsApp o email que dejó el cliente

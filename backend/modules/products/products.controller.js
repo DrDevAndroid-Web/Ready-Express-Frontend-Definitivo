@@ -166,6 +166,8 @@ export async function createElectro(req, res) {
     const electrodomestico = {
       item: req.body.item,
       tipo: req.body.tipo,
+      descripcion: req.body.descripcion,
+      caracteristicas: req.body.caracteristicas,
       precio: req.body.precio,
       disponible: req.body.disponible === "true" || req.body.disponible === true
     };
@@ -222,6 +224,8 @@ export async function updateElectro(req, res) {
     const electrodomestico = {
       item: req.body.item,
       tipo: req.body.tipo,
+      descripcion: req.body.descripcion,
+      caracteristicas: req.body.caracteristicas,
       precio: req.body.precio,
       disponible: req.body.disponible === "true" || req.body.disponible === true,
       imagenActual: req.body.imagen_actual

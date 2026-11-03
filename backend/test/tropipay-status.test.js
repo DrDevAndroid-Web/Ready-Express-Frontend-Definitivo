@@ -9,12 +9,16 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= [
   "test-signature"
 ].join(".");
 process.env.SUPABASE_ANON_KEY ||= "anon-key";
-// Claves ficticias solo para firmar webhooks simulados en este proceso
-process.env.TROPIPAY_API_KEY = "test-api-key";
-process.env.TROPIPAY_API_SECRET = "test-api-secret";
+// Credenciales ficticias solo para firmar webhooks simulados en este proceso:
+// TropiPay firma con el mismo client id/secret que se usa para pedir el token
+process.env.TROPIPAY_CLIENT_ID = "test-client-id";
+process.env.TROPIPAY_CLIENT_SECRET = "test-client-secret";
+delete process.env.TROPIPAY_API_KEY;
+delete process.env.TROPIPAY_API_SECRET;
 
-const { createTropipayPaymentForOrder, getTropipayStatus, processTropipayWebhook, retryTropipayPayment } = await import("../modules/payments/tropipay.service.js");
+const { createTropipayPaymentForOrder, getTropipayStatus, processTropipayWebhook, reconcilePendingTropipayPayments, retryTropipayPayment } = await import("../modules/payments/tropipay.service.js");
 const { resolveReturnBase } = await import("../modules/payments/providers/tropipay.provider.js");
+const { handleTropipayWebhook } = await import("../modules/payments/tropipay.controller.js");
 
 const OPEN = new Set(["pending", "processing"]);
 const TX_ID = "tx-1";
@@ -49,6 +53,8 @@ function setup({ txStatus = "pending", order = {}, paymentcard = { state: 1, amo
       async findPendingByOrder() { return OPEN.has(state.tx.status) ? { ...state.tx } : null; },
       async countByOrder() { return 1 + state.created.length; },
       async findByProviderReference() { return { ...state.tx }; },
+      async findReconcilable() { return [{ ...state.tx, orders: { ...state.order } }].filter(tx => tx.provider_payment_id && ["pending", "processing", "failed"].includes(tx.status)); },
+      async failStaleWithoutLink() { return state.stale || []; },
       async createPayment(payload) {
         const row = { id: `tx-${2 + state.created.length}`, ...payload };
         state.created.push(row);
@@ -95,10 +101,9 @@ function setup({ txStatus = "pending", order = {}, paymentcard = { state: 1, amo
 
 const owner = { customerId: OWNER };
 
-function signedWebhook({ status = "OK", amount = 2500 } = {}) {
-  const bankOrderCode = "BANK-1";
-  const secretHash = createHash("sha1").update(process.env.TROPIPAY_API_SECRET).digest("hex");
-  const signaturev3 = createHash("sha256").update(`${bankOrderCode}${process.env.TROPIPAY_API_KEY}${secretHash}${amount}`).digest("hex");
+function signedWebhook({ status = "OK", amount = 2500, bankOrderCode = "BANK-1", key = process.env.TROPIPAY_CLIENT_ID, secret = process.env.TROPIPAY_CLIENT_SECRET } = {}) {
+  const secretHash = createHash("sha1").update(secret).digest("hex");
+  const signaturev3 = createHash("sha256").update(`${bankOrderCode}${key}${secretHash}${amount}`).digest("hex");
   return { status, data: { reference: "REN-1", paymentcardId: "card-1", bankOrderCode, originalCurrencyAmount: amount, signaturev3 } };
 }
 
@@ -296,6 +301,131 @@ describe("Conciliación y webhook — idempotencia", () => {
   });
 });
 
+describe("Firma del webhook — client id/secret", () => {
+  it("acepta un aviso firmado con el client id/secret", async () => {
+    const { state, deps } = setup();
+    const result = await processTropipayWebhook(signedWebhook(), deps);
+    assert.equal(result.processed, true);
+    assert.equal(state.tx.status, "successful");
+  });
+
+  it("rechaza un aviso firmado con otras claves aunque estén en TROPIPAY_API_KEY/SECRET", async () => {
+    process.env.TROPIPAY_API_KEY = "otra-api-key";
+    process.env.TROPIPAY_API_SECRET = "otro-api-secret";
+    try {
+      const { state, deps } = setup();
+      const result = await processTropipayWebhook(signedWebhook({ key: "otra-api-key", secret: "otro-api-secret" }), deps);
+      assert.equal(result.reason, "INVALID_SIGNATURE");
+      assert.equal(state.tx.status, "pending");
+    } finally {
+      delete process.env.TROPIPAY_API_KEY;
+      delete process.env.TROPIPAY_API_SECRET;
+    }
+  });
+});
+
+describe("Controlador del webhook — respuesta a TropiPay", () => {
+  it("firma inválida → 401 sin procesar", async () => {
+    let calls = 0;
+    const payload = signedWebhook();
+    payload.data.signaturev3 = "0".repeat(64);
+    const result = await handleTropipayWebhook(payload, async () => { calls++; });
+    assert.equal(result.status, 401);
+    assert.equal(calls, 0);
+  });
+
+  it("procesado → 200 después de procesar", async () => {
+    let processed = false;
+    const result = await handleTropipayWebhook(signedWebhook(), async () => { processed = true; });
+    assert.equal(result.status, 200);
+    assert.equal(processed, true);
+  });
+
+  it("fallo al procesar → 500 para que TropiPay reintente", async () => {
+    const result = await handleTropipayWebhook(signedWebhook(), async () => { throw new Error("Supabase caído"); });
+    assert.equal(result.status, 500);
+  });
+
+  it("transacción inexistente → 200 (reintentar no la haría aparecer)", async () => {
+    const result = await handleTropipayWebhook(signedWebhook(), async () => { throw Object.assign(new Error("Transacción TropiPay no encontrada"), { status: 404 }); });
+    assert.equal(result.status, 200);
+  });
+});
+
+describe("Rechazos repetidos en el mismo enlace", () => {
+  it("un segundo rechazo tras reutilizar el enlace vuelve a marcar el pago como rechazado", async () => {
+    const { state, deps } = setup();
+    await processTropipayWebhook(signedWebhook({ status: "KO", bankOrderCode: "BANK-1" }), deps);
+    assert.equal(state.tx.status, "failed");
+    await retryTropipayPayment(TX_ID, owner, deps);
+    assert.equal(state.tx.status, "pending");
+
+    const second = await processTropipayWebhook(signedWebhook({ status: "KO", bankOrderCode: "BANK-2" }), deps);
+    assert.equal(second.status, "failed");
+    assert.equal(state.tx.status, "failed");
+    assert.equal(state.order.status, "payment_rejected");
+  });
+
+  it("el mismo aviso de rechazo repetido no se procesa dos veces", async () => {
+    const { state, deps } = setup();
+    await processTropipayWebhook(signedWebhook({ status: "KO" }), deps);
+    const repeated = await processTropipayWebhook(signedWebhook({ status: "KO" }), deps);
+    assert.equal(repeated.reason, "ALREADY_PROCESSED");
+    assert.equal(state.notifications.filter(n => n === "payment_failed").length, 1);
+  });
+});
+
+describe("Revisión periódica de pagos pendientes", () => {
+  const paid = { state: 1, amount: 2500, paymentInfo: { paid: true, paymentsCount: 1 } };
+
+  it("confirma un pago cobrado cuyo webhook no llegó: imprime y avisa una vez", async () => {
+    const { state, deps } = setup({ paymentcard: paid });
+    const summary = await reconcilePendingTropipayPayments(deps);
+    assert.equal(summary.confirmed, 1);
+    assert.equal(state.tx.status, "successful");
+    assert.equal(state.order.status, "paid");
+    assert.equal(state.printed, 1);
+    assert.equal(state.notified, 1);
+    assert.equal(state.events[0].signature_verified, false);
+  });
+
+  it("si después llega el webhook, no vuelve a procesar", async () => {
+    const { state, deps } = setup({ paymentcard: paid });
+    await reconcilePendingTropipayPayments(deps);
+    const webhook = await processTropipayWebhook(signedWebhook(), deps);
+    assert.equal(webhook.reason, "ALREADY_PROCESSED");
+    assert.equal(state.printed, 1);
+  });
+
+  it("enlace sin pagar: no cambia nada", async () => {
+    const { state, deps } = setup();
+    const summary = await reconcilePendingTropipayPayments(deps);
+    assert.deepEqual(summary, { checked: 1, confirmed: 0, unavailable: 0, closedWithoutLink: 0 });
+    assert.equal(state.tx.status, "pending");
+    assert.equal(state.printed, 0);
+  });
+
+  it("si TropiPay no responde: lo cuenta y sigue sin lanzar", async () => {
+    const { state, deps } = setup({ cardError: new Error("timeout") });
+    const summary = await reconcilePendingTropipayPayments(deps);
+    assert.equal(summary.unavailable, 1);
+    assert.equal(state.tx.status, "pending");
+  });
+
+  it("pago ya confirmado: no consulta TropiPay", async () => {
+    const { state, deps } = setup({ txStatus: "successful", paymentcard: paid });
+    await reconcilePendingTropipayPayments(deps);
+    assert.equal(state.cardCalls, 0);
+  });
+
+  it("informa las transacciones cerradas por quedarse sin enlace", async () => {
+    const { state, deps } = setup();
+    state.stale = [{ id: "tx-old" }];
+    const summary = await reconcilePendingTropipayPayments(deps);
+    assert.equal(summary.closedWithoutLink, 1);
+  });
+});
+
 describe("POST reintento TropiPay", () => {
   it("enlace activo y sin pagar: devuelve el mismo enlace sin crear otro", async () => {
     const { state, deps } = setup();
@@ -386,6 +516,90 @@ describe("Crear pago TropiPay — acceso", () => {
   it("orden pagada → 409", async () => {
     const { deps } = setup({ txStatus: "successful", order: { status: "paid", payment_status: "successful" } });
     await assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", checkoutToken: TOKEN }, deps), err => err.status === 409);
+  });
+});
+
+describe("Errores de pago legibles para el cliente", () => {
+  const providerError = (status, error) => Object.assign(new Error(`TropiPay HTTP ${status}`), { status, providerBody: { error } });
+  const quiet = async fn => {
+    const originalError = console.error;
+    console.error = () => {};
+    try { return await fn(); } finally { console.error = originalError; }
+  };
+
+  it("pedido por debajo del mínimo → 422 CARD_MIN_AMOUNT sin abrir transacción ni llamar a TropiPay", async () => {
+    const { state, deps } = setup({ txStatus: "cancelled", order: { total: 10 } });
+    await assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps), err => {
+      assert.equal(err.status, 422);
+      assert.equal(err.expose.code, "CARD_MIN_AMOUNT");
+      assert.equal(err.expose.min_amount, 15);
+      assert.match(err.message, /al menos \$15\.00/);
+      return true;
+    });
+    assert.equal(state.created.length, 0);
+    assert.equal(state.links.length, 0);
+  });
+
+  it("faltan datos de facturación → 422 CARD_PAYER_DATA con los campos que faltan", async () => {
+    const { deps } = setup({ txStatus: "cancelled", order: { payer_details: {} } });
+    await assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps), err =>
+      err.status === 422 && err.expose.code === "CARD_PAYER_DATA" && err.expose.missing.includes("dirección de facturación"));
+  });
+
+  it("credenciales rechazadas (401 de TropiPay) → 503 CARD_UNAVAILABLE, nunca 401, con payment_id para reintentar", async () => {
+    const { state, deps } = setup({ txStatus: "cancelled" });
+    deps.createTropipayPayment = async () => { throw providerError(401, { code: "EXPIRED_TOKEN", message: "Invalid credentials" }); };
+    await quiet(() => assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps), err => {
+      assert.equal(err.status, 503);
+      assert.equal(err.expose.code, "CARD_UNAVAILABLE");
+      assert.equal(err.expose.payment_id, state.created[0].id);
+      assert.equal(err.expose.order_reference, "REN-1");
+      assert.doesNotMatch(err.message, /credentials|token/i);
+      return true;
+    }));
+    assert.equal(state.created[0].status, "failed");
+  });
+
+  it("TOO_LOW_AMOUNT de TropiPay → 422 CARD_MIN_AMOUNT", async () => {
+    const { deps } = setup({ txStatus: "cancelled" });
+    deps.createTropipayPayment = async () => { throw providerError(400, { code: "TOO_LOW_AMOUNT", message: "Amount too low" }); };
+    await assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps), err => err.status === 422 && err.expose.code === "CARD_MIN_AMOUNT");
+  });
+
+  it("INVALID_PARAM en un dato del cliente → 422 CARD_PAYER_DATA indicando el campo", async () => {
+    const { deps } = setup({ txStatus: "cancelled" });
+    deps.createTropipayPayment = async () => { throw providerError(400, { code: "INVALID_PARAM", message: "Invalid Parameter", details: [{ param: "client.postCode", code: "INVALID_PARAM" }] }); };
+    await assert.rejects(createTropipayPaymentForOrder({ orderId: "o1", customerId: OWNER }, deps), err => {
+      assert.equal(err.expose.code, "CARD_PAYER_DATA");
+      assert.equal(err.expose.field, "postCode");
+      assert.match(err.message, /código postal/);
+      return true;
+    });
+  });
+
+  it("estado de un pago rechazado con motivo (fondos insuficientes) → failure_code y failure_message", async () => {
+    const { deps } = setup({ txStatus: "failed" });
+    const original = deps.paymentRepository.findById;
+    deps.paymentRepository.findById = async id => ({ ...(await original(id)), raw_payload: { status: "KO", data: { charges: [{ errorReason: "Insufficient funds" }] } } });
+    const result = await getTropipayStatus(TX_ID, owner, deps);
+    assert.equal(result.failure_code, "CARD_INSUFFICIENT_FUNDS");
+    assert.match(result.failure_message, /fondos suficientes/);
+    assert.equal(result.raw_payload, undefined);
+  });
+
+  it("aviso KO sin motivo → mensaje genérico", async () => {
+    const { deps } = setup({ txStatus: "failed" });
+    const original = deps.paymentRepository.findById;
+    deps.paymentRepository.findById = async id => ({ ...(await original(id)), raw_payload: { status: "KO", data: { reference: "REN-1" } } });
+    const result = await getTropipayStatus(TX_ID, owner, deps);
+    assert.equal(result.failure_code, "CARD_PAYMENT_FAILED");
+  });
+
+  it("importe que no cuadra → PAYMENT_REVIEW y sin reintento", async () => {
+    const { deps } = setup({ txStatus: "amount_mismatch" });
+    const result = await getTropipayStatus(TX_ID, owner, deps);
+    assert.equal(result.failure_code, "PAYMENT_REVIEW");
+    assert.equal(result.can_retry, false);
   });
 });
 

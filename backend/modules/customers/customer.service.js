@@ -1,9 +1,24 @@
 import { supabase, supabaseAuth } from "../../config/supabase.js";
-import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
+import { HttpError, createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
 import { parseBirthDate, parseCountryIso } from "../../utils/billing.js";
 
 // Columnas de 20260930_customer_billing_profile.sql
 export const BILLING_COLUMNS = ["pais_iso", "direccion_facturacion", "ciudad", "estado_region", "codigo_postal", "fecha_nacimiento", "terminos_tropipay_at"];
+export const PAYMENT_PREFERENCE_TABLE = "customer_payment_preferences";
+export const CARD_PAYMENT_PREFERENCE = "tropipay";
+
+export function normalizePaymentPreferences(input) {
+  const values = Array.isArray(input) ? input : input == null ? [] : [input];
+  const unique = [...new Set(values.map(value => String(value || "").trim().toLowerCase()).filter(Boolean))];
+  if (!unique.length) throw createBadRequest("Selecciona al menos un método de pago");
+  if (unique.some(value => !/^[a-z0-9][a-z0-9_-]{0,79}$/.test(value))) {
+    throw createBadRequest("Hay un método de pago no válido");
+  }
+  if (unique.includes(CARD_PAYMENT_PREFERENCE) && process.env.CARD_PAYMENTS_ENABLED !== "true") {
+    throw createBadRequest("El pago con tarjeta no está disponible temporalmente");
+  }
+  return unique.slice(0, 20);
+}
 
 // Datos de facturación para TropiPay: se piden en el registro para no repetirlos en cada pago
 export function normalizeBilling(input = {}) {
@@ -21,7 +36,32 @@ export function normalizeBilling(input = {}) {
   };
 }
 
-export async function registerCustomer({ email, password, nombre, apellidos, telefono = null, documento_identidad = null, ...billingInput }) {
+// Página de la tienda a la que lleva el enlace de confirmación del email. Debe estar en
+// Supabase → Authentication → Redirect URLs; si no, Supabase usa la Site URL.
+export function emailConfirmationRedirectUrl() {
+  if (process.env.FRONTEND_EMAIL_CONFIRM_URL) return process.env.FRONTEND_EMAIL_CONFIRM_URL;
+  const site = String(process.env.FRONTEND_PUBLIC_URL || "https://www.readyexpressnow.com").replace(/\/$/, "");
+  return `${site}/cuenta-confirmada.html`;
+}
+
+// Dirección de entrega que el cliente ya escribió en el checkout. Opcional: sin alias o
+// dirección no se guarda nada.
+export function normalizeDeliveryAddress(input) {
+  if (!input || typeof input !== "object") return null;
+  const direccion = optionalText(input.direccion);
+  if (!direccion) return null;
+  return {
+    alias: optionalText(input.alias) || "Entrega principal",
+    direccion,
+    provincia: optionalText(input.provincia),
+    municipio: optionalText(input.municipio),
+    referencia: optionalText(input.referencia),
+    telefono_contacto: optionalText(input.telefono_contacto),
+    es_predeterminada: true
+  };
+}
+
+export async function registerCustomer({ email, password, confirm_password, nombre, apellidos, telefono = null, documento_identidad = null, direccion_entrega = null, preferred_payment_methods = [], device_id: _deviceId, ...billingInput }) {
   const normalizedEmail = requireText(email, "El email es requerido").toLowerCase();
   const normalizedPassword = requireText(password, "La contraseña es requerida");
   const firstName = requireText(nombre, "El nombre es requerido");
@@ -30,13 +70,17 @@ export async function registerCustomer({ email, password, nombre, apellidos, tel
   if (normalizedPassword.length < 8) {
     throw createBadRequest("La contraseña debe tener al menos 8 caracteres");
   }
-  // Se valida antes de crear el usuario para no dejar cuentas a medias
-  const billing = normalizeBilling(billingInput);
+  if (String(confirm_password || "") !== normalizedPassword) {
+    throw createBadRequest("Las contraseñas no coinciden");
+  }
+  const preferredMethods = normalizePaymentPreferences(preferred_payment_methods);
+  // La facturación solo es obligatoria cuando el método tarjeta está habilitado y seleccionado.
+  const billing = preferredMethods.includes(CARD_PAYMENT_PREFERENCE) ? normalizeBilling(billingInput) : {};
 
   const { data: authData, error: authError } = await supabaseAuth.auth.signUp({
     email: normalizedEmail,
     password: normalizedPassword,
-    options: { data: {} }
+    options: { data: {}, emailRedirectTo: emailConfirmationRedirectUrl() }
   });
 
   if (authError) {
@@ -48,6 +92,11 @@ export async function registerCustomer({ email, password, nombre, apellidos, tel
 
   const user = authData?.user;
   if (!user?.id) throw new Error("Supabase no devolvió el usuario creado");
+  // Con la confirmación de email activa, Supabase no da error si el email ya existe:
+  // devuelve el usuario sin identidades
+  if (Array.isArray(user.identities) && user.identities.length === 0) {
+    throw createConflict("Ya existe una cuenta con ese email");
+  }
 
   const profileRow = {
     auth_user_id: user.id,
@@ -69,18 +118,85 @@ export async function registerCustomer({ email, password, nombre, apellidos, tel
 
   throwIfSupabaseError(profileError, "No se pudo crear el perfil del cliente");
 
+  const { error: preferencesError } = await supabase.from(PAYMENT_PREFERENCE_TABLE).upsert({
+    customer_id: profile.id,
+    preferred_methods: preferredMethods,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "customer_id" });
+  if (preferencesError?.code === "PGRST205" || preferencesError?.code === "42P01") {
+    console.warn("[customers] Falta la migración de preferencias de pago; se continúa con el registro");
+  } else {
+    throwIfSupabaseError(preferencesError, "No se pudieron guardar las preferencias de pago");
+  }
+
   const { error: roleError } = await supabase
     .from("user_roles")
     .insert({ user_id: user.id, role: "cliente" });
 
   throwIfSupabaseError(roleError, "No se pudo asignar el rol del cliente");
 
+  // Sin sesión (falta confirmar el email) el frontend no puede guardarla: se guarda aquí.
+  // Un fallo no impide el registro; el cliente puede añadirla en "Mi cuenta".
+  const address = normalizeDeliveryAddress(direccion_entrega);
+  let savedAddress = null;
+  if (address) {
+    const { data, error } = await supabase.from("customer_addresses").insert({ ...address, customer_id: profile.id }).select().single();
+    if (error) console.warn("[customers:register] No se guardó la dirección de entrega:", error.message);
+    else savedAddress = data;
+  }
+
   return {
     user: { id: user.id, email: user.email },
     profile,
+    address: savedAddress,
     access_token: authData.session?.access_token || null,
     refresh_token: authData.session?.refresh_token || null,
     email_confirmation_required: !authData.session
+  };
+}
+
+// Reenvía el email de confirmación. Responde igual exista o no la cuenta (no revela emails).
+export async function resendConfirmationEmail(email) {
+  const normalizedEmail = requireText(email, "El email es requerido").toLowerCase();
+  const { error } = await supabaseAuth.auth.resend({
+    type: "signup",
+    email: normalizedEmail,
+    options: { emailRedirectTo: emailConfirmationRedirectUrl() }
+  });
+  if (error) {
+    if (error.status === 429 || /rate limit|security purposes/i.test(error.message || "")) {
+      throw new HttpError(429, "Ya enviamos un email hace poco. Espera un minuto e inténtalo de nuevo.");
+    }
+    console.warn("[customers:resend]", error.message);
+  }
+  return { message: "Si la cuenta está pendiente de confirmar, te enviamos un nuevo enlace." };
+}
+
+// Código de confirmación ({{ .Token }} en la plantilla "Confirm signup"): el cliente lo
+// escribe en la tienda y queda confirmado y con sesión, sin salir de la página.
+export function normalizeEmailCode(code) {
+  const digits = String(code ?? "").replace(/\D/g, "");
+  if (digits.length < 6 || digits.length > 10) throw createBadRequest("Escribe el código de 6 dígitos que te enviamos por email");
+  return digits;
+}
+
+export async function verifyEmailCode(email, code, auth = supabaseAuth) {
+  const normalizedEmail = requireText(email, "El email es requerido").toLowerCase();
+  const token = normalizeEmailCode(code);
+  // "email" es el tipo actual; "signup" cubre servidores de Auth más antiguos
+  let { data, error } = await auth.auth.verifyOtp({ email: normalizedEmail, token, type: "email" });
+  if (error && !data?.session) ({ data, error } = await auth.auth.verifyOtp({ email: normalizedEmail, token, type: "signup" }));
+  if (error || !data?.session) {
+    if (error?.status === 429 || /rate limit|security purposes/i.test(error?.message || "")) {
+      throw new HttpError(429, "Demasiados intentos. Espera un minuto e inténtalo de nuevo.");
+    }
+    throw createBadRequest("El código no es correcto o ya caducó. Revísalo o pide uno nuevo.");
+  }
+  return {
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    expires_at: data.session.expires_at,
+    user: data.user ? { id: data.user.id, email: data.user.email } : null
   };
 }
 
@@ -94,6 +210,26 @@ export async function getCustomerProfile(userId) {
   throwIfSupabaseError(error, "No se pudo cargar el perfil");
   if (!data) throw createNotFound("Perfil de cliente no encontrado");
   return data;
+}
+
+export async function getPaymentPreferences(userId) {
+  const customerId = await getCustomerId(userId);
+  const { data, error } = await supabase.from(PAYMENT_PREFERENCE_TABLE).select("preferred_methods,updated_at").eq("customer_id", customerId).maybeSingle();
+  if (error?.code === "PGRST205" || error?.code === "42P01") return { preferred_methods: [], card_enabled: process.env.CARD_PAYMENTS_ENABLED === "true" };
+  throwIfSupabaseError(error, "No se pudieron cargar las preferencias de pago");
+  return { preferred_methods: data?.preferred_methods || [], updated_at: data?.updated_at || null, card_enabled: process.env.CARD_PAYMENTS_ENABLED === "true" };
+}
+
+export async function updatePaymentPreferences(userId, input = {}) {
+  const customerId = await getCustomerId(userId);
+  const preferredMethods = normalizePaymentPreferences(input.preferred_payment_methods);
+  const { data, error } = await supabase.from(PAYMENT_PREFERENCE_TABLE).upsert({
+    customer_id: customerId,
+    preferred_methods: preferredMethods,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "customer_id" }).select("preferred_methods,updated_at").single();
+  throwIfSupabaseError(error, "No se pudieron guardar las preferencias de pago");
+  return { ...data, card_enabled: process.env.CARD_PAYMENTS_ENABLED === "true" };
 }
 
 export async function updateCustomerProfile(userId, input = {}) {

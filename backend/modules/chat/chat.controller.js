@@ -14,6 +14,12 @@ import { sendError } from "../../utils/http-error.js";
 
 const MAX_CHAT_MESSAGE_LENGTH = 1000;
 
+function pagination(query, defaultLimit = 50) {
+  const limit = Math.min(100, Math.max(1, Number.parseInt(query.limit, 10) || defaultLimit));
+  const offset = Math.max(0, Number.parseInt(query.offset, 10) || 0);
+  return { limit, offset };
+}
+
 // POST /api/chat/session — cliente inicia una nueva sesión
 export async function startSessionController(req, res) {
   try {
@@ -78,7 +84,8 @@ export async function clientMessageController(req, res) {
 // GET /api/chat/sessions — admin lista todas las sesiones
 export async function listSessionsController(req, res) {
   try {
-    const sessions = await getAllSessions();
+    const { limit, offset } = pagination(req.query);
+    const sessions = await getAllSessions(limit, offset);
     res.json({ sessions });
   } catch (err) {
     sendError(res, err);
@@ -89,9 +96,10 @@ export async function listSessionsController(req, res) {
 export async function getMessagesController(req, res) {
   try {
     const { id } = req.params;
+    const { limit, offset } = pagination(req.query, 100);
     const [session, messages] = await Promise.all([
       getSession(id),
-      getSessionMessages(id)
+      getSessionMessages(id, limit, offset)
     ]);
     res.json({ session, messages });
   } catch (err) {
