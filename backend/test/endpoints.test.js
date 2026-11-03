@@ -60,6 +60,8 @@ describe("admin endpoint surface", () => {
       ["PATCH", "/api/chat/sessions/test-chat-id/release"],
       ["DELETE", "/api/chat/sessions/test-chat-id"],
       ["GET", "/api/payments/pending"],
+      ["GET", "/api/payments/approved"],
+      ["DELETE", "/api/payments/approved/test-payment-id"],
       ["PATCH", "/api/payments/test-payment-id/verify"],
       ["GET", "/api/admin/payments/test-payment-id/evidence-url"],
       ["POST", "/api/orders/test-order-id/delivery-confirmation"],
