@@ -7,6 +7,7 @@ import {
   getPendingPaymentsController,
   getApprovedPaymentsController,
   getApprovedPaymentImageController,
+  deleteApprovedPaymentController,
   verifyPaymentController
 } from "../modules/payments/payments.controller.js";
 import {
@@ -338,6 +339,7 @@ router.post("/payments/upload", paymentLimiter, optionalSupabaseUser, upload.sin
 router.get("/payments/pending", requireSupabaseUser, requireAdmin, getPendingPaymentsController);
 router.get("/payments/approved", requireSupabaseUser, requireAdmin, getApprovedPaymentsController);
 router.get("/payments/approved/:id/image-url", requireSupabaseUser, requireAdmin, getApprovedPaymentImageController);
+router.delete("/payments/approved/:id", requireSupabaseUser, requireAdmin, deleteApprovedPaymentController);
 router.patch("/payments/:id/verify", requireSupabaseUser, requireAdmin, verifyPaymentController);
 
 // NOTIFICATIONS (SSE para APK Admin / Dashboard)

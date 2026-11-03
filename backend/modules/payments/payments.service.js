@@ -240,6 +240,43 @@ export async function getApprovedPaymentImageUrl(paymentId) {
   };
 }
 
+export async function deleteApprovedPayment(paymentId, confirmation) {
+  assertSupabaseServiceRole();
+  if (String(confirmation || "").trim().toUpperCase() !== "ELIMINAR") {
+    throw createBadRequest("Debes escribir ELIMINAR para confirmar");
+  }
+
+  const { data: payment, error: fetchError } = await supabase
+    .from("payments")
+    .select("id, order_id, image_url, validation_status")
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  throwIfSupabaseError(fetchError, "No se pudo cargar el comprobante");
+  if (!payment || payment.validation_status !== "approved") {
+    throw createNotFound("Solo se pueden eliminar comprobantes aprobados");
+  }
+
+  const { data: deleted, error: deleteError } = await supabase
+    .from("payments")
+    .delete()
+    .eq("id", payment.id)
+    .eq("validation_status", "approved")
+    .select("id")
+    .maybeSingle();
+
+  throwIfSupabaseError(deleteError, "No se pudo eliminar el comprobante");
+  if (!deleted) throw createConflict("El comprobante ya fue eliminado o dejo de estar aprobado");
+
+  const path = paymentImagePath(payment.image_url);
+  if (path) {
+    const { error: storageError } = await supabase.storage.from(PAYMENTS_BUCKET).remove([path]);
+    if (storageError) console.error("[payments:delete] no se pudo eliminar la imagen", storageError.message);
+  }
+
+  return { deleted: true, id: payment.id, order_id: payment.order_id };
+}
+
 const PAYMENTS_BUCKET = "payments";
 const PAYMENT_IMAGE_URL_TTL_SECONDS = 60 * 60;
 

@@ -1,4 +1,4 @@
-import { processPayment, getPendingPayments, getApprovedPayments, getApprovedPaymentImageUrl, verifyPayment } from "./payments.service.js";
+import { processPayment, getPendingPayments, getApprovedPayments, getApprovedPaymentImageUrl, deleteApprovedPayment, verifyPayment } from "./payments.service.js";
 import { sendError } from "../../utils/http-error.js";
 import { getOrderAccess } from "../orders/orders.controller.js";
 
@@ -62,6 +62,14 @@ export async function getApprovedPaymentsController(req, res) {
 export async function getApprovedPaymentImageController(req, res) {
   try {
     res.json(await getApprovedPaymentImageUrl(req.params.id));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+export async function deleteApprovedPaymentController(req, res) {
+  try {
+    res.json(await deleteApprovedPayment(req.params.id, req.body?.confirmation));
   } catch (err) {
     sendError(res, err);
   }
