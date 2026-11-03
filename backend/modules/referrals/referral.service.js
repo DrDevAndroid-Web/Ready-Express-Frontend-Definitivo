@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { supabase } from "../../config/supabase.js";
 import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
-import { assertNotSelfReferral, calculateReferralBalance, calculateReferralDiscount, normalizeReferralCode } from "./referral.rules.js";
+import { assertNotSelfReferral, calculateReferralBalance, calculateReferralDiscount, normalizeReferralCode, roundMoney } from "./referral.rules.js";
 
 const DEFAULT_PROGRAM = Object.freeze({
   enabled: false,
@@ -77,6 +77,10 @@ function isMissingReferralRelation(error) {
   return ["PGRST205", "42P01"].includes(error?.code);
 }
 
+function isMissingFunction(error) {
+  return error?.code === "PGRST202";
+}
+
 export async function getOrCreateReferralCode(authUserId) {
   const profileId = await customerProfileId(authUserId);
   const { data: existing, error: existingError } = await supabase
@@ -127,6 +131,101 @@ export async function getReferralDiscountForOrder(authUserId, rawToken, eligible
     currency: program.currency,
     ruleSnapshot: { referred: { ...rule }, referrer: referrerRule ? { ...referrerRule } : null }
   };
+}
+
+// El crédito del referente es un saldo de tienda: se puede aplicar a una compra
+// posterior y nunca puede superar el subtotal elegible del pedido.
+export async function getReferralCreditForOrder(authUserId, eligibleSubtotal, currency = "USD") {
+  if (!authUserId) return null;
+  const profileId = await customerProfileId(authUserId);
+  const program = await getReferralProgram();
+  if (!program.enabled || String(program.currency).toUpperCase() !== String(currency).toUpperCase()) return null;
+
+  const { data: entries, error } = await supabase
+    .from("referral_wallet_entries")
+    .select("entry_type,amount,currency")
+    .eq("customer_id", profileId)
+    .eq("currency", program.currency);
+  if (isMissingReferralRelation(error)) return null;
+  throwIfSupabaseError(error, "No se pudo cargar el saldo de referidos");
+
+  const balance = calculateReferralBalance(entries || []);
+  const maximum = Math.max(0, roundMoney(eligibleSubtotal));
+  const amount = Math.min(balance, maximum);
+  if (!amount) return null;
+  return { amount: roundMoney(amount), currency: program.currency, customerProfileId: profileId };
+}
+
+// Consume el saldo con una RPC atómica cuando la migración está instalada. El
+// fallback mantiene compatibilidad durante el despliegue escalonado.
+export async function redeemReferralWalletCredit({ authUserId, orderId, amount, currency = "USD" }) {
+  const profileId = await customerProfileId(authUserId);
+  const cleanAmount = roundMoney(amount);
+  const idempotencyKey = `order:${orderId}:referral_credit`;
+  const atomic = await supabase.rpc("redeem_referral_wallet_credit", {
+    p_customer_id: profileId,
+    p_order_id: orderId,
+    p_amount: cleanAmount,
+    p_currency: currency
+  });
+  if (!isMissingFunction(atomic.error)) {
+    throwIfSupabaseError(atomic.error, "No se pudo aplicar el saldo de referidos");
+    return atomic.data;
+  }
+
+  const { data: entries, error: balanceError } = await supabase
+    .from("referral_wallet_entries")
+    .select("entry_type,amount,currency")
+    .eq("customer_id", profileId)
+    .eq("currency", currency);
+  if (isMissingReferralRelation(balanceError)) throwIfSupabaseError(balanceError, "El saldo de referidos no está disponible");
+  throwIfSupabaseError(balanceError, "No se pudo comprobar el saldo de referidos");
+  if (calculateReferralBalance(entries || []) < cleanAmount) throw createConflict("El saldo de referidos cambió; actualiza el checkout e inténtalo de nuevo");
+
+  const { data: adjustment, error: adjustmentError } = await supabase
+    .from("order_adjustments")
+    .insert({ order_id: orderId, adjustment_type: "referral_credit", source_id: profileId, amount: cleanAmount, currency, metadata: { source: "referral_wallet" } })
+    .select("id,order_id,adjustment_type,amount,currency")
+    .single();
+  throwIfSupabaseError(adjustmentError, "No se pudo registrar el uso del saldo de referidos");
+
+  const { error: debitError } = await supabase.from("referral_wallet_entries").insert({
+    customer_id: profileId,
+    order_id: orderId,
+    entry_type: "debit",
+    amount: cleanAmount,
+    currency,
+    idempotency_key: idempotencyKey,
+    metadata: { source: "referral_wallet", adjustment_id: adjustment.id }
+  });
+  if (debitError && debitError.code !== "23505") {
+    await supabase.from("order_adjustments").delete().eq("id", adjustment.id);
+    throwIfSupabaseError(debitError, "No se pudo descontar el saldo de referidos");
+  }
+  return adjustment;
+}
+
+export async function reverseReferralWalletDebit(orderId) {
+  const { data: debits, error } = await supabase
+    .from("referral_wallet_entries")
+    .select("id,customer_id,reward_id,amount,currency,idempotency_key")
+    .eq("order_id", orderId)
+    .eq("entry_type", "debit");
+  if (isMissingReferralRelation(error)) return;
+  throwIfSupabaseError(error, "No se pudo cargar el uso del saldo de referidos");
+  for (const debit of debits || []) {
+    const { error: reversalError } = await supabase.from("referral_wallet_entries").insert({
+      customer_id: debit.customer_id,
+      reward_id: debit.reward_id || null,
+      order_id: orderId,
+      entry_type: "reversal",
+      amount: debit.amount,
+      currency: debit.currency,
+      idempotency_key: `reversal:${debit.idempotency_key}`,
+      metadata: { source: "order_cancelled", debit_id: debit.id }
+    });
+    if (reversalError && reversalError.code !== "23505") throwIfSupabaseError(reversalError, "No se pudo restaurar el saldo de referidos");
+  }
 }
 
 export async function claimReferralCode(rawCode, authUserId = null) {

@@ -31,6 +31,15 @@ test("migraciones de referidos — calificación y reversión son SECURITY DEFIN
   assert.match(reversals, /create table if not exists public\.referral_admin_actions/);
 });
 
+test("migración de referidos — permite consumir el saldo con bloqueo e idempotencia", async () => {
+  const wallet = await readFile(`${migrationsDir}20261103_referral_wallet_redemption.sql`, "utf8");
+  assert.match(wallet, /create unique index if not exists order_adjustments_one_referral_credit_per_order/);
+  assert.match(wallet, /create or replace function public\.redeem_referral_wallet_credit/);
+  assert.match(wallet, /pg_advisory_xact_lock/);
+  assert.match(wallet, /on conflict \(idempotency_key\) do nothing/);
+  assert.match(wallet, /revoke all on function public\.redeem_referral_wallet_credit/);
+});
+
 test("referidos — las rutas administrativas exigen rol admin explícito", async () => {
   const routes = await readFile(`${migrationsDir}../routes/index.js`, "utf8");
   const adminReferralRoutes = routes.split("\n").filter(line => line.includes("/admin/referral"));

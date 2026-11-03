@@ -11,10 +11,10 @@ import { priceItemsFromCatalog } from "./pricing.js";
 import { parseBirthDate } from "../../utils/billing.js";
 import { applyStoreMarkup } from "../../utils/store-pricing.js";
 import { getPricingSettings } from "../settings/pricing-settings.service.js";
-import { getReferralDiscountForOrder } from "../referrals/referral.service.js";
+import { getReferralCreditForOrder, getReferralDiscountForOrder, redeemReferralWalletCredit, reverseReferralWalletDebit } from "../referrals/referral.service.js";
 
 export async function createOrder(data, customerId = null) {
-  const { orderInput, referralAdjustment } = await normalizeOrderInput(data, customerId);
+  const { orderInput, referralAdjustment, referralCreditAdjustment } = await normalizeOrderInput(data, customerId);
 
   let { data: order, error } = await supabase
     .from("orders")
@@ -70,6 +70,29 @@ export async function createOrder(data, customerId = null) {
     order.referral_adjustment = adjustment;
   }
 
+  if (referralCreditAdjustment) {
+    try {
+      order.referral_credit_adjustment = await redeemReferralWalletCredit({
+        authUserId: customerId,
+        orderId: order.id,
+        amount: referralCreditAdjustment.amount,
+        currency: referralCreditAdjustment.currency
+      });
+    } catch (error) {
+      const { error: cleanupError } = await supabase.from("orders").delete().eq("id", order.id);
+      if (cleanupError) console.error("[orders:referral-credit-cleanup]", cleanupError.message || cleanupError);
+      if (referralAdjustment) {
+        const { error: releaseError } = await supabase
+          .from("referrals")
+          .update({ status: "registered", first_eligible_order_id: null })
+          .eq("first_eligible_order_id", order.id)
+          .eq("status", "purchase_pending");
+        if (releaseError) console.error("[orders:referral-release-after-credit]", releaseError.message || releaseError);
+      }
+      throw error;
+    }
+  }
+
   // Con TropiPay la orden aún no está pagada: los avisos (APK, email, Telegram, SMS)
   // esperan a que el webhook confirme el pago (ver notifyConfirmedOrder).
   if (data.payment_flow === PAYMENT_FLOW_TROPIPAY) return order;
@@ -90,12 +113,16 @@ export async function quoteOrder(data = {}, customerId = null) {
   const location = data.delivery_location_id ? await getDeliveryLocation(data.delivery_location_id) : null;
   const deliverySurcharge = roundMoney(location?.es_base ? 0 : applyStoreMarkup(Number(location?.recargo || 0), pricing));
   const referralAdjustment = await getReferralDiscountForOrder(customerId, data.referral_claim_token, productsSubtotal, "USD");
+  const referralCreditAdjustment = await getReferralCreditForOrder(customerId, productsSubtotal, "USD");
   const referralDiscount = referralAdjustment?.amount || 0;
+  const referralCredit = referralCreditAdjustment?.amount || 0;
   return {
     products_subtotal: productsSubtotal,
     delivery_surcharge: deliverySurcharge,
     referral_discount: referralDiscount,
-    total: roundMoney(productsSubtotal + deliverySurcharge - referralDiscount),
+    referral_credit: referralCredit,
+    referral_credit_balance: referralCreditAdjustment?.amount || 0,
+    total: roundMoney(productsSubtotal + deliverySurcharge - referralDiscount - referralCredit),
     currency: referralAdjustment?.currency || "USD"
   };
 }
@@ -183,6 +210,7 @@ export async function cancelOrder(orderId, access = {}) {
   if (referralReleaseError && referralReleaseError.code !== "PGRST205") {
     console.error("[orders:referral-release]", referralReleaseError.message || referralReleaseError);
   }
+  await reverseReferralWalletDebit(orderId).catch(error => console.error("[orders:referral-credit-release]", error.message || error));
 
   NotificationManager.broadcastOrderCancelled(order);
 
@@ -288,8 +316,10 @@ async function normalizeOrderInput(data = {}, customerId = null) {
   if (data.delivery_location_id) location = await getDeliveryLocation(data.delivery_location_id);
   const deliverySurcharge = roundMoney(location?.es_base ? 0 : applyStoreMarkup(Number(location?.recargo || 0), pricing));
   const referralAdjustment = await getReferralDiscountForOrder(customerId, data.referral_claim_token, productsSubtotal, "USD");
+  const referralCreditAdjustment = await getReferralCreditForOrder(customerId, productsSubtotal, "USD");
   const referralDiscount = referralAdjustment?.amount || 0;
-  const total = roundMoney(productsSubtotal + deliverySurcharge - referralDiscount);
+  const referralCredit = referralCreditAdjustment?.amount || 0;
+  const total = roundMoney(productsSubtotal + deliverySurcharge - referralDiscount - referralCredit);
   if (total <= 0) throw createBadRequest("El descuento de referido no puede cubrir todo el pedido");
 
   const status = data.status === "awaiting_manual_payment" ? "awaiting_manual_payment" : "pending";
@@ -317,7 +347,7 @@ async function normalizeOrderInput(data = {}, customerId = null) {
     items: normalizedItems,
     total,
     status
-  }, referralAdjustment };
+  }, referralAdjustment, referralCreditAdjustment };
 }
 
 function roundMoney(value) {

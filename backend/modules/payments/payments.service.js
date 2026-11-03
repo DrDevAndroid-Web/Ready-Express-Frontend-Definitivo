@@ -398,7 +398,12 @@ export async function verifyPayment(paymentId, action) {
   // 2. Actualizar orden
   const { error: orderError } = await supabase
     .from("orders")
-    .update({ status: orderStatus })
+    .update({
+      status: orderStatus,
+      // Los comprobantes manuales también son una confirmación de pago.
+      // La calificación de referidos depende de este estado, no solo de status=paid.
+      payment_status: action === "approve" ? "successful" : "failed"
+    })
     .eq("id", payment.order_id);
 
   throwIfSupabaseError(orderError, "No se pudo actualizar el estado de la orden");
