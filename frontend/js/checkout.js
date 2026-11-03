@@ -1,14 +1,16 @@
-import { API_BASE, createOrder, createTropipayPayment, getLocalizaciones } from "./api.js?v43";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v43";
-import { savePendingPayment } from "./payment.js?v43";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v43";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v43";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v43";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v43";
-import { setupCountrySelect } from "./country-select.js?v43";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v43";
-import { fieldErrorMessage } from "./field-messages.js?v43";
-import { showNotice } from "./notice-modal.js?v43";
+import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v44";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v44";
+import { savePendingPayment } from "./payment.js?v44";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v44";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v44";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v44";
+import { getValidAccessToken } from "./session.js?v44";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v44";
+import { setupCountrySelect } from "./country-select.js?v44";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v44";
+import { fieldErrorMessage } from "./field-messages.js?v44";
+import { showNotice } from "./notice-modal.js?v44";
+import { captureReferralFromUrl, getReferralClaimToken } from "./referrals.js?v44";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -21,7 +23,12 @@ let currentSelectedMethodFlow = storageGet("ren_selected_payment_flow") || "proo
 // Nombre que ve el cliente (TropiPay se muestra como "Tarjeta de débito o crédito")
 let currentSelectedMethodLabel = null;
 let currentPaymentMethods = [];
+let savedPaymentPreferences = [];
 let currentOrderReceiptData = null;
+let referralQuote = null;
+let referralSummary = null;
+let referralQuoteTimer = null;
+let referralQuoteSequence = 0;
 // Pedido con tarjeta ya creado cuyo enlace de pago falló antes de abrir la transacción:
 // al reintentar con los mismos datos se reutiliza en vez de crear otro pedido
 let pendingCardOrder = null;
@@ -30,6 +37,13 @@ let deliveryLocations = [];
 let deliveryLocationsLoaded = false;
 let locationEvents = null;
 const DELIVERY_LOCATIONS_CACHE_KEY = "ren_delivery_locations";
+
+async function requireCheckoutSession() {
+  const token = await getValidAccessToken();
+  if (token) return true;
+  window.location.href = "./registro-v25.html?return=checkout";
+  return false;
+}
 
 function storageGet(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -56,6 +70,70 @@ function displayMunicipalityName(name) {
 
 function calculateCheckoutTotal(form) {
   return getDeliverySubtotal() + Number(getSelectedLocation(form)?.recargo || 0);
+}
+
+function quoteItems() {
+  return getCart().map(item => ({
+    id: item.id,
+    source: item.source,
+    nombre: item.nombre,
+    precio: item.precio,
+    cantidad: item.qty,
+    category: item.category
+  }));
+}
+
+function scheduleReferralQuote(form) {
+  clearTimeout(referralQuoteTimer);
+  const sequence = ++referralQuoteSequence;
+  referralQuoteTimer = setTimeout(async () => {
+    if (!getAccessToken() && !getReferralClaimToken()) return;
+    try {
+      const quote = await quoteOrder({
+        items: quoteItems(),
+        delivery_location_id: fieldValue(form, "delivery_location_id"),
+        referral_claim_token: getReferralClaimToken() || undefined
+      });
+      if (sequence !== referralQuoteSequence) return;
+      referralQuote = quote;
+      currentTotal = Number(quote.total || calculateCheckoutTotal(form));
+    } catch {
+      if (sequence !== referralQuoteSequence) return;
+      referralQuote = null;
+      currentTotal = calculateCheckoutTotal(form);
+    }
+    renderMiniSummary();
+    renderReferralNotice();
+    renderCheckoutReview();
+  }, 180);
+}
+
+async function loadReferralSummary() {
+  try {
+    referralSummary = await getMyReferralSummary();
+  } catch {
+    referralSummary = null;
+  }
+  renderReferralNotice();
+}
+
+function renderReferralNotice() {
+  const el = document.getElementById("checkout-referral-notice");
+  if (!el) return;
+  const referred = referralSummary?.referred;
+  const promotion = referralSummary?.referred_promotion;
+  const discount = Number(referralQuote?.referral_discount || 0);
+  const credit = Number(referralQuote?.referral_credit || 0);
+  if (!referred && !discount && !credit) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  const promotionText = promotion?.reward_type === "discount_percent"
+    ? `${Number(promotion.amount)}% de descuento en tu primera compra`
+    : promotion?.amount ? `$${Number(promotion.amount).toFixed(2)} de descuento en tu primera compra` : "promoción de referido";
+  el.hidden = false;
+  el.innerHTML = `<strong>🎉 Entraste con un enlace de referido</strong><span>${escapeHtml(promotionText)}${discount > 0 ? ` · Descuento aplicado: −$${discount.toFixed(2)}` : ""}${credit > 0 ? ` · Saldo usado: −$${credit.toFixed(2)}` : ""}</span>`;
 }
 
 function renderDeliveryLocations(form, selectedId = "") {
@@ -91,7 +169,9 @@ function updateDeliveryPricing(form) {
     : "Selecciona un municipio para ver el importe.";
   card?.classList.toggle("has-surcharge", surcharge > 0);
   currentTotal = calculateCheckoutTotal(form);
+  scheduleReferralQuote(form);
   renderMiniSummary();
+  renderReferralNotice();
   renderCheckoutReview();
 }
 
@@ -326,6 +406,13 @@ async function prefillSenderFromProfile(form) {
   try {
     const profile = await getMyProfile();
     customerProfile = profile;
+    try {
+      const preferences = await getPaymentPreferences();
+      savedPaymentPreferences = Array.isArray(preferences?.preferred_methods) ? preferences.preferred_methods : [];
+    } catch (preferencesError) {
+      savedPaymentPreferences = [];
+      console.warn("[checkout:preferencias]", preferencesError.message);
+    }
     const email = profile?.email || getCurrentUser()?.email || "";
     const values = {
       sender_first_name: profile?.nombre,
@@ -473,7 +560,7 @@ async function goToCheckoutStep(step, validate = true) {
     const stepEl = document.querySelector(`[data-checkout-step="${step}"]`);
     if (stepEl) stepEl.style.display = "block";
   } else if (step === 2) {
-    prefillSenderFromProfile(form);
+    await prefillSenderFromProfile(form);
     await renderPaymentMethods();
     renderCheckoutReview();
     if (paymentStep) paymentStep.style.display = "block";
@@ -491,11 +578,16 @@ async function goToCheckoutStep(step, validate = true) {
 }
 
 // ── Abrir modal ───────────────────────────────────────────────
-export function showCheckoutModal() {
+export async function showCheckoutModal() {
   const cart = getCart();
   if (cart.length === 0) return;
 
+  if (!await requireCheckoutSession()) return;
+
   closeCart();
+  referralQuote = null;
+  await captureReferralFromUrl();
+  await loadReferralSummary();
   renderMiniSummary();
 
   const form = document.getElementById("checkout-form");
@@ -517,7 +609,8 @@ export function showCheckoutModal() {
 }
 
 // ── Inicialización ────────────────────────────────────────────
-export function initCheckout() {
+export async function initCheckout() {
+  captureReferralFromUrl().catch(() => {});
   const isCheckoutPage = document.body?.dataset.checkoutPage === "true";
   const form = document.getElementById("checkout-form");
   if (form) {
@@ -541,8 +634,12 @@ export function initCheckout() {
   }
 
   document.getElementById("checkout-btn")?.addEventListener("click", showCheckoutModal);
-  document.getElementById("cart-checkout-btn")?.addEventListener("click", () => {
-    if (getCart().length) window.location.href = "./checkout.html";
+  document.getElementById("cart-checkout-btn")?.addEventListener("click", async () => {
+    if (!getCart().length) return;
+    if (!await requireCheckoutSession()) return;
+    await captureReferralFromUrl();
+    await loadReferralSummary();
+    window.location.href = "./checkout.html";
   });
 
   if (isCheckoutPage) {
@@ -550,6 +647,7 @@ export function initCheckout() {
       window.location.href = "./index.html";
       return;
     }
+    if (!await requireCheckoutSession()) return;
     if (form) restoreFormData(form);
     currentTotal = calculateCheckoutTotal(form);
     loadDeliveryLocations(form);
@@ -619,6 +717,9 @@ export function initCheckout() {
 async function renderPaymentMethods() {
   const container = document.getElementById("checkout-methods-container");
   if (!container) return;
+  const heading = document.getElementById("checkout-methods-title");
+  container.hidden = false;
+  if (heading) heading.hidden = false;
 
   // El bloque del titular pudo moverse junto a la tarjeta: devolverlo antes de repintar
   const payerFields = document.getElementById("tropipay-payer-fields");
@@ -658,6 +759,23 @@ async function renderPaymentMethods() {
       )}
     `;
 
+    // Las preferencias elegidas durante el registro se reutilizan automáticamente.
+    const preferenceKeys = savedPaymentPreferences.map(value => String(value).trim().toLowerCase());
+    const preferenceMatch = metodos.find(method => {
+      const keys = [method.id, method.method_name, method.display_name]
+        .map(value => String(value || "").trim().toLowerCase())
+        .filter(Boolean);
+      return preferenceKeys.some(preference => keys.includes(preference) || keys.some(key => key.replace(/[^a-z0-9_-]/g, "-") === preference));
+    });
+    if (preferenceMatch) {
+      const preferredCard = container.querySelector(`[data-method-id="${cssEscape(String(preferenceMatch.id))}"]`);
+      if (preferredCard) {
+        selectPaymentMethod(preferredCard, { scroll: false });
+        container.hidden = true;
+        if (heading) heading.hidden = true;
+      }
+    }
+
     // Volvió de iniciar sesión tras elegir tarjeta: dejarla seleccionada
     const pendingCard = getAccessToken() && storageGet(PENDING_CARD_KEY)
       ? container.querySelector(`[data-payment-flow="${PAYMENT_FLOW_TROPIPAY}"]`)
@@ -665,7 +783,7 @@ async function renderPaymentMethods() {
     storageRemove(PENDING_CARD_KEY);
     if (pendingCard) {
       selectPaymentMethod(pendingCard, { scroll: false });
-    } else if (currentSelectedMethod) {
+    } else if (!preferenceMatch && currentSelectedMethod) {
       const prevCard = container.querySelector(`[data-method="${cssEscape(currentSelectedMethod)}"]`);
       if (prevCard) selectPaymentMethod(prevCard, { scroll: false });
     }
@@ -757,7 +875,7 @@ function cardAuthGateHtml() {
             <a class="method-auth-btn is-primary" href="./registro-v25.html?return=checkout">Crear cuenta y continuar</a>
             <a class="method-auth-btn" href="./login-v25.html?return=checkout">Ya tengo cuenta</a>
           </div>
-          <p class="method-auth-note">¿Prefieres no crear cuenta? Puedes pagar con Zelle, TocoPay o con ayuda por WhatsApp.</p>
+      <p class="method-auth-note">La cuenta es gratuita y necesaria para completar cualquier compra.</p>
         </div>`;
 }
 
@@ -863,6 +981,8 @@ async function submitOrder(form) {
   const btn = form.querySelector('button[type="submit"]');
   const cart = getCart();
 
+  if (!await requireCheckoutSession()) return;
+
   if (!currentSelectedMethod) {
     const errorEl = document.getElementById("checkout-error");
     if (errorEl) {
@@ -944,6 +1064,7 @@ async function submitOrder(form) {
     })),
     total:  currentTotal,
     status: currentSelectedMethodFlow === PAYMENT_FLOW_ASSISTED ? "awaiting_manual_payment" : "pending",
+    referral_claim_token: getReferralClaimToken() || undefined,
   };
 
   const fingerprint = isTropipay ? JSON.stringify(orderData) : null;
@@ -1083,10 +1204,17 @@ function renderCheckoutReview() {
   const receiver = fieldValue(form, "receiver_name") || "Por completar";
   const sender = `${fieldValue(form, "sender_first_name")} ${fieldValue(form, "sender_last_name")}`.trim() || "Por completar";
   const address = fieldValue(form, "customer_address") || "Por completar";
+  const productsSubtotal = Number(referralQuote?.products_subtotal ?? getDeliverySubtotal());
+  const deliverySurcharge = Number(referralQuote?.delivery_surcharge ?? getSelectedLocation(form)?.recargo ?? 0);
+  const total = Number(referralQuote?.total ?? calculateCheckoutTotal(form));
+  const discount = Number(referralQuote?.referral_discount || 0);
+  const credit = Number(referralQuote?.referral_credit || 0);
   el.innerHTML = `
-    <div class="checkout-review-row"><span>Productos</span><strong>$${getDeliverySubtotal().toFixed(2)}</strong></div>
-    <div class="checkout-review-row"><span>Entrega</span><strong>$${Number(getSelectedLocation(form)?.recargo || 0).toFixed(2)}</strong></div>
-    <div class="checkout-review-row total-row"><span>Total</span><strong>$${calculateCheckoutTotal(form).toFixed(2)}</strong></div>
+    <div class="checkout-review-row"><span>Productos</span><strong>$${productsSubtotal.toFixed(2)}</strong></div>
+    <div class="checkout-review-row"><span>Entrega</span><strong>$${deliverySurcharge.toFixed(2)}</strong></div>
+    ${discount > 0 ? `<div class="checkout-review-row"><span>Descuento de referido</span><strong class="checkout-discount">−$${discount.toFixed(2)}</strong></div>` : ""}
+    ${credit > 0 ? `<div class="checkout-review-row"><span>Saldo de referido usado</span><strong class="checkout-discount">−$${credit.toFixed(2)}</strong></div>` : ""}
+    <div class="checkout-review-row total-row"><span>Total</span><strong>$${total.toFixed(2)}</strong></div>
     <div class="checkout-review-row"><span>Cantidad de productos</span><strong>${count}</strong></div>
     <div class="checkout-review-row"><span>Envía</span><strong>${escapeHtml(sender)}</strong></div>
     <div class="checkout-review-row"><span>Recibe</span><strong>${escapeHtml(receiver)}</strong></div>

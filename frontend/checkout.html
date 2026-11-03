@@ -7,7 +7,7 @@
   <title>Finalizar pedido | Ready Express Now</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/styles.css?v43">
+  <link rel="stylesheet" href="./css/styles.css?v45">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
   <style>
@@ -41,6 +41,7 @@
         <div class="checkout-stepper-item" data-step="3"><div class="stepper-dot">3</div><span class="stepper-label">Confirmación</span></div>
       </div>
       <div class="checkout-mini-summary" id="checkout-mini-summary"></div>
+      <div class="checkout-referral-notice" id="checkout-referral-notice" role="status" hidden></div>
 
       <div class="modal-body">
         <form id="checkout-form" novalidate>
@@ -68,7 +69,7 @@
               </div>
               <div class="form-group"><label for="sender_phone">Teléfono / WhatsApp <span class="required">*</span></label><input type="tel" id="sender_phone" name="sender_phone" placeholder="+1 (555) 000-0000" required autocomplete="tel" inputmode="tel" aria-describedby="error-sender_phone"><p class="field-error" id="error-sender_phone" role="alert"></p></div>
             </div>
-            <h5 class="checkout-methods-title">Método de pago</h5>
+            <h5 class="checkout-methods-title" id="checkout-methods-title">Método de pago</h5>
             <div class="methods-grid" id="checkout-methods-container"></div>
             <fieldset class="checkout-form-section tropipay-payer" id="tropipay-payer-fields" hidden disabled aria-describedby="tropipay-payer-help">
               <legend>Datos del titular de la tarjeta</legend>
@@ -115,7 +116,7 @@
     </section>
   </main>
   <script type="module">
-    import { initCheckout } from "./js/checkout.js?v43";
+    import { initCheckout } from "./js/checkout.js?v45";
     initCheckout();
   </script>
 </body>

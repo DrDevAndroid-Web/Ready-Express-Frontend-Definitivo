@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="preload" as="image" href="./images/hero-home-desktop.webp" media="(min-width: 901px)" fetchpriority="high">
   <link rel="preload" as="image" href="./images/hero-home-mobile.webp" media="(max-width: 900px)" fetchpriority="high">
-  <link rel="stylesheet" href="./css/styles.css?v43" />
+  <link rel="stylesheet" href="./css/styles.css?v45" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -68,7 +68,7 @@
       <a href="https://wa.me/5356189395" class="navbar-wa-btn" aria-label="WhatsApp" target="_blank" rel="noopener">
         <i class="fa-brands fa-whatsapp"></i>
       </a>
-<button class="cart-btn" id="cart-btn" aria-label="Ver carrito">
+          <button class="cart-btn" id="cart-btn" aria-label="Ver carrito" aria-controls="cart-panel" aria-expanded="false">
         🛒 <span class="cart-label">Mi Carrito</span>
         <span class="cart-badge" id="cart-badge">0</span>
       </button>
@@ -418,7 +418,7 @@
   <div class="overlay" id="overlay"></div>
 
   <!-- Cart Panel -->
-  <aside class="cart-panel" id="cart-panel" aria-label="Carrito de compras">
+  <aside class="cart-panel" id="cart-panel" aria-label="Carrito de compras" aria-hidden="true">
     <div class="cart-header">
       <h3>🛒 Mi Carrito</h3>
       <button class="icon-btn" id="cart-close" aria-label="Cerrar carrito">✕</button>
@@ -467,6 +467,7 @@
 
     <!-- Mini-resumen sticky del carrito -->
     <div class="checkout-mini-summary" id="checkout-mini-summary"></div>
+    <div class="checkout-referral-notice" id="checkout-referral-notice" role="status" hidden></div>
 
     <div class="modal-body">
       <form id="checkout-form" novalidate>
@@ -882,7 +883,7 @@
   }
   </script>
 
-  <script type="module" src="./js/app.js?v43"></script>
+  <script type="module" src="./js/app.js?v45"></script>
   <script>
     document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
       document.getElementById('cart-btn')?.click();
@@ -895,6 +896,6 @@
     });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  <script type="module" src="./js/chat.js?v43"></script>
+  <script type="module" src="./js/chat.js?v44"></script>
 </body>
 </html>
