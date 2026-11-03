@@ -185,7 +185,7 @@ export async function getPendingPayments(limit = 100, offset = 0) {
   return withSignedPaymentImages(data);
 }
 
-export async function getApprovedPayments(limit = 100, offset = 0) {
+export async function getApprovedPayments(limit = 100, offset = 0, { includeImage = true } = {}) {
   assertSupabaseServiceRole();
   const { data, error } = await supabase
     .from("payments")
@@ -219,7 +219,25 @@ export async function getApprovedPayments(limit = 100, offset = 0) {
 
   throwIfSupabaseError(error, "No se pudieron cargar los pagos aprobados");
   await logPaymentDiagnosticsIfEmpty("approved", data);
-  return withSignedPaymentImages(data);
+  return includeImage ? withSignedPaymentImages(data) : (data || []).map(({ image_url: _imageUrl, ...payment }) => payment);
+}
+
+export async function getApprovedPaymentImageUrl(paymentId) {
+  assertSupabaseServiceRole();
+  const { data, error } = await supabase
+    .from("payments")
+    .select("id, image_url, validation_status")
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  throwIfSupabaseError(error, "No se pudo localizar el comprobante aprobado");
+  if (!data || data.validation_status !== "approved") throw createNotFound("No se encontro el comprobante aprobado");
+
+  return {
+    id: data.id,
+    signed_url: await getPaymentImageUrl(data.image_url),
+    signed_url_expires_in: PAYMENT_IMAGE_URL_TTL_SECONDS
+  };
 }
 
 const PAYMENTS_BUCKET = "payments";

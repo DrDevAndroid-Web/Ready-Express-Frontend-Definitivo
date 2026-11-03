@@ -1,4 +1,4 @@
-import { processPayment, getPendingPayments, getApprovedPayments, verifyPayment } from "./payments.service.js";
+import { processPayment, getPendingPayments, getApprovedPayments, getApprovedPaymentImageUrl, verifyPayment } from "./payments.service.js";
 import { sendError } from "../../utils/http-error.js";
 import { getOrderAccess } from "../orders/orders.controller.js";
 
@@ -48,13 +48,21 @@ export async function getApprovedPaymentsController(req, res) {
       user: req.user?.email || req.user?.id || "unknown"
     });
     const { limit, offset } = pagination(req.query);
-    const result = await getApprovedPayments(limit, offset);
+    const result = await getApprovedPayments(limit, offset, { includeImage: req.query.include_image !== "false" });
     console.info("[payments:approved] pagos aprobados cargados", {
       count: Array.isArray(result) ? result.length : 0
     });
     res.json(result);
   } catch (err) {
     console.error("[payments:approved] error cargando pagos aprobados", err);
+    sendError(res, err);
+  }
+}
+
+export async function getApprovedPaymentImageController(req, res) {
+  try {
+    res.json(await getApprovedPaymentImageUrl(req.params.id));
+  } catch (err) {
     sendError(res, err);
   }
 }
