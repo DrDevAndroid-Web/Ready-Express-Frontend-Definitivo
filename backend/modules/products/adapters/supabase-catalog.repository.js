@@ -3,7 +3,7 @@ import { throwIfSupabaseError } from "../../../utils/http-error.js";
 
 const PUBLIC_COLUMNS = Object.freeze({
   food_combos: "id,nombre,precio,img,detalles,disponible",
-  Productos: "id,nombre,precio,img,detalles,disponible",
+  Productos: "id,nombre,precio,img,detalles,categoria,disponible",
   // La tabla histórica usa `item` (no `nombre`) para el nombre del electrodoméstico.
   // Mantener el nombre real aquí evita que la consulta administrativa falle con 42703.
   Electrodomesticos: "id,item,tipo,precio,img,descripcion,caracteristicas,disponible"
