@@ -4375,8 +4375,8 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading) !important; letter-spa
 .product-name { color: var(--brand-navy); font-size: 1rem; font-weight: 750; line-height: 1.35; }
 .product-desc { color: var(--muted); }
 .product-price { color: var(--brand-navy); font-family: var(--font-heading); font-size: 1.12rem; }
-.card-actions .qty-selector { display: none; }
-.add-btn { width: 100%; min-height: 46px; border-radius: 13px; background: var(--brand-navy); font-size: .88rem; }
+.card-actions .qty-selector { display: flex; flex: 0 0 auto; }
+.card-actions .add-btn { width: auto; min-width: 0; flex: 1 1 auto; min-height: 46px; border-radius: 13px; background: var(--brand-navy); font-size: .88rem; }
 .add-btn:hover { background: var(--brand-blue); transform: translateY(-1px); }
 .catalog-more-row { display: flex; justify-content: center; margin-top: 34px; }
 .catalog-more-btn { min-height: 48px; padding: 12px 26px; border: 1px solid rgba(8,47,95,.22); border-radius: 50px; background: var(--white); color: var(--brand-navy); font-weight: 800; box-shadow: 0 8px 24px rgba(8,47,95,.07); }
@@ -4440,7 +4440,9 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading) !important; letter-spa
   .product-info { padding: 11px 11px 13px; }
   .product-name { font-size: .88rem; }
   .product-price { font-size: 1rem; margin: 5px 0 8px; }
-  .add-btn { min-height: 42px; padding: 9px 7px; border-radius: 11px; font-size: .78rem; line-height: 1.2; }
+  .card-actions { flex-direction: column; align-items: stretch; }
+  .card-actions .qty-selector { width: 100%; flex: 0 0 auto; }
+  .card-actions .add-btn { width: 100%; flex: 0 0 auto; min-height: 42px; padding: 9px 7px; border-radius: 11px; font-size: .78rem; line-height: 1.2; }
   .product-open-hint { right: 8px; bottom: 8px; padding: 5px 8px; font-size: .66rem; }
   .cart-header { min-height: 74px; padding: 16px 24px; }
   .cart-body { padding: 16px; }

@@ -1,8 +1,8 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v54";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v54";
-import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v54";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v54";
-import { authorizedFetch } from "./session.js?v54";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v55";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v55";
+import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v55";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v55";
+import { authorizedFetch } from "./session.js?v55";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -53,6 +53,27 @@ export function clearPendingPayment() {
   storageRemove(PENDING_PAYMENT_KEY);
 }
 
+async function getLocalPendingOrderStatus(pending) {
+  if (!pending?.orderId || !pending?.checkoutToken) return null;
+  try {
+    const response = await authorizedFetch(`${API_BASE}/orders/${encodeURIComponent(pending.orderId)}`, {
+      cache: "no-store",
+      headers: { "X-Checkout-Token": pending.checkoutToken }
+    });
+    if (!response.ok) return null;
+    const order = await response.json().catch(() => null);
+    return order?.status || null;
+  } catch {
+    return null;
+  }
+}
+
+function clearStoredPendingPayment() {
+  clearPendingPayment();
+  storageRemove("ren_selected_payment_method");
+  storageRemove("ren_selected_payment_method_id");
+}
+
 // El servidor es la fuente de verdad para recuperar un comprobante pendiente
 // cuando el cliente continúa la compra en otro dispositivo. Si no hay sesión o
 // hay un fallo transitorio de red, se conserva el estado local como respaldo.
@@ -60,7 +81,16 @@ export async function restorePendingPaymentFromBackend() {
   const localPending = getPendingPayment();
   try {
     const response = await authorizedFetch(`${API_BASE}/account/pending-payment`, { cache: "no-store" });
-    if (response.status === 401) return hasPendingPayment();
+    if (response.status === 401) {
+      // Si este navegador conserva el checkout_token, validar el estado sin
+      // sesión para no reabrir un comprobante ya rechazado o enviado.
+      const localOrderStatus = await getLocalPendingOrderStatus(localPending);
+      if (localOrderStatus && localOrderStatus !== "pending") {
+        clearStoredPendingPayment();
+        return false;
+      }
+      return hasPendingPayment();
+    }
     if (!response.ok) return hasPendingPayment();
 
     const remotePending = await response.json().catch(() => null);
@@ -79,9 +109,7 @@ export async function restorePendingPaymentFromBackend() {
     // La sesión respondió correctamente y no tiene comprobante pendiente:
     // evitar redirigir por un registro obsoleto de este navegador.
     if (localPending) {
-      clearPendingPayment();
-      storageRemove("ren_selected_payment_method");
-      storageRemove("ren_selected_payment_method_id");
+      clearStoredPendingPayment();
     }
     return false;
   } catch {
