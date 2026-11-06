@@ -6,9 +6,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v43">
+  <link rel="stylesheet" href="./css/styles.css?v53">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -34,26 +34,42 @@
     </section>
 
     <!-- Con sesión -->
-    <div id="account-content" hidden>
+    <div id="account-content" data-view="inicio" hidden>
       <section class="account-hero" aria-labelledby="account-title">
         <div class="account-avatar" id="account-avatar" aria-hidden="true"></div>
         <div class="account-hero-text">
-          <h1 id="account-title">Mi cuenta</h1>
-          <p id="account-email" class="account-email"></p>
+          <h1 id="account-title" tabindex="-1">Mi cuenta</h1>
+          <p class="account-hero-caption">Tus envíos, direcciones y beneficios en un solo lugar.</p>
         </div>
-        <button type="button" class="account-logout" id="logout"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Cerrar sesión</button>
       </section>
 
-      <nav class="account-tabs" role="tablist" aria-label="Secciones de mi cuenta">
-        <button type="button" role="tab" id="tab-pedidos" aria-controls="panel-pedidos" aria-selected="true"><i class="fa-solid fa-box" aria-hidden="true"></i>Pedidos</button>
-        <button type="button" role="tab" id="tab-direcciones" aria-controls="panel-direcciones" aria-selected="false" tabindex="-1"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Direcciones</button>
-        <button type="button" role="tab" id="tab-perfil" aria-controls="panel-perfil" aria-selected="false" tabindex="-1"><i class="fa-solid fa-user-pen" aria-hidden="true"></i>Perfil</button>
-      </nav>
+      <div class="account-layout">
+        <aside class="account-hub" id="account-hub" aria-label="Resumen y secciones de la cuenta">
+          <a class="account-wallet-card" href="#referidos" data-section="referidos">
+            <span class="account-wallet-eyebrow"><i class="fa-solid fa-gift" aria-hidden="true"></i> Tu crédito de referidos</span>
+            <strong id="hub-balance">Cargando…</strong>
+            <span class="account-wallet-link">Invitar y ganar <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+          </a>
+          <nav class="account-menu" aria-label="Secciones de mi cuenta">
+            <a href="#pedidos" data-section="pedidos"><i class="fa-solid fa-box" aria-hidden="true"></i><span>Mis pedidos</span><small id="hub-orders-count">—</small><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
+            <a href="#direcciones" data-section="direcciones"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span>Direcciones de entrega</span><small id="hub-addresses-count">—</small><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
+            <a href="#perfil" data-section="perfil"><i class="fa-solid fa-user" aria-hidden="true"></i><span>Datos personales</span><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
+            <a href="#facturacion" data-section="facturacion" id="hub-billing-link" hidden><i class="fa-solid fa-credit-card" aria-hidden="true"></i><span>Facturación</span><small id="hub-billing-status">—</small><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
+            <a href="#referidos" data-section="referidos"><i class="fa-solid fa-users" aria-hidden="true"></i><span>Invita y gana</span><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
+          </nav>
+          <div class="account-hub-footer">
+            <a href="https://wa.me/5356189395?text=Hola%20Ready%20Express%20Now.%20Necesito%20ayuda%20con%20mi%20cuenta." target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Ayuda por WhatsApp</a>
+            <button type="button" class="account-logout" id="logout"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>Cerrar sesión</button>
+          </div>
+        </aside>
+
+        <div class="account-detail" id="account-detail">
+          <a href="#inicio" class="account-back" id="account-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Mi cuenta</a>
 
       <!-- Pedidos -->
-      <section class="account-panel" role="tabpanel" id="panel-pedidos" aria-labelledby="tab-pedidos" tabindex="0">
+      <section class="account-panel" id="panel-pedidos" aria-labelledby="pedidos-title" tabindex="-1">
         <div class="account-panel-head">
-          <h2>Mis pedidos</h2>
+          <h2 id="pedidos-title" tabindex="-1">Mis pedidos</h2>
           <p>Estado del pago y de la entrega de cada envío.</p>
         </div>
         <div id="orders" aria-live="polite" aria-busy="true">
@@ -63,10 +79,10 @@
       </section>
 
       <!-- Direcciones -->
-      <section class="account-panel" role="tabpanel" id="panel-direcciones" aria-labelledby="tab-direcciones" tabindex="0" hidden>
+      <section class="account-panel" id="panel-direcciones" aria-labelledby="direcciones-title" tabindex="-1" hidden>
         <div class="account-panel-head account-panel-head--row">
           <div>
-            <h2>Direcciones de entrega</h2>
+            <h2 id="direcciones-title" tabindex="-1">Direcciones de entrega</h2>
             <p>Guarda a quién le envías en Cuba para agilizar tus pedidos.</p>
           </div>
           <button type="button" class="auth-btn account-add-btn" id="add-address" aria-expanded="false" aria-controls="address-editor"><i class="fa-solid fa-plus" aria-hidden="true"></i>Añadir</button>
@@ -80,10 +96,10 @@
             <div class="auth-field"><label for="direccion">Dirección completa<span class="auth-required" aria-hidden="true">*</span></label><input id="direccion" name="direccion" autocomplete="street-address" placeholder="Calle, número, entre calles, reparto" required></div>
             <div class="auth-row">
               <div class="auth-field"><label for="provincia">Provincia</label><input id="provincia" name="provincia" value="Guantánamo"></div>
-              <div class="auth-field"><label for="municipio">Municipio</label><input id="municipio" name="municipio" value="Guantánamo"></div>
+              <div class="auth-field"><label for="municipio">Municipio</label><input id="municipio" name="municipio" autocomplete="address-level2" value="Guantánamo"></div>
             </div>
             <div class="auth-row">
-              <div class="auth-field"><label for="telefono_contacto">Teléfono de contacto</label><input id="telefono_contacto" name="telefono_contacto" type="tel" inputmode="tel" placeholder="+53 5XXX XXXX"></div>
+              <div class="auth-field"><label for="telefono_contacto">Teléfono de contacto</label><input id="telefono_contacto" name="telefono_contacto" type="tel" inputmode="tel" autocomplete="tel" placeholder="+53 5XXX XXXX"></div>
               <div class="auth-field"><label for="referencia">Referencia</label><input id="referencia" name="referencia" placeholder="Ej.: frente al parque"></div>
             </div>
             <label class="account-check" for="es_predeterminada"><input type="checkbox" id="es_predeterminada" name="es_predeterminada"><span>Usar como dirección predeterminada</span></label>
@@ -101,9 +117,9 @@
       </section>
 
       <!-- Perfil -->
-      <section class="account-panel" role="tabpanel" id="panel-perfil" aria-labelledby="tab-perfil" tabindex="0" hidden>
+      <section class="account-panel" id="panel-perfil" aria-labelledby="perfil-title" tabindex="-1" hidden>
         <div class="account-panel-head">
-          <h2>Datos personales</h2>
+          <h2 id="perfil-title" tabindex="-1">Datos personales</h2>
           <p>Los usamos para prellenar el checkout como remitente.</p>
         </div>
         <form id="profile-form" class="auth-form account-card" novalidate>
@@ -112,21 +128,49 @@
             <div class="auth-field"><label for="apellidos">Apellidos<span class="auth-required" aria-hidden="true">*</span></label><input id="apellidos" name="apellidos" autocomplete="family-name" required></div>
           </div>
           <div class="auth-field"><label for="telefono">Teléfono / WhatsApp<span class="auth-required" aria-hidden="true">*</span></label><input id="telefono" name="telefono" type="tel" inputmode="tel" autocomplete="tel" required></div>
-          <div class="auth-field"><label for="profile-email">Email</label><input id="profile-email" type="email" readonly aria-describedby="profile-email-hint"><small id="profile-email-hint" class="auth-hint">El email es tu usuario de acceso y no se puede cambiar aquí.</small></div>
+          <div class="auth-field"><span class="account-field-label">Correo de acceso</span><div class="account-readonly"><i class="fa-solid fa-lock" aria-hidden="true"></i><span id="profile-email"></span></div><small class="auth-hint">Este correo identifica tu cuenta.</small></div>
           <p id="profile-message" class="auth-msg" role="alert"></p>
           <button type="submit" class="auth-btn">Guardar cambios</button>
         </form>
+      </section>
+
+      <section class="account-panel" id="panel-facturacion" aria-labelledby="facturacion-title" tabindex="-1" hidden>
+        <div class="account-panel-head"><h2 id="facturacion-title" tabindex="-1">Facturación</h2><p>Estos datos se usan únicamente si pagas con tarjeta.</p></div>
         <form id="billing-form" class="auth-form account-card" novalidate>
           <div id="billing-fields"></div>
           <p id="billing-message" class="auth-msg" role="alert"></p>
           <button type="submit" class="auth-btn">Guardar datos de facturación</button>
         </form>
       </section>
+
+      <!-- Referidos -->
+      <section class="account-panel" id="panel-referidos" aria-labelledby="referidos-title" tabindex="-1" hidden>
+        <div class="account-panel-head">
+          <h2 id="referidos-title" tabindex="-1">Invita y gana</h2>
+          <p>Comparte tu enlace y gana crédito cuando alguien haga su primera compra.</p>
+        </div>
+        <div id="referral-content" aria-live="polite" aria-busy="true">
+          <div class="account-skeleton account-skeleton--short" aria-hidden="true"></div>
+        </div>
+        <div class="account-notification-setting" id="referral-push-setting" hidden>
+          <label class="account-switch-row" for="referral-push-enabled"><span><strong>Avisarme cuando compren con mi enlace</strong><small>Notificaciones en este dispositivo.</small></span><input type="checkbox" role="switch" id="referral-push-enabled"></label>
+          <p class="account-muted" id="referral-push-message" role="status"></p>
+        </div>
+      </section>
+        </div>
+      </div>
     </div>
   </main>
 
+  <nav class="bottom-nav account-bottom-nav" id="account-bottom-nav" aria-label="Navegación principal" hidden>
+    <a href="./index.html#alimentos" class="bottom-nav-item"><i class="fa-solid fa-basket-shopping" aria-hidden="true"></i><span>Productos</span></a>
+    <a href="./index.html?cart=1" class="bottom-nav-item"><i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span>Carrito</span></a>
+    <a href="#inicio" class="bottom-nav-item active" aria-current="page"><i class="fa-solid fa-user" aria-hidden="true"></i><span>Cuenta</span></a>
+    <a href="./index.html?menu=1" class="bottom-nav-item"><i class="fa-solid fa-bars" aria-hidden="true"></i><span>Menú</span></a>
+  </nav>
+
   <div class="account-toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script type="module" src="./js/account.js?v43"></script>
+  <script type="module" src="./js/account.js?v53"></script>
 </body>
 </html>

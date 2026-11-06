@@ -1,19 +1,29 @@
-import { initCart, getCart } from "./cart.js?v43";
-import { initProducts } from "./products.js?v43";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v43";
-import { redirectToPendingPayment } from "./payment.js?v43";
-import { inicializarMetodosPago } from "./payment-methods.js?v43";
-import { getLocalizaciones } from "./api.js?v43";
+import { initCart, getCart } from "./cart.js?v53";
+import { initProducts } from "./products.js?v53";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v53";
+import { redirectToPendingPayment } from "./payment.js?v53";
+import { inicializarMetodosPago } from "./payment-methods.js?v53";
+import { getLocalizaciones } from "./api.js?v53";
+import { captureReferralFromUrl, syncReferralWalletState } from "./referrals.js?v53";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const accountNavigation = new URLSearchParams(location.search);
+  captureReferralFromUrl().catch(() => {});
+  syncReferralWalletState({ showModal: accountNavigation.get("cart") !== "1" && accountNavigation.get("menu") !== "1" }).catch(() => {});
   if (redirectToPendingPayment()) return;
 
   await inicializarMetodosPago();
   initCart();
+  if (new URLSearchParams(location.search).get("cart") === "1") {
+    document.getElementById("cart-btn")?.click();
+    const url = new URL(location.href);
+    url.searchParams.delete("cart");
+    history.replaceState(history.state, "", url);
+  }
   initProducts();
   initCheckout();
 
@@ -25,6 +35,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   initAccessibility();
   initMobileNav();
+  if (new URLSearchParams(location.search).get("menu") === "1") {
+    document.getElementById("bottom-menu-btn")?.click();
+    const url = new URL(location.href);
+    url.searchParams.delete("menu");
+    history.replaceState(history.state, "", url);
+  }
   initWhatsAppModal();
   initDeliveryLocationsFaq();
 
@@ -87,6 +103,7 @@ function initAccessibility() {
 // Mobile nav improvements
 function initMobileNav() {
   const menuBtn = document.getElementById("menu-btn");
+  const searchBtn = document.getElementById("header-search-btn");
   const mobileNav = document.getElementById("mobile-nav");
 
   // Toggle mobile nav
@@ -95,11 +112,18 @@ function initMobileNav() {
     menuBtn.setAttribute("aria-expanded", isOpen);
   });
 
+  searchBtn?.addEventListener("click", () => {
+    mobileNav?.classList.add("active");
+    searchBtn.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => document.getElementById("mobile-nav-search")?.focus());
+  });
+
   // Close mobile nav when link is clicked
   mobileNav?.querySelectorAll("a").forEach(link => {
     link.addEventListener("click", () => {
       mobileNav.classList.remove("active");
       menuBtn?.setAttribute("aria-expanded", "false");
+      searchBtn?.setAttribute("aria-expanded", "false");
       highlightActiveMobileNav();
     });
   });

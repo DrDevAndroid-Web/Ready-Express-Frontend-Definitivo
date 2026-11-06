@@ -1,11 +1,13 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v43";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v43";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v43";
-import { renderBillingFields } from "./billing-fields.js?v43";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v43";
+} from "./auth.js?v53";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v53";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v53";
+import { billingComplete, renderBillingFields } from "./billing-fields.js?v53";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v53";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v53";
+import { saveReferralWalletState } from "./referrals.js?v53";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -67,6 +69,7 @@ function isAuthError(error) {
 function showLoggedOut(reason = "") {
   clearSession();
   $("#account-content").hidden = true;
+  $("#account-bottom-nav").hidden = true;
   $("#auth-required").hidden = false;
   if (reason) $("#auth-required-text").textContent = reason;
 }
@@ -76,37 +79,54 @@ function handleError(error, messageEl) {
   else toast(error.message || "No se pudo completar la operación");
 }
 
-// ── Pestañas (patrón WAI-ARIA tabs + deep link por hash) ──
-const TABS = ["pedidos", "direcciones", "perfil"];
-function selectTab(name, { focus = false, updateHash = true } = {}) {
-  if (!TABS.includes(name)) name = "pedidos";
-  TABS.forEach(tab => {
-    const button = $(`#tab-${tab}`);
-    const selected = tab === name;
-    button.setAttribute("aria-selected", String(selected));
-    button.tabIndex = selected ? 0 : -1;
-    $(`#panel-${tab}`).hidden = !selected;
-    if (selected && focus) button.focus();
-  });
-  if (updateHash) history.replaceState(null, "", `#${name}`);
+// Las rutas antiguas por hash siguen abriendo la misma sección.
+const SECTIONS = ["pedidos", "direcciones", "perfil", "facturacion", "referidos"];
+function currentView() {
+  const hash = decodeURIComponent(location.hash.slice(1));
+  if (hash === "facturacion" && !CARD_PAYMENTS_ENABLED) return "perfil";
+  return SECTIONS.includes(hash) ? hash : "inicio";
 }
-function setupTabs() {
-  TABS.forEach((tab, index) => {
-    const button = $(`#tab-${tab}`);
-    button.addEventListener("click", () => selectTab(tab));
-    button.addEventListener("keydown", event => {
-      const moves = { ArrowRight: 1, ArrowLeft: -1 };
-      if (event.key in moves) {
-        event.preventDefault();
-        selectTab(TABS[(index + moves[event.key] + TABS.length) % TABS.length], { focus: true });
-      } else if (event.key === "Home" || event.key === "End") {
-        event.preventDefault();
-        selectTab(event.key === "Home" ? TABS[0] : TABS[TABS.length - 1], { focus: true });
-      }
+function renderView({ focus = false } = {}) {
+  const view = currentView();
+  const active = view === "inicio" ? "pedidos" : view;
+  $("#account-content").dataset.view = view;
+  SECTIONS.forEach(section => {
+    $(`#panel-${section}`).hidden = section !== active;
+    document.querySelectorAll(`[data-section="${section}"]`).forEach(link => {
+      if (section === active && view !== "inicio") link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
     });
   });
-  window.addEventListener("hashchange", () => selectTab(location.hash.slice(1), { updateHash: false }));
-  selectTab(location.hash.slice(1), { updateHash: false });
+  if (focus) {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    if (view === "inicio") $("#account-title").focus({ preventScroll: true });
+    else $(`#${active}-title`).focus({ preventScroll: true });
+  }
+}
+function setupNavigation() {
+  document.querySelectorAll("[data-section]").forEach(link => {
+    link.addEventListener("click", event => {
+      event.preventDefault();
+      const section = link.dataset.section;
+      if (currentView() === section) return;
+      history.pushState({ accountFromHub: currentView() === "inicio" }, "", `#${section}`);
+      renderView({ focus: true });
+    });
+  });
+  const goBack = event => {
+    event.preventDefault();
+    if (currentView() === "inicio") return;
+    if (history.state?.accountFromHub) history.back();
+    else {
+      history.replaceState(null, "", "#inicio");
+      renderView({ focus: true });
+    }
+  };
+  $("#account-back").addEventListener("click", goBack);
+  $("#account-bottom-nav a[href='#inicio']").addEventListener("click", goBack);
+  window.addEventListener("popstate", () => renderView({ focus: true }));
+  window.addEventListener("hashchange", () => renderView({ focus: true }));
+  renderView();
 }
 
 // ── Perfil ──
@@ -118,8 +138,8 @@ async function loadProfile() {
   const form = $("#profile-form");
   for (const key of ["nombre", "apellidos", "telefono"]) form.elements[key].value = profile?.[key] || "";
   const email = profile?.email || getCurrentUser()?.email || "";
-  $("#profile-email").value = email;
-  $("#account-email").textContent = email;
+  $("#profile-email").textContent = email;
+  if (CARD_PAYMENTS_ENABLED) $("#hub-billing-status").textContent = billingComplete(profile) ? "Completo" : "Pendiente";
   const firstName = profile?.nombre || "";
   $("#account-title").textContent = firstName ? `Hola, ${firstName}` : "Mi cuenta";
   $("#account-avatar").textContent = (firstName || email || "?").trim().charAt(0).toUpperCase();
@@ -127,6 +147,8 @@ async function loadProfile() {
 
 // Datos de facturación de TropiPay: formulario aparte para que editar el perfil no los exija
 function setupBillingForm() {
+  if (!CARD_PAYMENTS_ENABLED) return;
+  $("#hub-billing-link").hidden = false;
   const form = $("#billing-form");
   const message = $("#billing-message");
   billingFields = renderBillingFields($("#billing-fields"));
@@ -139,6 +161,7 @@ function setupBillingForm() {
     setLoading(button, true, "Guardando...");
     try {
       await updateMyProfile(Object.fromEntries(new FormData(form)));
+      $("#hub-billing-status").textContent = "Completo";
       toast("Datos de facturación guardados");
     } catch (error) {
       handleError(error, message);
@@ -178,6 +201,7 @@ let pendingDeleteId = null;
 function renderAddresses() {
   const container = $("#addresses");
   container.setAttribute("aria-busy", "false");
+  $("#hub-addresses-count").textContent = String(addresses.length);
   if (!addresses.length) {
     container.innerHTML = `
       <div class="account-empty">
@@ -211,7 +235,7 @@ function renderAddresses() {
           </div>` : `
           <div class="account-card-actions">
             <button type="button" class="account-action" data-edit="${id}" aria-label="Editar dirección ${escapeHtml(address.alias)}"><i class="fa-solid fa-pen" aria-hidden="true"></i>Editar</button>
-            <button type="button" class="account-action is-danger" data-delete="${id}" aria-label="Eliminar dirección ${escapeHtml(address.alias)}"><i class="fa-solid fa-trash" aria-hidden="true"></i>Eliminar</button>
+            <details class="account-more"><summary aria-label="Más opciones para ${escapeHtml(address.alias)}"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i><span>Más opciones</span></summary><button type="button" class="account-action is-danger" data-delete="${id}" aria-label="Eliminar dirección ${escapeHtml(address.alias)}">Eliminar dirección</button></details>
           </div>`}
       </li>`;
   }).join("")}</ul>`;
@@ -379,6 +403,7 @@ let ordersById = new Map();
 async function loadOrders() {
   const orders = await getMyOrders();
   ordersById = new Map(orders.map(order => [String(order.id), order]));
+  $("#hub-orders-count").textContent = String(orders.length);
   const container = $("#orders");
   container.setAttribute("aria-busy", "false");
   if (!orders.length) {
@@ -386,8 +411,8 @@ async function loadOrders() {
       <div class="account-empty">
         <i class="fa-solid fa-box-open" aria-hidden="true"></i>
         <p><strong>Todavía no has hecho pedidos</strong></p>
-        <p>Cuando envíes algo a tu familia, aquí verás el pago y la entrega.</p>
-        <a class="auth-btn" href="./index.html">Ir a la tienda</a>
+        <p>Elige algo especial para tu familia. Aquí podrás seguir cada entrega.</p>
+        <a class="auth-btn" href="./index.html#combos">Ver combos</a>
       </div>`;
     return;
   }
@@ -489,6 +514,149 @@ function setupOrders() {
   });
 }
 
+function referralLink(code) {
+  const url = new URL("./index.html", location.href);
+  url.searchParams.set("ref", code);
+  return url.href;
+}
+
+function renderReferralSummary(code, summary) {
+  const container = $("#referral-content");
+  if (!container) return;
+  const link = referralLink(code.code);
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`Te invito a Ready Express Now. Entra con mi enlace: ${link}`)}`;
+  const rewards = Array.isArray(summary?.rewards) ? summary.rewards : [];
+  const referrals = Array.isArray(summary?.referrals) ? summary.referrals : [];
+  const referred = summary?.referred;
+  const promotion = summary?.referred_promotion;
+  const referrerRewards = rewards.filter(item => item.reward_type === "referrer_credit");
+  const pendingReferrals = referrals.filter(item => ["registered", "purchase_pending"].includes(item.status));
+  const referralStatus = {
+    pending: "Invitación pendiente", registered: "Registrado; falta la primera compra",
+    purchase_pending: "Compra en proceso de confirmación", qualified: "Compra confirmada; recompensa en proceso",
+    rewarded: "Recompensa acreditada", rejected: "No aprobado", cancelled: "Cancelado"
+  };
+  const rewardStatus = {
+    pending: "En proceso", available: "Disponible", used: "Usado en una compra",
+    reversed: "Anulado", expired: "Vencido", rejected: "No aprobado"
+  };
+  $("#hub-balance").textContent = `${money(summary?.balance)} ${summary?.currency || "USD"}`;
+  const promotionText = promotion
+    ? (promotion.reward_type === "discount_percent" ? `${Number(promotion.amount)}% de descuento en tu primera compra` : `${money(promotion.amount)} de descuento en tu primera compra`)
+    : "Promoción de referido aplicada a tu primera compra";
+  container.innerHTML = `
+    ${referred ? `<div class="account-referral-promo" role="status"><strong>Entraste con un enlace de referido</strong><span>${escapeHtml(promotionText)}${referred.status === "registered" ? `. Se aplicará a tu primera compra${promotion?.minimum_purchase ? ` desde ${money(promotion.minimum_purchase)}` : ""}.` : "."}</span><small>${escapeHtml(referralStatus[referred.status] || "Promoción registrada")}</small></div>` : ""}
+    <div class="account-card account-referral-balance">
+      <p>Crédito disponible</p>
+      <strong>${money(summary?.balance)} <small>${escapeHtml(summary?.currency || "USD")}</small></strong>
+      <span>Úsalo en tu próxima compra.</span>
+    </div>
+    <div class="account-card account-invite-card">
+      <p class="account-muted">Tu código de invitación</p>
+      <strong class="account-invite-code">${escapeHtml(code.code)}</strong>
+      <div class="account-invite-actions">
+        <a class="auth-btn account-whatsapp-share" href="${escapeHtml(whatsappUrl)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Compartir por WhatsApp</a>
+        <button type="button" class="account-action" id="copy-referral-link" data-link="${escapeHtml(link)}"><i class="fa-solid fa-copy" aria-hidden="true"></i> Copiar enlace</button>
+      </div>
+    </div>
+    <div class="account-card account-activity">
+      <h3>Ganancias y actividad</h3>
+      ${referrerRewards.length ? `<ul class="account-list">${referrerRewards.map(item => `<li class="account-activity-item"><span><strong>${money(item.amount)} ${escapeHtml(item.currency || summary?.currency || "USD")}</strong><small>${escapeHtml(rewardStatus[item.status] || "Estado en revisión")}</small></span><time>${escapeHtml(dateText(item.created_at))}</time></li>`).join("")}</ul>` : ""}
+      ${pendingReferrals.length ? `<p class="account-muted">${pendingReferrals.length} referido${pendingReferrals.length === 1 ? " está" : "s están"} registrado${pendingReferrals.length === 1 ? "" : "s"}; la ganancia se acredita cuando complete y pague su primera compra.</p>` : ""}
+      ${referrals.length ? `<ul class="account-list account-referral-history">${referrals.map(item => `<li><span class="account-badge is-info">${escapeHtml(referralStatus[item.status] || "Estado en revisión")}</span><time class="account-muted">${escapeHtml(dateText(item.created_at))}</time></li>`).join("")}</ul>` : '<p class="account-muted">Todavía no tienes referidos registrados.</p>'}
+    </div>`;
+  const copy = async linkValue => {
+    try { await navigator.clipboard.writeText(linkValue); toast("Enlace de referido copiado"); }
+    catch { toast("No se pudo copiar el enlace"); }
+  };
+  $("#copy-referral-link")?.addEventListener("click", event => copy(event.currentTarget.dataset.link));
+}
+
+async function loadReferrals() {
+  const container = $("#referral-content");
+  if (!container) return;
+  container.setAttribute("aria-busy", "true");
+  container.innerHTML = '<div class="account-skeleton account-skeleton--short" aria-hidden="true"></div>';
+  try {
+    const summaryPromise = getMyReferralSummary().catch(error => {
+      if (/tardó demasiado|timeout|sin conexión/i.test(error?.message || "")) return getMyReferralSummary();
+      throw error;
+    });
+    const [code, summary] = await Promise.all([getMyReferralCode(), summaryPromise]);
+    saveReferralWalletState(summary);
+    renderReferralSummary(code, summary);
+  } catch (error) {
+    $("#hub-balance").textContent = "No disponible";
+    if (isAuthError(error)) showLoggedOut("Tu sesión expiró. Inicia sesión de nuevo para continuar.");
+    else {
+      container.innerHTML = '<div class="account-card account-retry"><p>Tu saldo no se pudo cargar ahora.</p><button type="button" class="account-action" id="retry-referrals">Reintentar</button></div>';
+      $("#retry-referrals").addEventListener("click", () => loadReferrals());
+    }
+  } finally {
+    container.setAttribute("aria-busy", "false");
+  }
+}
+
+function base64ToBytes(value) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const raw = atob((value + padding).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, char => char.charCodeAt(0));
+}
+
+async function setupReferralPush() {
+  const setting = $("#referral-push-setting");
+  const checkbox = $("#referral-push-enabled");
+  const message = $("#referral-push-message");
+  if (!setting || !checkbox) return;
+  setting.hidden = false;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    checkbox.disabled = true;
+    message.textContent = "Los avisos no están disponibles en este navegador. Puedes activarlos desde otro dispositivo compatible.";
+    return;
+  }
+  try {
+    const preferences = await getReferralPushPreferences();
+    checkbox.checked = Boolean(preferences.referral_purchase_push_enabled);
+    if (!preferences.enabled || !preferences.public_key) {
+      checkbox.disabled = true;
+      message.textContent = "Las notificaciones push aún no están configuradas en este entorno.";
+      return;
+    }
+    checkbox.addEventListener("change", async () => {
+      const enabling = checkbox.checked;
+      checkbox.disabled = true;
+      try {
+        if (!enabling) {
+          await updateReferralPushPreferences({ referral_purchase_push_enabled: false });
+          message.textContent = "Notificaciones desactivadas.";
+          return;
+        }
+        const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("El navegador no concedió permiso para las notificaciones");
+        const registration = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+        const subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64ToBytes(preferences.public_key)
+        });
+        await updateReferralPushPreferences({
+          referral_purchase_push_enabled: true,
+          subscription: subscription.toJSON(),
+          user_agent: navigator.userAgent
+        });
+        message.textContent = "Notificaciones activadas en este navegador.";
+      } catch (error) {
+        checkbox.checked = !enabling;
+        message.textContent = error.message || "No se pudo activar la notificación.";
+      } finally {
+        checkbox.disabled = false;
+      }
+    });
+  } catch (error) {
+    checkbox.disabled = true;
+    message.textContent = error.message || "No se pudo cargar la configuración de notificaciones.";
+  }
+}
+
 // ── Inicio ──
 function init() {
   if (!getCurrentUser() || !getAccessToken()) {
@@ -497,9 +665,9 @@ function init() {
   }
   $("#auth-required").hidden = true;
   $("#account-content").hidden = false;
-  $("#account-email").textContent = getCurrentUser()?.email || "";
+  $("#account-bottom-nav").hidden = false;
 
-  setupTabs();
+  setupNavigation();
   setupProfileForm();
   setupBillingForm();
   setupAddresses();
@@ -520,6 +688,8 @@ function init() {
     $("#addresses").innerHTML = '<p class="auth-msg is-error">No se pudieron cargar tus direcciones.</p>';
     handleError(error);
   });
+  loadReferrals().catch(error => handleError(error));
+  setupReferralPush().catch(error => console.warn("[referral-push]", error));
 }
 
 init();

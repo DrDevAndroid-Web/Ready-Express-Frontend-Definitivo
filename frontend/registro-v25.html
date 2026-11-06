@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v43">
+  <link rel="stylesheet" href="./css/styles.css?v53">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -22,10 +22,10 @@
   <main class="auth-main" id="main">
     <section class="auth-card auth-card--wide" aria-labelledby="page-title">
       <h1 id="page-title">Crear cuenta</h1>
-      <p class="auth-lead">Dos pasos: tu cuenta y los datos de tu tarjeta. Los campos con <span class="auth-required" aria-hidden="true">*</span> son obligatorios.</p>
+      <p class="auth-lead">Crea tu cuenta y elige cómo prefieres pagar. Los campos con <span class="auth-required" aria-hidden="true">*</span> son obligatorios.</p>
       <ol class="auth-wizard-steps auth-wizard-steps--two" aria-label="Progreso del registro">
         <li class="is-active" data-reg-indicator="1" aria-current="step"><span>1</span>Tu cuenta</li>
-        <li data-reg-indicator="2"><span>2</span>Datos de la tarjeta</li>
+        <li data-reg-indicator="2"><span>2</span>Preferencias de pago</li>
       </ol>
       <form id="form" class="auth-form" novalidate>
         <section class="auth-wizard-panel" data-reg-step="1" aria-labelledby="reg-step-1-title">
@@ -37,7 +37,7 @@
           </div>
           <div class="auth-row">
             <div class="auth-field"><label for="email">Email<span class="auth-required" aria-hidden="true">*</span></label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" required></div>
-            <div class="auth-field"><label for="telefono">Teléfono / WhatsApp<span class="auth-required" aria-hidden="true">*</span></label><input id="telefono" name="telefono" type="tel" autocomplete="tel" inputmode="tel" required></div>
+            <div class="auth-field"><label for="telefono">Teléfono / WhatsApp<span class="auth-required" aria-hidden="true">*</span></label><div class="phone-input"><select id="telefono-pais" aria-label="Código de país del teléfono"></select><input id="telefono" name="telefono" type="tel" autocomplete="tel" inputmode="tel" placeholder="Número local" required></div></div>
           </div>
           <div class="auth-field">
             <label for="password">Contraseña<span class="auth-required" aria-hidden="true">*</span></label>
@@ -47,13 +47,26 @@
             </div>
             <small id="password-hint" class="auth-hint">Usa al menos 8 caracteres.</small>
           </div>
+          <div class="auth-field">
+            <label for="confirm_password">Confirmar contraseña<span class="auth-required" aria-hidden="true">*</span></label>
+            <div class="auth-password">
+              <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required minlength="8" aria-describedby="confirm-password-hint">
+              <button type="button" class="auth-password-toggle" data-password-toggle aria-controls="confirm_password" aria-pressed="false" aria-label="Mostrar confirmación de contraseña"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+            </div>
+            <small id="confirm-password-hint" class="auth-hint">Repite la contraseña exactamente.</small>
+          </div>
           <button type="button" class="auth-btn" data-reg-next="2">Continuar →</button>
         </section>
 
         <section class="auth-wizard-panel" data-reg-step="2" aria-labelledby="reg-step-2-title" hidden>
-          <h2 id="reg-step-2-title" tabindex="-1">Datos de tu tarjeta</h2>
-          <p class="auth-payment-assurance"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>TropiPay procesa el pago con Visa o Mastercard. Escríbelos como figuran en tu banco; los guardamos para tus próximas compras. <strong>No tendrás que subir comprobante.</strong></span></p>
-          <div id="billing-fields"></div>
+          <h2 id="reg-step-2-title" tabindex="-1">¿Cómo prefieres pagar?</h2>
+          <p class="auth-payment-assurance"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span>Selecciona uno o varios métodos para mostrarlos primero cuando hagas un pedido. La selección quedará guardada en tu perfil.</span></p>
+          <div id="payment-preferences" class="payment-preferences" aria-describedby="payment-preferences-hint"></div>
+          <p id="payment-preferences-hint" class="auth-hint">La tarjeta está temporalmente deshabilitada. Tus datos de pago nunca se guardan aquí.</p>
+          <div id="card-billing-section" hidden>
+            <h3 class="auth-subtitle">Datos de facturación de la tarjeta</h3>
+            <div id="billing-fields"></div>
+          </div>
           <div class="auth-wizard-actions"><button type="button" class="auth-btn auth-btn--secondary" data-reg-back="1">← Atrás</button><button type="submit" class="auth-btn">Crear cuenta</button></div>
         </section>
         <p id="error" class="auth-msg" role="alert"></p>
@@ -63,17 +76,60 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v43';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v43';
-    import { renderBillingFields } from './js/billing-fields.js?v43';
-    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v43';
-    import { escapeHtml, showNotice } from './js/notice-modal.js?v43';
+    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v53';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v53';
+    import { renderBillingFields } from './js/billing-fields.js?v53';
+    import { cargarMetodosPago, PAYMENT_FLOW_TROPIPAY } from './js/payment-methods.js?v53';
+    import { CARD_PAYMENTS_ENABLED } from './js/config.js?v53';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v53';
+    import { setupPhoneCountrySelect } from './js/phone-country.js?v53';
+    import { escapeHtml, showNotice } from './js/notice-modal.js?v53';
     bindPasswordToggles();
+    const phoneSelect = setupPhoneCountrySelect({ select: document.querySelector('#telefono-pais'), input: document.querySelector('#telefono') });
     applyReturnContext();
     const billing = renderBillingFields(document.querySelector('#billing-fields'));
     const form = document.querySelector('#form');
     const message = document.querySelector('#error');
+    const preferencesContainer = document.querySelector('#payment-preferences');
+    const cardBillingSection = document.querySelector('#card-billing-section');
     let currentStep = 1;
+    const password = document.querySelector('#password');
+    const confirmPassword = document.querySelector('#confirm_password');
+    function syncPasswordConfirmation() {
+      if (confirmPassword) confirmPassword.setCustomValidity(confirmPassword.value && confirmPassword.value !== password?.value ? 'Las contraseñas no coinciden' : '');
+    }
+    password?.addEventListener('input', syncPasswordConfirmation);
+    confirmPassword?.addEventListener('input', syncPasswordConfirmation);
+
+    function methodKey(method) {
+      return String(method.id || method.method_name || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    }
+
+    function renderPaymentPreferences(methods) {
+      const available = (methods || []).filter(method => CARD_PAYMENTS_ENABLED || method.payment_flow !== PAYMENT_FLOW_TROPIPAY);
+      const fallback = [
+        { id: 'zelle', display_name: 'Zelle' },
+        { id: 'tocopay', display_name: 'TocoPay' },
+        { id: 'assisted', display_name: 'Ayuda por WhatsApp' }
+      ];
+      const options = available.length ? available : fallback;
+      preferencesContainer.innerHTML = options.map(method => {
+        const key = methodKey(method);
+        const isCard = method.payment_flow === PAYMENT_FLOW_TROPIPAY || key === 'tropipay';
+        return `<label class="payment-preference-option${isCard ? ' is-card' : ''}"${isCard && !CARD_PAYMENTS_ENABLED ? ' hidden' : ''}>
+          <input type="checkbox" name="preferred_payment_methods" value="${escapeHtml(key)}" data-payment-flow="${escapeHtml(method.payment_flow || '')}">
+          <span><strong>${escapeHtml(method.display_name || method.method_name || key)}</strong>${isCard ? '<small>Visa y Mastercard</small>' : ''}</span>
+        </label>`;
+      }).join('');
+      preferencesContainer.querySelectorAll('input[name="preferred_payment_methods"]').forEach(input => input.addEventListener('change', () => {
+        const cardSelected = input.checked && (input.dataset.paymentFlow === PAYMENT_FLOW_TROPIPAY || input.value === 'tropipay');
+        if (cardSelected) cardBillingSection.hidden = false;
+        const anyCard = [...preferencesContainer.querySelectorAll('input:checked')].some(item => item.dataset.paymentFlow === PAYMENT_FLOW_TROPIPAY || item.value === 'tropipay');
+        cardBillingSection.hidden = !anyCard;
+      }));
+    }
+
+    cargarMetodosPago().then(renderPaymentPreferences).catch(() => renderPaymentPreferences([]));
 
     function showStep(step) {
       currentStep = step;
@@ -90,7 +146,15 @@
     }
 
     function validateStep(step) {
-      if (step === 2) billing.syncValidity();
+      if (step === 2) {
+        const selected = document.querySelectorAll('#payment-preferences input[name="preferred_payment_methods"]:checked');
+        if (!selected.length) {
+          showMessage(message, 'Selecciona al menos un método de pago.', 'error');
+          return false;
+        }
+        const cardSelected = [...selected].some(input => input.value === 'tropipay' || input.dataset.paymentFlow === PAYMENT_FLOW_TROPIPAY);
+        if (cardSelected) billing.syncValidity();
+      }
       const valid = focusFirstInvalid(document.querySelector(`[data-reg-step="${step}"]`));
       showMessage(message, valid ? '' : 'Revisa los campos marcados.', 'error');
       return valid;
@@ -160,6 +224,8 @@
     document.querySelectorAll('[data-reg-back]').forEach(button => button.addEventListener('click', () => showStep(Number(button.dataset.regBack))));
     form.addEventListener('submit', async e => {
       e.preventDefault();
+      phoneSelect?.normalize();
+      syncPasswordConfirmation();
       // El paso 1 está oculto: se comprueba sin pintar errores y, si falla, se vuelve a él
       if ([...document.querySelectorAll('[data-reg-step="1"] input')].some(field => !field.checkValidity())) {
         showStep(1);
@@ -169,6 +235,7 @@
       if (!validateStep(2)) return;
       const button = form.querySelector('[type=submit]');
       const data = Object.fromEntries(new FormData(form));
+      data.preferred_payment_methods = [...form.querySelectorAll('input[name="preferred_payment_methods"]:checked')].map(input => input.value);
       const address = deliveryAddress(savedCheckout());
       if (address) data.direccion_entrega = address;
       showMessage(message, '');

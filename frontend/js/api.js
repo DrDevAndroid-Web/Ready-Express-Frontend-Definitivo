@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v43";
-import { authorizedFetch } from "./session.js?v43";
+import { API_BASE } from "./config.js?v53";
+import { authorizedFetch } from "./session.js?v53";
 
 export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
@@ -8,7 +8,8 @@ const PUBLIC_SESSION_CACHE_TTL = Object.freeze({
   "/catalog": 60_000,
   "/info": 300_000,
   "/localizaciones": 300_000,
-  "/payment-methods": 300_000
+  "/payment-methods": 300_000,
+  "/referrals/program": 300_000
 });
 
 function sessionCacheKey(path) {
@@ -162,8 +163,39 @@ async function request(path, options = {}) {
 export const getCatalog = () => request("/catalog");
 export const getInfo = () => request("/info");
 export const getLocalizaciones = () => request("/localizaciones");
+export const getReferralProgram = () => request("/referrals/program");
+export const claimReferralCode = code => request("/referrals/claim", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ code })
+});
+export const getMyReferralCode = () => request("/account/referral-code", { cache: "no-store" });
+export const attachReferralClaim = token => request("/account/referral-claim", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ token })
+});
+export const getMyReferralSummary = () => request("/account/referrals", { cache: "no-store" });
+export const getPaymentPreferences = () => request("/account/payment-preferences", { cache: "no-store" });
+export const updatePaymentPreferences = preferred_payment_methods => request("/account/payment-preferences", {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ preferred_payment_methods })
+});
+export const getReferralPushPreferences = () => request("/account/referral-push", { cache: "no-store" });
+export const updateReferralPushPreferences = payload => request("/account/referral-push", {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+});
 export const createOrder = (data) =>
   request("/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+export const quoteOrder = (data) =>
+  request("/orders/quote", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),

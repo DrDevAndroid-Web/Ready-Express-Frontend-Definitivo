@@ -1,4 +1,6 @@
-import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v43";
+import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v53";
+
+import { renderReferralCartNotice } from "./referrals.js?v53";
 
 let cart = getCartSnapshot();
 
@@ -64,12 +66,12 @@ function renderComboDetails(item) {
   if (!components.length) return "";
 
   return `
-    <div class="cart-item-components">
-      <span class="cart-item-components-label">Incluido en el combo:</span>
+    <details class="cart-item-components">
+      <summary class="cart-item-components-label">Incluido en el combo <span aria-hidden="true">⌄</span></summary>
       <ul>${components.map(component => `
         <li>${escapeHtml(component.nombre)} <strong>×${component.cantidad}</strong></li>
       `).join("")}</ul>
-    </div>`;
+    </details>`;
 }
 
 export function addItem(product, qty = 1) {
@@ -156,6 +158,7 @@ export function renderCart() {
     if (emptyMsg) emptyMsg.style.display = "block";
     if (checkoutBtn) checkoutBtn.disabled = true;
     if (totalEl) totalEl.textContent = "$0.00";
+    renderReferralCartNotice(0);
     return;
   }
 
@@ -196,6 +199,7 @@ export function renderCart() {
   });
 
   if (totalEl) totalEl.textContent = `$${getTotal().toFixed(2)}`;
+  renderReferralCartNotice(getTotal());
 }
 
 export function initCart() {
@@ -210,16 +214,25 @@ export function initCart() {
 
   cartBtn?.addEventListener("click", () => {
     cartPanel?.classList.add("open");
+    cartPanel?.setAttribute("aria-hidden", "false");
+    cartBtn?.setAttribute("aria-expanded", "true");
     overlay?.classList.add("show");
     document.body.classList.add("modal-open");
   });
 
   cartClose?.addEventListener("click", closeCart);
   overlay?.addEventListener("click", closeCart);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && cartPanel?.classList.contains("open")) closeCart();
+  });
 }
 
 export function closeCart() {
-  document.getElementById("cart-panel")?.classList.remove("open");
+  const cartPanel = document.getElementById("cart-panel");
+  const cartBtn = document.getElementById("cart-btn");
+  cartPanel?.classList.remove("open");
+  cartPanel?.setAttribute("aria-hidden", "true");
+  cartBtn?.setAttribute("aria-expanded", "false");
   const anyOpen = document.querySelector(".modal.open, #cart-panel.open");
   if (!anyOpen) {
     document.getElementById("overlay")?.classList.remove("show");

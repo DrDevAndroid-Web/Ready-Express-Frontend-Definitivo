@@ -1,16 +1,16 @@
-import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v44";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v44";
-import { savePendingPayment } from "./payment.js?v44";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v44";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v44";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v44";
-import { getValidAccessToken } from "./session.js?v44";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v44";
-import { setupCountrySelect } from "./country-select.js?v44";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v44";
-import { fieldErrorMessage } from "./field-messages.js?v44";
-import { showNotice } from "./notice-modal.js?v44";
-import { captureReferralFromUrl, getReferralClaimToken } from "./referrals.js?v44";
+import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v53";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v53";
+import { savePendingPayment } from "./payment.js?v53";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v53";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v53";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v53";
+import { getValidAccessToken } from "./session.js?v53";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v53";
+import { setupCountrySelect } from "./country-select.js?v53";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v53";
+import { fieldErrorMessage } from "./field-messages.js?v53";
+import { showNotice } from "./notice-modal.js?v53";
+import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v53";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -111,9 +111,11 @@ function scheduleReferralQuote(form) {
 async function loadReferralSummary() {
   try {
     referralSummary = await getMyReferralSummary();
+    saveReferralPromotionState(referralSummary);
   } catch {
     referralSummary = null;
   }
+  renderReferralCartNotice(getDeliverySubtotal());
   renderReferralNotice();
 }
 

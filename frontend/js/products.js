@@ -1,6 +1,6 @@
-import { getCatalog, getInfo } from "./api.js?v43";
-import { addItem } from "./cart.js?v43";
-import { openProductModal } from "./product-modal.js?v43";
+import { getCatalog, getInfo } from "./api.js?v53";
+import { addItem } from "./cart.js?v53";
+import { openProductModal } from "./product-modal.js?v53";
 
 const CONTACT_WHATSAPP = "5356189395";
 
@@ -16,31 +16,37 @@ function escapeHtml(value) {
 
 const ICON_MAP = {
   // Combos
-  combos: "🍱", combo: "🍱",
+  combos: "fa-box-open", combo: "fa-box-open",
   // Carnes y proteínas
-  carnes: "🥩", proteinas: "🥩", proteina: "🥩", pollo: "🍗",
+  carnes: "fa-drumstick-bite", proteinas: "fa-drumstick-bite", proteina: "fa-drumstick-bite", pollo: "fa-drumstick-bite",
   // Embutidos y lácteos
-  "embutidos y lacteos": "🥛", lacteos: "🥛", lacticos: "🥛",
+  "embutidos y lacteos": "fa-cheese", lacteos: "fa-cheese", lacticos: "fa-cheese",
   // Condimentos y aceites
-  condimentos: "🧂", aceites: "🫒", aceite: "🫒",
+  condimentos: "fa-mortar-pestle", aceites: "fa-bottle-droplet", aceite: "fa-bottle-droplet",
   // Conservas
-  "conservas y enlatados": "🥫", conservas: "🥫",
+  "conservas y enlatados": "fa-box", conservas: "fa-box",
   // Pastas y granos
-  pastas: "🍝", granos: "🍚", legumbres: "🍚",
+  pastas: "fa-bowl-food", granos: "fa-wheat-awn", legumbres: "fa-wheat-awn",
   // Bebidas
-  bebidas: "🥤",
+  bebidas: "fa-bottle-water",
   // Aseo y limpieza
-  aseo: "🧹", limpieza: "🧹",
+  aseo: "fa-pump-soap", limpieza: "fa-pump-soap",
   // Varios / miscelánea
-  otros: "📦", viveres: "🛒",
+  otros: "fa-box", viveres: "fa-basket-shopping",
   // Electrodomésticos
-  electrodomesticos: "⚡",
+  electrodomesticos: "fa-plug-circle-bolt",
 };
 
 function getIcon(cat = "") {
   const k = cat.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  return ICON_MAP[k] || "📦";
+  return `<i class="fa-solid ${ICON_MAP[k] || "fa-box"}" aria-hidden="true"></i>`;
 }
+
+const CATALOG_PAGE_SIZE = 8;
+let visibleProductCount = CATALOG_PAGE_SIZE;
+let renderedProducts = [];
+let visibleElectroCount = CATALOG_PAGE_SIZE;
+let renderedElectro = [];
 
 function parseDetalles(val) {
   if (!val) return "";
@@ -171,12 +177,12 @@ function renderSkeleton(count = 6) {
     </div>`).join("");
 }
 
-function renderCard(product, { detail = false } = {}) {
+function renderCard(product, { detail = false, eager = false } = {}) {
   const dataAttr = escapeHtml(JSON.stringify(product));
   const priceDisplay = product.precio > 0 ? `$${product.precio.toFixed(2)}` : "Consultar precio";
   const key = detail ? escapeHtml(detailKey(product)) : "";
   const media = product.imagen
-    ? `<img src="${escapeHtml(product.imagen)}" alt="${escapeHtml(product.nombre)}" loading="lazy">`
+    ? `<img src="${escapeHtml(product.imagen)}" alt="${escapeHtml(product.nombre)}" loading="${eager ? "eager" : "lazy"}" decoding="async">`
     : `<div class="img-placeholder"><span>📦</span><small>Imagen próximamente</small></div>`;
   // La imagen abre la ficha con el ratón o el dedo; para teclado y lector de pantalla
   // el botón accesible es el nombre (así no hay dos paradas de tabulación iguales).
@@ -200,7 +206,7 @@ function renderCard(product, { detail = false } = {}) {
             <span class="qty-display">1</span>
             <button class="qty-btn-card" onclick="window.changeQty(this,1)" aria-label="Aumentar cantidad">+</button>
           </div>
-          <button class="add-btn" aria-label="Agregar ${escapeHtml(product.nombre || "producto")} al carrito" onclick="window.addToCart(${dataAttr},this)">Agregar</button>
+          <button class="add-btn" aria-label="Agregar ${escapeHtml(product.nombre || "producto")} al carrito" onclick="window.addToCart(${dataAttr},this)">Agregar al carrito</button>
         </div>
       </div>
     </div>`;
@@ -229,7 +235,7 @@ async function loadCombos(source = null) {
       grid.innerHTML = `<div class="empty-state"><span>🍱</span><p>No hay combos disponibles en este momento</p></div>`;
       return;
     }
-    grid.innerHTML = items.map(item => renderCard(item, { detail: true })).join("");
+    grid.innerHTML = items.map((item, index) => renderCard(item, { detail: true, eager: index < 4 })).join("");
     bindDetailGrid(grid);
   } catch (err) {
     grid.innerHTML = "";
@@ -263,7 +269,28 @@ function renderProductGrid(products) {
     grid.innerHTML = `<div class="empty-state"><span>🛒</span><p>No se encontraron productos</p></div>`;
     return;
   }
-  grid.innerHTML = products.map(renderCard).join("");
+  renderedProducts = products;
+  visibleProductCount = CATALOG_PAGE_SIZE;
+  renderVisibleProducts();
+}
+
+function renderVisibleProducts() {
+  const grid = document.getElementById("products-grid");
+  const more = document.getElementById("products-load-more");
+  if (!grid) return;
+  grid.innerHTML = renderedProducts.slice(0, visibleProductCount).map(renderCard).join("");
+  if (more) more.hidden = visibleProductCount >= renderedProducts.length;
+}
+
+function initCatalogPagination() {
+  document.getElementById("products-load-more")?.addEventListener("click", () => {
+    visibleProductCount += CATALOG_PAGE_SIZE;
+    renderVisibleProducts();
+  });
+  document.getElementById("electro-load-more")?.addEventListener("click", () => {
+    visibleElectroCount += CATALOG_PAGE_SIZE;
+    renderVisibleElectro();
+  });
 }
 
 function applySearch(query) {
@@ -465,7 +492,9 @@ async function loadElectro(source = null) {
       grid.innerHTML = `<div class="empty-state"><span>⚡</span><p>No hay productos varios disponibles en este momento</p></div>`;
       return;
     }
-    grid.innerHTML = items.map(item => renderCard(item, { detail: true })).join("");
+    renderedElectro = items;
+    visibleElectroCount = CATALOG_PAGE_SIZE;
+    renderVisibleElectro();
     bindDetailGrid(grid);
   } catch (err) {
     grid.innerHTML = "";
@@ -477,8 +506,18 @@ async function loadElectro(source = null) {
 }
 
 export function initProducts() {
+  initCatalogPagination();
   loadInfoBanner();
   loadCatalog();
+}
+
+function renderVisibleElectro() {
+  const grid = document.getElementById("electro-grid");
+  const more = document.getElementById("electro-load-more");
+  if (!grid) return;
+  grid.innerHTML = renderedElectro.slice(0, visibleElectroCount).map(item => renderCard(item, { detail: true })).join("");
+  bindDetailGrid(grid);
+  if (more) more.hidden = visibleElectroCount >= renderedElectro.length;
 }
 
 async function loadCatalog() {

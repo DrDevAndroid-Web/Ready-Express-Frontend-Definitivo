@@ -1,10 +1,11 @@
-import { API_BASE } from "./config.js?v43";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v43";
+import { API_BASE, attachReferralClaim } from "./api.js?v53";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v53";
+import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v53";
 const ACCESS_KEY = "ren_access_token";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
 export function getCurrentUser() { try { return JSON.parse(localStorage.getItem("ren_user") || "null"); } catch { return null; } }
 export function saveSession(data) { storeSession(data); }
-export function clearSession() { clearStoredSession(); }
+export function clearSession() { clearStoredSession(); clearReferralWalletState(); clearReferralPromotionState(); }
 // Identificador aleatorio de este navegador: el backend avisa por email al entrar desde uno nuevo
 function getDeviceId() {
   try {
@@ -19,9 +20,21 @@ function getDeviceId() {
   }
 }
 async function authRequest(path, options = {}) { const response = await authorizedFetch(`${API_BASE}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } }); const body = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(body.error || "No se pudo completar la operación"); error.status = response.status; error.code = body.code || ""; throw error; } return body; }
-export async function registerCustomer(data) { const result = await authRequest("/auth/register", { method: "POST", body: JSON.stringify({ ...data, device_id: getDeviceId() }) }); if (result.access_token) saveSession(result); return result; }
+async function attachPendingReferral() {
+  const token = getReferralClaimToken();
+  if (!token) return;
+  try {
+    await attachReferralClaim(token);
+    clearReferralClaim();
+  } catch (error) {
+    // Un token ya usado/expirado no debe bloquear el acceso; los errores de red
+    // conservan el token para poder reintentar en la siguiente navegación.
+    if ([404, 409].includes(error?.status || error?.originalError?.status)) clearReferralClaim();
+  }
+}
+export async function registerCustomer(data) { const result = await authRequest("/auth/register", { method: "POST", body: JSON.stringify({ ...data, device_id: getDeviceId() }) }); if (result.access_token) { saveSession(result); await attachPendingReferral(); } return result; }
 // Confirma la cuenta con el código del email y deja la sesión iniciada
-export async function verifyEmailCode(email, code) { const result = await authRequest("/auth/verify-email-code", { method: "POST", body: JSON.stringify({ email, code, device_id: getDeviceId() }) }); saveSession(result); return result; }
+export async function verifyEmailCode(email, code) { const result = await authRequest("/auth/verify-email-code", { method: "POST", body: JSON.stringify({ email, code, device_id: getDeviceId() }) }); saveSession(result); await attachPendingReferral(); return result; }
 export async function resendConfirmationEmail(email) { return authRequest("/auth/resend-confirmation", { method: "POST", body: JSON.stringify({ email }) }); }
 // Login rechazado porque la cuenta aún no confirmó el email (el backend antiguo solo manda el texto)
 export function isEmailNotConfirmed(err) { return err?.code === "email_not_confirmed" || /confirma tu email/i.test(err?.message || ""); }
@@ -38,7 +51,7 @@ export function safeReturnPath() {
   return `./${page}${query ? `?${new URLSearchParams(query)}` : ""}`;
 }
 // Mantiene ?return= al pasar entre login y registro y, si viene del checkout,
-// explica por qué se pide la cuenta (pago con tarjeta)
+// explica por qué se pide la cuenta para cualquier compra
 export function applyReturnContext() {
   const target = new URLSearchParams(location.search).get("return");
   if (!target || !safeReturnPath()) return;
@@ -53,10 +66,10 @@ export function applyReturnContext() {
   const notice = document.createElement("p");
   notice.className = "auth-msg is-info auth-return-notice";
   // .auth-msg es flex: el texto va en un solo <span> para que no se parta en columnas
-  notice.innerHTML = '<i class="fa-solid fa-credit-card" aria-hidden="true"></i><span>Para pagar con tarjeta de débito o crédito necesitas una cuenta. <strong>Tu carrito y los datos del envío se guardan</strong>: al terminar vuelves al pago.</span>';
+  notice.innerHTML = '<i class="fa-solid fa-lock" aria-hidden="true"></i><span>Para completar cualquier compra necesitas una cuenta gratuita. <strong>Tu carrito y los datos del envío se guardan</strong>: al terminar vuelves al checkout.</span>';
   lead.after(notice);
 }
-export async function loginCustomer(email, password) { const result = await authRequest("/auth/login", { method: "POST", body: JSON.stringify({ email, password, device_id: getDeviceId() }) }); saveSession(result); const target = safeReturnPath(); if (target) location.href = target; return result; }
+export async function loginCustomer(email, password) { const result = await authRequest("/auth/login", { method: "POST", body: JSON.stringify({ email, password, device_id: getDeviceId() }) }); saveSession(result); await attachPendingReferral(); const target = safeReturnPath(); if (target) location.href = target; return result; }
 export async function getMyProfile() { return authRequest("/auth/profile"); }
 export async function getMyOrders() { return authRequest("/account/orders"); }
 export async function updateMyProfile(data) { return authRequest("/auth/profile", { method: "PATCH", body: JSON.stringify(data) }); }
