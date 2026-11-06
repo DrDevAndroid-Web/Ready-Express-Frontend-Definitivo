@@ -1,8 +1,8 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v53";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v53";
-import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v53";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v53";
-import { authorizedFetch } from "./session.js?v53";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v54";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v54";
+import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v54";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v54";
+import { authorizedFetch } from "./session.js?v54";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -53,6 +53,42 @@ export function clearPendingPayment() {
   storageRemove(PENDING_PAYMENT_KEY);
 }
 
+// El servidor es la fuente de verdad para recuperar un comprobante pendiente
+// cuando el cliente continúa la compra en otro dispositivo. Si no hay sesión o
+// hay un fallo transitorio de red, se conserva el estado local como respaldo.
+export async function restorePendingPaymentFromBackend() {
+  const localPending = getPendingPayment();
+  try {
+    const response = await authorizedFetch(`${API_BASE}/account/pending-payment`, { cache: "no-store" });
+    if (response.status === 401) return hasPendingPayment();
+    if (!response.ok) return hasPendingPayment();
+
+    const remotePending = await response.json().catch(() => null);
+    if (remotePending?.order_id && Number.isFinite(Number(remotePending.total))) {
+      savePendingPayment(
+        remotePending.order_id,
+        Number(remotePending.total),
+        Array.isArray(remotePending.items) ? remotePending.items : [],
+        remotePending.method || "",
+        ""
+      );
+      if (remotePending.method) storageSet("ren_selected_payment_method", remotePending.method);
+      return true;
+    }
+
+    // La sesión respondió correctamente y no tiene comprobante pendiente:
+    // evitar redirigir por un registro obsoleto de este navegador.
+    if (localPending) {
+      clearPendingPayment();
+      storageRemove("ren_selected_payment_method");
+      storageRemove("ren_selected_payment_method_id");
+    }
+    return false;
+  } catch {
+    return hasPendingPayment();
+  }
+}
+
 export function redirectToPendingPayment() {
   if (!hasPendingPayment()) return false;
   const currentPage = window.location.pathname.split("/").pop() || "index.html";
@@ -64,6 +100,7 @@ export function redirectToPendingPayment() {
 }
 
 export async function initPaymentPage() {
+  await restorePendingPaymentFromBackend();
   const pending = getPendingPayment();
   const emptyState = document.getElementById("payment-empty-state");
   const paymentContent = document.getElementById("payment-content");

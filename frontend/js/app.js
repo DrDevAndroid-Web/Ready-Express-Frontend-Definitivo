@@ -1,10 +1,10 @@
-import { initCart, getCart } from "./cart.js?v53";
-import { initProducts } from "./products.js?v53";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v53";
-import { redirectToPendingPayment } from "./payment.js?v53";
-import { inicializarMetodosPago } from "./payment-methods.js?v53";
-import { getLocalizaciones } from "./api.js?v53";
-import { captureReferralFromUrl, syncReferralWalletState } from "./referrals.js?v53";
+import { initCart, getCart } from "./cart.js?v54";
+import { initProducts } from "./products.js?v54";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v54";
+import { redirectToPendingPayment, restorePendingPaymentFromBackend } from "./payment.js?v54";
+import { inicializarMetodosPago } from "./payment-methods.js?v54";
+import { getLocalizaciones } from "./api.js?v54";
+import { captureReferralFromUrl, syncReferralWalletState } from "./referrals.js?v54";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
@@ -14,6 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const accountNavigation = new URLSearchParams(location.search);
   captureReferralFromUrl().catch(() => {});
   syncReferralWalletState({ showModal: accountNavigation.get("cart") !== "1" && accountNavigation.get("menu") !== "1" }).catch(() => {});
+  await restorePendingPaymentFromBackend();
   if (redirectToPendingPayment()) return;
 
   await inicializarMetodosPago();

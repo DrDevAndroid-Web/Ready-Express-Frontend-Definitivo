@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v53">
+  <link rel="stylesheet" href="./css/styles.css?v54">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -76,14 +76,14 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v53';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v53';
-    import { renderBillingFields } from './js/billing-fields.js?v53';
-    import { cargarMetodosPago, PAYMENT_FLOW_TROPIPAY } from './js/payment-methods.js?v53';
-    import { CARD_PAYMENTS_ENABLED } from './js/config.js?v53';
-    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v53';
-    import { setupPhoneCountrySelect } from './js/phone-country.js?v53';
-    import { escapeHtml, showNotice } from './js/notice-modal.js?v53';
+    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v54';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v54';
+    import { renderBillingFields } from './js/billing-fields.js?v54';
+    import { cargarMetodosPago, PAYMENT_FLOW_TROPIPAY } from './js/payment-methods.js?v54';
+    import { CARD_PAYMENTS_ENABLED } from './js/config.js?v54';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v54';
+    import { setupPhoneCountrySelect } from './js/phone-country.js?v54';
+    import { escapeHtml, showNotice } from './js/notice-modal.js?v54';
     bindPasswordToggles();
     const phoneSelect = setupPhoneCountrySelect({ select: document.querySelector('#telefono-pais'), input: document.querySelector('#telefono') });
     applyReturnContext();

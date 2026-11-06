@@ -1,13 +1,13 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v53";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v53";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v53";
-import { billingComplete, renderBillingFields } from "./billing-fields.js?v53";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v53";
-import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v53";
-import { saveReferralWalletState } from "./referrals.js?v53";
+} from "./auth.js?v54";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v54";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v54";
+import { billingComplete, renderBillingFields } from "./billing-fields.js?v54";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v54";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v54";
+import { saveReferralWalletState } from "./referrals.js?v54";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
