@@ -1,16 +1,16 @@
-import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v56";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v56";
-import { savePendingPayment } from "./payment.js?v56";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v56";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v56";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v56";
-import { getValidAccessToken } from "./session.js?v56";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v56";
-import { setupCountrySelect } from "./country-select.js?v56";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v56";
-import { fieldErrorMessage } from "./field-messages.js?v56";
-import { showNotice } from "./notice-modal.js?v56";
-import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v56";
+import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v58";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v58";
+import { savePendingPayment } from "./payment.js?v58";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v58";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v58";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v58";
+import { getValidAccessToken } from "./session.js?v58";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v58";
+import { setupCountrySelect } from "./country-select.js?v58";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v58";
+import { fieldErrorMessage } from "./field-messages.js?v58";
+import { showNotice } from "./notice-modal.js?v58";
+import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v58";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -636,12 +636,23 @@ export async function initCheckout() {
   }
 
   document.getElementById("checkout-btn")?.addEventListener("click", showCheckoutModal);
-  document.getElementById("cart-checkout-btn")?.addEventListener("click", async () => {
-    if (!getCart().length) return;
-    if (!await requireCheckoutSession()) return;
-    await captureReferralFromUrl();
-    await loadReferralSummary();
-    window.location.href = "./checkout.html";
+  document.getElementById("cart-checkout-btn")?.addEventListener("click", async event => {
+    const button = event.currentTarget;
+    if (!getCart().length || button.dataset.loading === "true") return;
+    const originalText = button.textContent;
+    button.dataset.loading = "true";
+    button.disabled = true;
+    button.textContent = "Preparando tu pago…";
+    try {
+      if (!await requireCheckoutSession()) return;
+      await captureReferralFromUrl();
+      await loadReferralSummary();
+      window.location.href = "./checkout.html";
+    } finally {
+      button.textContent = originalText;
+      button.disabled = false;
+      delete button.dataset.loading;
+    }
   });
 
   if (isCheckoutPage) {
@@ -1022,6 +1033,28 @@ async function submitOrder(form) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Creando pedido...';
 
+  if (getReferralClaimToken() || referralSummary?.referred) {
+    try {
+      referralQuote = await quoteOrder({
+        items: quoteItems(),
+        delivery_location_id: fieldValue(form, "delivery_location_id"),
+        referral_claim_token: getReferralClaimToken() || undefined
+      });
+      currentTotal = Number(referralQuote.total);
+      renderCheckoutReview();
+    } catch (error) {
+      btn.disabled = false;
+      updateSubmitButton();
+      showNotice({
+        tone: "warning",
+        title: "Revisa tu beneficio",
+        body: `<p>${escapeHtml(error.message || "No pudimos confirmar el descuento de referido. Intenta de nuevo.")}</p>`,
+        actions: [{ label: "Entendido", onClick: control => control.close() }]
+      });
+      return;
+    }
+  }
+
   const senderFirstName = fieldValue(form, "sender_first_name");
   const senderLastName  = fieldValue(form, "sender_last_name");
   const senderName  = `${senderFirstName} ${senderLastName}`.trim();
@@ -1102,7 +1135,7 @@ async function submitOrder(form) {
     }
 
     if (currentSelectedMethodFlow !== PAYMENT_FLOW_ASSISTED) {
-      const pendingSaved = savePendingPayment(currentOrderId, currentTotal, orderData.items, "", order.checkout_token);
+      const pendingSaved = savePendingPayment(currentOrderId, currentTotal, orderData.items, "", order.checkout_token, order.order_reference || "");
       if (!pendingSaved) throw new Error("No pudimos guardar la información de pago en este dispositivo. Conservamos tu carrito para que puedas reintentarlo.");
     }
     if (!clearCart()) throw new Error("No pudimos guardar el estado del carrito. Conservamos tus productos para reintentar.");

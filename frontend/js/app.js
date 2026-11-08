@@ -1,10 +1,10 @@
-import { initCart, getCart } from "./cart.js?v56";
-import { initProducts } from "./products.js?v56";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v56";
-import { redirectToPendingPayment, restorePendingPaymentFromBackend } from "./payment.js?v56";
-import { inicializarMetodosPago } from "./payment-methods.js?v56";
-import { getLocalizaciones } from "./api.js?v56";
-import { bindReferralCtaTracking, captureReferralFromUrl, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v56";
+import { initCart, getCart } from "./cart.js?v58";
+import { initProducts } from "./products.js?v58";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v58";
+import { restorePendingPaymentFromBackend, showPendingPaymentNotice } from "./payment.js?v58";
+import { inicializarMetodosPago } from "./payment-methods.js?v58";
+import { getLocalizaciones } from "./api.js?v58";
+import { bindReferralCtaTracking, captureReferralFromUrl, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v58";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
@@ -15,8 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindReferralCtaTracking();
   const referralCapture = await captureReferralFromUrl().catch(() => null);
   syncReferralWalletState({ showModal: accountNavigation.get("cart") !== "1" && accountNavigation.get("menu") !== "1" }).catch(() => {});
-  await restorePendingPaymentFromBackend();
-  if (redirectToPendingPayment()) return;
+  if (await restorePendingPaymentFromBackend()) showPendingPaymentNotice();
 
   await inicializarMetodosPago();
   initCart();

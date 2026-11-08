@@ -866,6 +866,9 @@ button:disabled {
 .form-submit:hover:not(:disabled) { background: var(--orange-light); }
 .form-submit:disabled { background: var(--gray); cursor: not-allowed; color: var(--white); }
 .form-error { color: #c62828; font-size: 0.85rem; margin-top: 12px; display: none; }
+#pending-payment-notice { position: fixed; z-index: 1000; right: 1rem; bottom: 1rem; max-width: min(420px, calc(100vw - 2rem)); display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; padding: .85rem 1rem; border-radius: 16px; background: #103f75; color: #fff; box-shadow: 0 12px 32px #102d5055; font-size: .9rem; }
+#pending-payment-notice a { color: #fff; font-weight: 700; text-decoration: underline; }
+#pending-payment-notice button { margin-left: auto; border: 0; background: transparent; color: #fff; font-size: 1.3rem; cursor: pointer; }
 .required { color: var(--orange); }
 
 /* ── Checkout Summary ── */

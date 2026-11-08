@@ -1,11 +1,11 @@
-import { API_BASE, attachReferralClaim } from "./api.js?v56";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v55";
-import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v56";
+import { API_BASE, attachReferralClaim } from "./api.js?v58";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v58";
+import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v58";
 const ACCESS_KEY = "ren_access_token";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
 export function getCurrentUser() { try { return JSON.parse(localStorage.getItem("ren_user") || "null"); } catch { return null; } }
 export function saveSession(data) { storeSession(data); }
-export function clearSession() { clearStoredSession(); clearReferralWalletState(); clearReferralPromotionState(); }
+export function clearSession() { clearStoredSession(); clearReferralWalletState(); clearReferralPromotionState(); try { localStorage.removeItem("ren_pending_payment"); localStorage.removeItem("ren_checkout_form_data"); } catch {} }
 // Identificador aleatorio de este navegador: el backend avisa por email al entrar desde uno nuevo
 function getDeviceId() {
   try {
@@ -29,7 +29,11 @@ async function attachPendingReferral() {
   } catch (error) {
     // Un token ya usado/expirado no debe bloquear el acceso; los errores de red
     // conservan el token para poder reintentar en la siguiente navegación.
-    if ([404, 409].includes(error?.status || error?.originalError?.status)) clearReferralClaim();
+    if ([404, 409].includes(error?.status || error?.originalError?.status)) {
+      clearReferralClaim();
+      clearReferralPromotionState();
+      try { sessionStorage.setItem("ren_referral_status_notice", error.message || "La invitación no aplica a esta cuenta."); } catch {}
+    }
   }
 }
 export async function registerCustomer(data) { const result = await authRequest("/auth/register", { method: "POST", body: JSON.stringify({ ...data, device_id: getDeviceId() }) }); if (result.access_token) { saveSession(result); await attachPendingReferral(); } return result; }
@@ -66,7 +70,7 @@ export function applyReturnContext() {
   const notice = document.createElement("p");
   notice.className = "auth-msg is-info auth-return-notice";
   // .auth-msg es flex: el texto va en un solo <span> para que no se parta en columnas
-  notice.innerHTML = '<i class="fa-solid fa-lock" aria-hidden="true"></i><span>Para completar cualquier compra necesitas una cuenta gratuita. <strong>Tu carrito y los datos del envío se guardan</strong>: al terminar vuelves al checkout.</span>';
+  notice.innerHTML = '<i class="fa-solid fa-lock" aria-hidden="true"></i><span>Para completar cualquier compra necesitas una cuenta gratuita. Así puedes seguir tus pedidos y participar en referidos. <strong>Tu carrito y los datos del envío se guardan</strong>: al terminar vuelves al checkout.</span>';
   lead.after(notice);
 }
 export async function loginCustomer(email, password) { const result = await authRequest("/auth/login", { method: "POST", body: JSON.stringify({ email, password, device_id: getDeviceId() }) }); saveSession(result); await attachPendingReferral(); const target = safeReturnPath(); if (target) location.href = target; return result; }

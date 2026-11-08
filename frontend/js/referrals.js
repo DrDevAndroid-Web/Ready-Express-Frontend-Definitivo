@@ -1,9 +1,9 @@
-import { claimReferralCode, getMyReferralSummary, getReferralProgram, trackReferralEvent as sendReferralEvent } from "./api.js?v56";
-import { getValidAccessToken } from "./session.js?v55";
-import { escapeHtml, showNotice } from "./notice-modal.js?v55";
+import { claimReferralCode, getMyReferralSummary, getReferralProgram, trackReferralEvent as sendReferralEvent } from "./api.js?v58";
+import { getValidAccessToken } from "./session.js?v58";
+import { escapeHtml, showNotice } from "./notice-modal.js?v58";
 
 // Compatibilidad con módulos que aún importen esta función desde referrals.js.
-export { attachReferralClaim } from "./api.js?v56";
+export { attachReferralClaim } from "./api.js?v58";
 
 const REFERRAL_CLAIM_KEY = "ren_referral_claim";
 const REFERRAL_WALLET_STATE_KEY = "ren_referral_wallet_state_v1";
@@ -327,7 +327,6 @@ export function captureReferralFromUrl() {
       return { ...result, captured: true };
     } catch (error) {
       // No bloquear la compra por un código inválido o un fallo temporal.
-      cleanReferralParam();
       console.info("[referrals] no se pudo guardar la atribución", error?.message || error);
       return existing;
     }

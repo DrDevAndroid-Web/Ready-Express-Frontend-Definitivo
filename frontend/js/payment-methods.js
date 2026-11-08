@@ -1,5 +1,5 @@
-import { getInfo } from "./api.js?v56";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v56";
+import { getInfo } from "./api.js?v58";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v58";
 
 let methodosCache = null;
 let ultimaCarga = null;

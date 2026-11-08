@@ -1,4 +1,4 @@
-import { getCountries } from "./country-select.js?v55";
+import { getCountries } from "./country-select.js?v58";
 
 // Prefijos E.164 por territorio ISO 3166-1. Los territorios que comparten
 // numeración conservan el mismo prefijo (por ejemplo US/CA: +1).
@@ -42,7 +42,7 @@ export function setupPhoneCountrySelect({ select, input }) {
     const selected = select.value || "";
     const prefixDigits = selected.replace("+", "");
     const withoutPrefix = raw.replace(new RegExp(`^\\s*\\+?${prefixDigits}\\s*`), "");
-    input.value = `${selected} ${withoutPrefix.replace(/\s+/g, " ").trim()}`.trim();
+    input.value = withoutPrefix.replace(/\D/g, "");
     sync();
   };
   select.addEventListener("change", normalizePhone);

@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v56";
-import { authorizedFetch } from "./session.js?v55";
+import { API_BASE } from "./config.js?v58";
+import { authorizedFetch } from "./session.js?v58";
 
 export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
@@ -43,7 +43,7 @@ function getUserFriendlyError(error, status) {
   const message = error?.error || error?.message || "";
 
   // Comprobante duplicado (409)
-  if (status === 409 || message.includes("comprobante ya fue enviado") || message.includes("ya fue enviado")) {
+  if (message.includes("comprobante ya fue enviado") || message.includes("ya fue enviado")) {
     return `⚠️ Este comprobante ya fue enviado anteriormente. Si acabas de hacer el pago, espera unos minutos mientras lo revisamos.\n\nSi crees que es un error, contáctanos: 📱 WhatsApp: ${SUPPORT_PHONE}`;
   }
 
@@ -134,7 +134,7 @@ async function request(path, options = {}) {
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       // Con `code` el backend ya manda un texto pensado para el cliente (p. ej. errores de pago con tarjeta)
-      const userMessage = err?.code && err?.error ? `❌ ${err.error}` : getUserFriendlyError(err, res.status);
+      const userMessage = path.includes("referral") && err?.error ? `❌ ${err.error}` : err?.code && err?.error ? `❌ ${err.error}` : getUserFriendlyError(err, res.status);
       const error = new Error(userMessage);
       error.status = res.status;
       error.code = err?.code || null;

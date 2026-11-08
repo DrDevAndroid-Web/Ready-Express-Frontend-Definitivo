@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v55">
+  <link rel="stylesheet" href="./css/styles.css?v58">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -76,14 +76,14 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v55';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v55';
-    import { renderBillingFields } from './js/billing-fields.js?v55';
-    import { cargarMetodosPago, PAYMENT_FLOW_TROPIPAY } from './js/payment-methods.js?v55';
-    import { CARD_PAYMENTS_ENABLED } from './js/config.js?v56';
-    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v55';
-    import { setupPhoneCountrySelect } from './js/phone-country.js?v55';
-    import { escapeHtml, showNotice } from './js/notice-modal.js?v55';
+    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v58';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v58';
+    import { renderBillingFields } from './js/billing-fields.js?v58';
+    import { cargarMetodosPago, PAYMENT_FLOW_TROPIPAY } from './js/payment-methods.js?v58';
+    import { CARD_PAYMENTS_ENABLED } from './js/config.js?v58';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v58';
+    import { setupPhoneCountrySelect } from './js/phone-country.js?v58';
+    import { escapeHtml, showNotice } from './js/notice-modal.js?v58';
     bindPasswordToggles();
     const phoneSelect = setupPhoneCountrySelect({ select: document.querySelector('#telefono-pais'), input: document.querySelector('#telefono') });
     applyReturnContext();
@@ -183,11 +183,7 @@
       };
     }
 
-    const saved = savedCheckout();
-    if (saved) {
-      const values = { nombre: saved.sender_first_name, apellidos: saved.sender_last_name, telefono: saved.sender_phone };
-      Object.entries(values).forEach(([id, value]) => { const field = document.getElementById(id); if (field && value && !field.value) field.value = value; });
-    }
+    // El checkout puede conservar datos de otra cuenta en este navegador.
     const emailParam = new URLSearchParams(location.search).get('email');
     if (emailParam) document.getElementById('email').value = emailParam;
 
@@ -219,7 +215,11 @@
     }
 
     document.querySelectorAll('[data-reg-next]').forEach(button => button.addEventListener('click', () => {
-      if (validateStep(currentStep)) showStep(Number(button.dataset.regNext));
+      if (validateStep(currentStep)) {
+        button.disabled = true;
+        showStep(Number(button.dataset.regNext));
+        requestAnimationFrame(() => { button.disabled = false; });
+      }
     }));
     document.querySelectorAll('[data-reg-back]').forEach(button => button.addEventListener('click', () => showStep(Number(button.dataset.regBack))));
     form.addEventListener('submit', async e => {
@@ -235,6 +235,7 @@
       if (!validateStep(2)) return;
       const button = form.querySelector('[type=submit]');
       const data = Object.fromEntries(new FormData(form));
+      data.telefono = `${document.getElementById('telefono-pais').value}${document.getElementById('telefono').value.replace(/\D/g, '')}`;
       data.preferred_payment_methods = [...form.querySelectorAll('input[name="preferred_payment_methods"]:checked')].map(input => input.value);
       const address = deliveryAddress(savedCheckout());
       if (address) data.direccion_entrega = address;

@@ -1,6 +1,6 @@
-import { getCatalog, getInfo } from "./api.js?v56";
-import { addItem } from "./cart.js?v55";
-import { openProductModal } from "./product-modal.js?v55";
+import { getCatalog, getInfo } from "./api.js?v58";
+import { addItem } from "./cart.js?v58";
+import { openProductModal } from "./product-modal.js?v58";
 
 const CONTACT_WHATSAPP = "5356189395";
 
@@ -179,6 +179,8 @@ function renderSkeleton(count = 6) {
     </div>`).join("");
 }
 
+const selectedQuantities = new Map();
+
 function renderCard(product, { detail = false, eager = false } = {}) {
   const dataAttr = escapeHtml(JSON.stringify(product));
   const priceDisplay = product.precio > 0 ? `$${product.precio.toFixed(2)}` : "Consultar precio";
@@ -189,7 +191,7 @@ function renderCard(product, { detail = false, eager = false } = {}) {
   // La imagen abre la ficha con el ratón o el dedo; para teclado y lector de pantalla
   // el botón accesible es el nombre (así no hay dos paradas de tabulación iguales).
   return `
-    <div class="product-card${detail ? " has-detail" : ""}">
+    <div class="product-card${detail ? " has-detail" : ""}" data-quantity-key="${escapeHtml(detailKey(product))}">
       ${detail
         ? `<button type="button" class="product-img product-open" data-detail="${key}" tabindex="-1" aria-hidden="true">
             ${media}
@@ -205,7 +207,7 @@ function renderCard(product, { detail = false, eager = false } = {}) {
         <div class="card-actions">
           <div class="qty-selector">
             <button class="qty-btn-card" onclick="window.changeQty(this,-1)" aria-label="Reducir cantidad">−</button>
-            <span class="qty-display">1</span>
+            <span class="qty-display">${selectedQuantities.get(detailKey(product)) || 1}</span>
             <button class="qty-btn-card" onclick="window.changeQty(this,1)" aria-label="Aumentar cantidad">+</button>
           </div>
           <button class="add-btn" aria-label="Agregar ${escapeHtml(product.nombre || "producto")} al carrito" onclick="window.addToCart(${dataAttr},this)">Agregar al carrito</button>
@@ -585,6 +587,8 @@ window.changeQty = (btn, delta) => {
   if (!display) return;
   const next = Math.max(1, parseInt(display.textContent) + delta);
   display.textContent = next;
+  const key = btn.closest(".product-card")?.dataset.quantityKey;
+  if (key) selectedQuantities.set(key, next);
 };
 
 window.addToCart = (product, btn) => {
@@ -596,4 +600,5 @@ window.addToCart = (product, btn) => {
   const qty = parseInt(qtyDisplay?.textContent || "1");
   addItem(product, qty);
   if (qtyDisplay) qtyDisplay.textContent = "1";
+  selectedQuantities.delete(detailKey(product));
 };

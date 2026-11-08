@@ -1,13 +1,13 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v55";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v55";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v55";
-import { billingComplete, renderBillingFields } from "./billing-fields.js?v55";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v56";
-import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v56";
-import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v56";
+} from "./auth.js?v58";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v58";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v58";
+import { billingComplete, renderBillingFields } from "./billing-fields.js?v58";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v58";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v58";
+import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v58";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -537,7 +537,7 @@ function renderReferralSummary(code, summary) {
     rewarded: "Recompensa acreditada", rejected: "No aprobado", cancelled: "Cancelado"
   };
   const rewardStatus = {
-    pending: "En proceso", available: "Disponible", used: "Usado en una compra",
+    pending: "En proceso", available: "Crédito acreditado", used: "Usado en una compra",
     reversed: "Anulado", expired: "Vencido", rejected: "No aprobado"
   };
   $("#hub-balance").textContent = `${money(summary?.balance)} ${summary?.currency || "USD"}`;
@@ -549,7 +549,8 @@ function renderReferralSummary(code, summary) {
     <div class="account-card account-referral-balance">
       <p>Crédito disponible</p>
       <strong>${money(summary?.balance)} <small>${escapeHtml(summary?.currency || "USD")}</small></strong>
-      <span>Úsalo en tu próxima compra.</span>
+      <span>${Number(summary?.balance || 0) > 0 ? "Úsalo en tu próxima compra." : "El crédito ya usado se conserva en el historial."}</span>
+      ${summary?.wallet_activity ? `<small>Ganado: ${money(summary.wallet_activity.earned)} · Usado: ${money(summary.wallet_activity.used)}${Number(summary.wallet_activity.reversed) ? ` · Anulado: ${money(summary.wallet_activity.reversed)}` : ""}</small>` : ""}
     </div>
     <div class="account-card account-invite-card">
       <p class="account-muted">Tu código de invitación</p>
@@ -669,6 +670,13 @@ function init() {
   $("#account-bottom-nav").hidden = false;
 
   setupNavigation();
+  try {
+    const referralNotice = sessionStorage.getItem("ren_referral_status_notice");
+    if (referralNotice) {
+      sessionStorage.removeItem("ren_referral_status_notice");
+      setTimeout(() => toast(referralNotice), 100);
+    }
+  } catch {}
   setupProfileForm();
   setupBillingForm();
   setupAddresses();

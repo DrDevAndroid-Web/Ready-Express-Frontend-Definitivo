@@ -21,7 +21,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=Source+Sans+3:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  <link rel="stylesheet" href="./css/styles.css?v55" />
+  <link rel="stylesheet" href="./css/styles.css?v58" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -87,6 +87,7 @@
       <a href="#pago-tarjeta">Pago con tarjeta</a>
       <a href="#pago-fallido">Si el pago no pasa</a>
       <a href="#mi-cuenta">Mi cuenta</a>
+      <a href="#referidos">Invita y gana</a>
       <a href="#captura-comprobante">Comprobantes</a>
       <a href="#metodos-pago">Métodos de pago</a>
       <a href="#tocopay">TocoPay</a>
@@ -94,6 +95,16 @@
       <a href="#despues-comprobante">Después del pago</a>
       <a href="#preguntas">Preguntas frecuentes</a>
     </nav>
+
+    <section class="help-section" id="referidos">
+      <div class="help-section-header">
+        <span class="section-tag">Invita y gana</span>
+        <h2>Beneficios para ambos</h2>
+        <p id="referral-program-terms">Consulta los beneficios vigentes al abrir tu cuenta.</p>
+      </div>
+      <p>El descuento del invitado se aplica a su primera compra elegible. El crédito de quien invita queda disponible después de que se apruebe el pago. Puedes usar tu crédito en otra compra y pagar la diferencia con otro método.</p>
+      <a href="./cuenta.html#referidos" class="btn-primary">Ver mi enlace y saldo</a>
+    </section>
 
     <section class="help-section" id="como-pedir">
       <div class="help-section-header">
@@ -580,7 +591,8 @@
   </footer>
 
   <script type="module">
-    import { cargarMetodosPago, renderMetodosEnAyuda } from './js/payment-methods.js?v55';
+    import { cargarMetodosPago, renderMetodosEnAyuda } from './js/payment-methods.js?v58';
+    import { getReferralProgram } from './js/api.js?v58';
 
     function initMobileNav() {
       const menuBtn = document.getElementById('menu-btn');
@@ -605,6 +617,16 @@
       initMobileNav();
       await cargarMetodosPago();
       renderMetodosEnAyuda(document.getElementById('metodos-pago-ayuda'));
+      getReferralProgram().then(program => {
+        const rules = Array.isArray(program?.rules) ? program.rules.filter(rule => rule.active) : [];
+        const label = rule => rule.reward_type.endsWith('_percent') ? `${Number(rule.amount)}%` : `${Number(rule.amount).toFixed(2)} ${program.currency || 'USD'}`;
+        const guest = rules.find(rule => rule.beneficiary_type === 'referred_customer');
+        const host = rules.find(rule => rule.beneficiary_type === 'referrer');
+        const parts = [];
+        if (guest) parts.push(`Quien llega invitado recibe ${label(guest)} de descuento en su primera compra elegible.`);
+        if (host) parts.push(`Quien comparte el enlace gana ${label(host)} cuando se aprueba el pago de esa compra.`);
+        if (parts.length) document.getElementById('referral-program-terms').textContent = parts.join(' ');
+      }).catch(() => {});
     });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>

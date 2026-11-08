@@ -1,8 +1,8 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v56";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v55";
-import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v55";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v55";
-import { authorizedFetch } from "./session.js?v55";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v58";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v58";
+import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v58";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v58";
+import { authorizedFetch } from "./session.js?v58";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -22,7 +22,7 @@ function storageRemove(key) {
   try { localStorage.removeItem(key); } catch {}
 }
 
-export function savePendingPayment(orderId, total, items = [], methodName = "", checkoutToken = "") {
+export function savePendingPayment(orderId, total, items = [], methodName = "", checkoutToken = "", orderReference = "") {
   return storageSet(
     PENDING_PAYMENT_KEY,
     JSON.stringify({
@@ -31,6 +31,7 @@ export function savePendingPayment(orderId, total, items = [], methodName = "", 
       items,
       methodName,
       checkoutToken,
+      orderReference,
       createdAt: new Date().toISOString(),
     })
   );
@@ -89,7 +90,10 @@ export async function restorePendingPaymentFromBackend() {
         clearStoredPendingPayment();
         return false;
       }
-      return hasPendingPayment();
+      // Un pedido local no se ofrece a un visitante sin sesión: podría
+      // pertenecer a la cuenta que cerró sesión en este navegador.
+      clearStoredPendingPayment();
+      return false;
     }
     if (!response.ok) return hasPendingPayment();
 
@@ -100,7 +104,8 @@ export async function restorePendingPaymentFromBackend() {
         Number(remotePending.total),
         Array.isArray(remotePending.items) ? remotePending.items : [],
         remotePending.method || "",
-        ""
+        "",
+        remotePending.order_reference || ""
       );
       if (remotePending.method) storageSet("ren_selected_payment_method", remotePending.method);
       return true;
@@ -117,14 +122,15 @@ export async function restorePendingPaymentFromBackend() {
   }
 }
 
-export function redirectToPendingPayment() {
-  if (!hasPendingPayment()) return false;
-  const currentPage = window.location.pathname.split("/").pop() || "index.html";
-  if (currentPage !== "pago.html") {
-    window.location.href = "./pago.html";
-    return true;
-  }
-  return false;
+export function showPendingPaymentNotice() {
+  const pending = getPendingPayment();
+  if (!pending?.orderId || document.getElementById("pending-payment-notice")) return;
+  const notice = document.createElement("aside");
+  notice.id = "pending-payment-notice";
+  notice.setAttribute("role", "status");
+  notice.innerHTML = '<span>Tienes un pago pendiente.</span> <a href="./pago.html">Subir comprobante</a> <button type="button" aria-label="Ocultar aviso">×</button>';
+  notice.querySelector("button").addEventListener("click", () => notice.remove());
+  document.body.appendChild(notice);
 }
 
 export async function initPaymentPage() {
@@ -144,7 +150,7 @@ export async function initPaymentPage() {
 
   const orderIdEl = document.getElementById("payment-order-id");
   const totalEl = document.getElementById("payment-total");
-  if (orderIdEl) orderIdEl.textContent = `#${pendingOrderId}`;
+  if (orderIdEl) orderIdEl.textContent = pending.orderReference || `#${pendingOrderId}`;
   if (totalEl) totalEl.textContent = `$${pendingTotal.toFixed(2)}`;
 
   if (emptyState) emptyState.style.display = "none";
@@ -255,16 +261,20 @@ function bindPaymentEvents() {
     e.preventDefault();
     if (!confirm("¿Estás seguro de que deseas cancelar? Se perderán los datos del pedido.")) return;
 
+    const button = e.currentTarget;
+    button.disabled = true;
     const pending = getPendingPayment();
     if (pending?.orderId) {
       try {
         await cancelOrder(pending.orderId, pending.checkoutToken);
       } catch (err) {
-        console.warn("[cancel] No se pudo notificar al servidor:", err.message);
+        showPaymentError(err.message || "No pudimos cancelar el pedido. Intenta de nuevo.");
+        button.disabled = false;
+        return;
       }
     }
 
-    clearPendingPayment();
+    clearStoredPendingPayment();
     window.location.href = "./index.html";
   });
 

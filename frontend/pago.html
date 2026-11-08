@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  <link rel="stylesheet" href="./css/styles.css?v55" />
+  <link rel="stylesheet" href="./css/styles.css?v58" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -67,7 +67,7 @@
           <div>
             <span>Orden <strong id="payment-order-id" style="color:#000;font-size:1.3rem">#-</strong></span>
             <br>
-            <span style="font-size:0.8rem;color:var(--gray)">Envia el monto exacto</span>
+            <span style="font-size:0.8rem;color:var(--gray)">Envía el monto exacto</span>
           </div>
           <strong id="payment-total" style="color:#000;font-size:2rem">$0.00</strong>
         </div>
@@ -80,7 +80,7 @@
         <form id="payment-form" novalidate>
           <div class="payment-proof-note">
             <strong>Importante:</strong> sube una captura de pantalla clara del comprobante.
-            Debe verse el monto, la fecha y la referencia del pago. Sin esa captura no podemos confirmar tu orden rapidamente.
+            Debe verse el monto, la fecha y la referencia del pago. Sin esa captura no podemos confirmar tu orden rápidamente.
             <button type="button" class="btn-link" id="btn-ver-ejemplo" style="min-height:44px;padding:8px 0;border:none;background:none;color:#0066cc;text-decoration:underline;cursor:pointer;font-size:inherit;font-weight:500">Ver ejemplo de comprobante</button>
           </div>
 
@@ -90,7 +90,7 @@
           </div>
           <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="Subir comprobante">
             <span>📎</span>
-            <p>Arrastra tu comprobante aqui</p>
+            <p>Arrastra tu comprobante aquí</p>
             <small>o haz clic para seleccionar JPG o PNG</small>
           </div>
           <img id="file-preview" alt="Vista previa del comprobante">
@@ -148,7 +148,7 @@
   </main>
 
   <script type="module">
-    import { initPaymentPage } from "./js/payment.js?v55";
+    import { initPaymentPage } from "./js/payment.js?v58";
 
     document.addEventListener("DOMContentLoaded", () => {
       initPaymentPage();
