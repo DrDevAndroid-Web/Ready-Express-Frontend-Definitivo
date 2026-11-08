@@ -1,10 +1,10 @@
-import { initCart, getCart } from "./cart.js?v58";
-import { initProducts } from "./products.js?v58";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v58";
-import { restorePendingPaymentFromBackend, showPendingPaymentNotice } from "./payment.js?v58";
-import { inicializarMetodosPago } from "./payment-methods.js?v58";
-import { getLocalizaciones } from "./api.js?v58";
-import { bindReferralCtaTracking, captureReferralFromUrl, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v58";
+import { initCart, getCart } from "./cart.js?v60";
+import { initProducts } from "./products.js?v60";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v60";
+import { restorePendingPaymentFromBackend, showPendingPaymentNotice } from "./payment.js?v60";
+import { inicializarMetodosPago } from "./payment-methods.js?v60";
+import { getLocalizaciones } from "./api.js?v60";
+import { bindReferralCtaTracking, captureReferralFromUrl, getReferralPromotionState, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v60";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   initProducts();
   initCheckout();
-  if (accountNavigation.has("ref") && referralCapture?.captured) showReferralWelcomeModal();
+  if (referralCapture?.captured || getReferralPromotionState()?.source === "claim") showReferralWelcomeModal();
 
   // El progreso del checkout se conserva, pero solo se reabre si se pide explícitamente
   // (?checkout=1). Reabrirlo solo impedía volver a la tienda desde checkout.html.
@@ -172,7 +172,7 @@ function initWhatsAppModal() {
   window.addEventListener('scroll', () => {
     const cartOpen = document.getElementById('cart-panel')?.classList.contains('open');
     const checkoutOpen = document.querySelector('.modal.open');
-    if (cartOpen || checkoutOpen) return;
+    if (cartOpen || checkoutOpen || getReferralPromotionState()?.active) return;
 
     const scrollTop = window.scrollY;
     const windowHeight = window.innerHeight;

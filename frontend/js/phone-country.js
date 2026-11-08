@@ -1,4 +1,4 @@
-import { getCountries } from "./country-select.js?v58";
+import { getCountries } from "./country-select.js?v60";
 
 // Prefijos E.164 por territorio ISO 3166-1. Los territorios que comparten
 // numeración conservan el mismo prefijo (por ejemplo US/CA: +1).

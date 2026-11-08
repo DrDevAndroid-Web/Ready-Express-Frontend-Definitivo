@@ -1,13 +1,13 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v58";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v58";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v58";
-import { billingComplete, renderBillingFields } from "./billing-fields.js?v58";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v58";
-import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v58";
-import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v58";
+} from "./auth.js?v60";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v60";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v60";
+import { billingComplete, renderBillingFields } from "./billing-fields.js?v60";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v60";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v60";
+import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v60";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -515,7 +515,7 @@ function setupOrders() {
 }
 
 function referralLink(code) {
-  const url = new URL("./index.html", location.href);
+  const url = new URL("./", location.href);
   url.searchParams.set("ref", code);
   return url.href;
 }
@@ -523,13 +523,22 @@ function referralLink(code) {
 function renderReferralSummary(code, summary) {
   const container = $("#referral-content");
   if (!container) return;
-  const link = referralLink(code.code);
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`Te invito a Ready Express Now. Entra con mi enlace: ${link}`)}`;
+  const referralCode = code?.code || summary?.code?.code || "";
+  const link = referralCode ? referralLink(referralCode) : "";
+  const promotion = summary?.referred_promotion;
+  const programBenefit = promotion?.reward_type === "discount_percent" && Number(promotion.amount) > 0
+    ? `${Number(promotion.amount)}% de descuento en tu primer pedido`
+    : "un beneficio en tu primer pedido";
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`Entra con mi enlace a Ready Express Now y obtén ${programBenefit}: ${link}`)}`;
   const rewards = Array.isArray(summary?.rewards) ? summary.rewards : [];
   const referrals = Array.isArray(summary?.referrals) ? summary.referrals : [];
   const referred = summary?.referred;
-  const promotion = summary?.referred_promotion;
   const referrerRewards = rewards.filter(item => item.reward_type === "referrer_credit");
+  const walletEntries = Array.isArray(summary?.wallet_activity?.entries) ? summary.wallet_activity.entries : [];
+  const walletLabels = {
+    credit: "Crédito ganado", debit: "Usado en una compra",
+    refund: "Devuelto por cancelación", reversal: "Crédito anulado", expiry: "Crédito vencido"
+  };
   const pendingReferrals = referrals.filter(item => ["registered", "purchase_pending"].includes(item.status));
   const referralStatus = {
     pending: "Invitación pendiente", registered: "Registrado; falta la primera compra",
@@ -550,19 +559,19 @@ function renderReferralSummary(code, summary) {
       <p>Crédito disponible</p>
       <strong>${money(summary?.balance)} <small>${escapeHtml(summary?.currency || "USD")}</small></strong>
       <span>${Number(summary?.balance || 0) > 0 ? "Úsalo en tu próxima compra." : "El crédito ya usado se conserva en el historial."}</span>
-      ${summary?.wallet_activity ? `<small>Ganado: ${money(summary.wallet_activity.earned)} · Usado: ${money(summary.wallet_activity.used)}${Number(summary.wallet_activity.reversed) ? ` · Anulado: ${money(summary.wallet_activity.reversed)}` : ""}</small>` : ""}
+      ${summary?.wallet_activity ? `<small>Ganado: ${money(summary.wallet_activity.earned)} · Usado: ${money(summary.wallet_activity.used)}${Number(summary.wallet_activity.refunded) ? ` · Devuelto: ${money(summary.wallet_activity.refunded)}` : ""}${Number(summary.wallet_activity.reversed) ? ` · Anulado: ${money(summary.wallet_activity.reversed)}` : ""}</small>` : ""}
     </div>
-    <div class="account-card account-invite-card">
+    ${referralCode ? `<div class="account-card account-invite-card">
       <p class="account-muted">Tu código de invitación</p>
-      <strong class="account-invite-code">${escapeHtml(code.code)}</strong>
+      <strong class="account-invite-code">${escapeHtml(referralCode)}</strong>
       <div class="account-invite-actions">
         <a class="auth-btn account-whatsapp-share" href="${escapeHtml(whatsappUrl)}" target="_blank" rel="noopener" data-referral-cta data-referral-placement="account_whatsapp"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Compartir por WhatsApp</a>
         <button type="button" class="account-action" id="copy-referral-link" data-link="${escapeHtml(link)}" data-referral-cta data-referral-placement="account_copy"><i class="fa-solid fa-copy" aria-hidden="true"></i> Copiar enlace</button>
       </div>
-    </div>
+    </div>` : '<div class="account-card account-invite-card"><p>Estamos preparando tu enlace de invitación.</p></div>'}
     <div class="account-card account-activity">
       <h3>Ganancias y actividad</h3>
-      ${referrerRewards.length ? `<ul class="account-list">${referrerRewards.map(item => `<li class="account-activity-item"><span><strong>${money(item.amount)} ${escapeHtml(item.currency || summary?.currency || "USD")}</strong><small>${escapeHtml(rewardStatus[item.status] || "Estado en revisión")}</small></span><time>${escapeHtml(dateText(item.created_at))}</time></li>`).join("")}</ul>` : ""}
+      ${walletEntries.length ? `<ul class="account-list">${walletEntries.map(item => `<li class="account-activity-item"><span><strong>${escapeHtml(walletLabels[item.type] || "Movimiento de crédito")} · ${money(item.amount)}</strong><small>${escapeHtml(item.currency || summary?.currency || "USD")}</small></span><time>${escapeHtml(dateText(item.created_at))}</time></li>`).join("")}</ul>` : referrerRewards.length ? `<ul class="account-list">${referrerRewards.map(item => `<li class="account-activity-item"><span><strong>${money(item.amount)} ${escapeHtml(item.currency || summary?.currency || "USD")}</strong><small>${escapeHtml(rewardStatus[item.status] || "Estado en revisión")}</small></span><time>${escapeHtml(dateText(item.created_at))}</time></li>`).join("")}</ul>` : ""}
       ${pendingReferrals.length ? `<p class="account-muted">${pendingReferrals.length} referido${pendingReferrals.length === 1 ? " está" : "s están"} registrado${pendingReferrals.length === 1 ? "" : "s"}; la ganancia se acredita cuando complete y pague su primera compra.</p>` : ""}
       ${referrals.length ? `<ul class="account-list account-referral-history">${referrals.map(item => `<li><span class="account-badge is-info">${escapeHtml(referralStatus[item.status] || "Estado en revisión")}</span><time class="account-muted">${escapeHtml(dateText(item.created_at))}</time></li>`).join("")}</ul>` : '<p class="account-muted">Todavía no tienes referidos registrados.</p>'}
     </div>`;
@@ -583,9 +592,12 @@ async function loadReferrals() {
       if (/tardó demasiado|timeout|sin conexión/i.test(error?.message || "")) return getMyReferralSummary();
       throw error;
     });
-    const [code, summary] = await Promise.all([getMyReferralCode(), summaryPromise]);
+    const codePromise = getMyReferralCode().catch(() => null);
+    const summary = await summaryPromise;
     saveReferralWalletState(summary);
-    renderReferralSummary(code, summary);
+    renderReferralSummary(summary?.code, summary);
+    const code = await codePromise;
+    if (code?.code && code.code !== summary?.code?.code) renderReferralSummary(code, summary);
   } catch (error) {
     $("#hub-balance").textContent = "No disponible";
     if (isAuthError(error)) showLoggedOut("Tu sesión expiró. Inicia sesión de nuevo para continuar.");

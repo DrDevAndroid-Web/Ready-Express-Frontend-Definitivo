@@ -1,9 +1,9 @@
-import { claimReferralCode, getMyReferralSummary, getReferralProgram, trackReferralEvent as sendReferralEvent } from "./api.js?v58";
-import { getValidAccessToken } from "./session.js?v58";
-import { escapeHtml, showNotice } from "./notice-modal.js?v58";
+import { claimReferralCode, getMyReferralSummary, getReferralProgram, trackReferralEvent as sendReferralEvent } from "./api.js?v60";
+import { getValidAccessToken } from "./session.js?v60";
+import { escapeHtml, showNotice } from "./notice-modal.js?v60";
 
 // Compatibilidad con módulos que aún importen esta función desde referrals.js.
-export { attachReferralClaim } from "./api.js?v58";
+export { attachReferralClaim } from "./api.js?v60";
 
 const REFERRAL_CLAIM_KEY = "ren_referral_claim";
 const REFERRAL_WALLET_STATE_KEY = "ren_referral_wallet_state_v1";
@@ -121,17 +121,22 @@ export function clearReferralWalletState() {
 function normalizeReferralPromotionState(summary = {}) {
   const promotion = summary?.referred_promotion || null;
   const isReferred = Boolean(summary?.referred);
+  const referral = summary?.referred;
+  const benefitUnused = !referral || typeof referral !== "object"
+    || (!referral.discount_used_at && ["registered", "purchase_pending"].includes(referral.status));
   const rewardType = String(promotion?.reward_type || "");
   const amount = Number(promotion?.amount || 0);
   return {
     isReferred,
-    active: isReferred,
+    active: isReferred && benefitUnused,
     rewardType,
     discountPercent: rewardType === "discount_percent" && amount > 0 ? amount : 0,
     discountAmount: rewardType !== "discount_percent" && amount > 0 ? amount : 0,
     minimumPurchase: Number(promotion?.minimum_purchase || 0),
     maximumDiscount: Number(promotion?.maximum_discount || 0),
     currency: String(promotion?.currency || "USD").toUpperCase(),
+    source: summary?.source === "claim" ? "claim" : "account",
+    expiresAt: summary?.source === "claim" ? summary.expires_at || null : null,
     updatedAt: new Date().toISOString()
   };
 }
@@ -139,6 +144,14 @@ function normalizeReferralPromotionState(summary = {}) {
 export function getReferralPromotionState() {
   try {
     const value = JSON.parse(localStorage.getItem(REFERRAL_PROMOTION_STATE_KEY) || "null");
+    if (value?.active && value.source !== "account" && !readClaim()) {
+      clearReferralPromotionState();
+      return null;
+    }
+    if (value?.source === "claim" && (!value.expiresAt || Date.parse(value.expiresAt) <= Date.now())) {
+      clearReferralPromotionState();
+      return null;
+    }
     return value && typeof value === "object" ? value : null;
   } catch {
     return null;
@@ -236,7 +249,9 @@ export function showReferralWelcomeModal() {
         variant: "primary",
         onClick: control => {
           control.close();
-          document.querySelector("#productos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          const products = document.querySelector("#combos");
+          if (products) products.scrollIntoView({ behavior: "smooth", block: "start" });
+          else location.href = "./index.html#combos";
         }
       },
       { id: "later", label: "Ahora no", variant: "link", onClick: control => control.close() }
@@ -314,20 +329,30 @@ export function captureReferralFromUrl() {
           const program = await getReferralProgram();
           const rule = (program?.rules || []).find(item => item.active && item.beneficiary_type === "referred_customer");
           saveReferralPromotionState({
+            source: "claim",
+            expires_at: result.expires_at,
             referred: true,
             referred_promotion: rule ? { ...rule, currency: program.currency } : null
           });
         } catch {
           // El aviso se mostrará con el texto genérico y se enriquecerá al iniciar sesión.
-          saveReferralPromotionState({ referred: true, referred_promotion: null });
+          saveReferralPromotionState({ source: "claim", expires_at: result.expires_at, referred: true, referred_promotion: null });
         }
         renderReferralCartNotice();
       }
       cleanReferralParam();
       return { ...result, captured: true };
     } catch (error) {
-      // No bloquear la compra por un código inválido o un fallo temporal.
       console.info("[referrals] no se pudo guardar la atribución", error?.message || error);
+      if ([400, 404, 409, 422].includes(error?.status)) {
+        cleanReferralParam();
+        showNotice({
+          tone: "warning", icon: "alert",
+          title: "Enlace de invitación no válido",
+          body: "<p>No pudimos activar este beneficio. Puedes seguir comprando normalmente o pedirle a quien te invitó un enlace nuevo.</p>",
+          actions: [{ id: "ok", label: "Entendido", onClick: control => control.close() }]
+        });
+      }
       return existing;
     }
   })().finally(() => { capturePromise = null; });

@@ -1435,6 +1435,8 @@ button:disabled {
   cursor: pointer;
 }
 
+.whatsapp-modal-content h2 { padding-inline: 24px; }
+
 .whatsapp-btn{
   display: inline-block;
 
@@ -4456,6 +4458,24 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading) !important; letter-spa
 @media (max-width: 380px) {
   .navbar-logo-text { display: none; }
   .hero-proof { grid-template-columns: 1fr; }
+}
+
+/* El nombre del producto conserva el ancho disponible en el carrito. */
+.cart-item {
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px 14px;
+}
+.cart-item-info { grid-column: 2; grid-row: 1; }
+.cart-item-img { grid-column: 1; grid-row: 1; }
+.cart-item-name { overflow-wrap: break-word; }
+.cart-item-qty { grid-column: 2; grid-row: 2; }
+.cart-item-remove { grid-column: 1; grid-row: 2; }
+@media (max-width: 520px) {
+  .cart-item { grid-template-columns: 52px minmax(0, 1fr); }
+}
+@media (min-width: 601px) and (max-width: 900px) {
+  .card-actions .add-btn { padding-inline: 6px; font-size: .82rem; }
 }
 
 /* Mi cuenta: misma identidad que la tienda, con navegación de hub en móvil. */

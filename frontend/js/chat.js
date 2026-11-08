@@ -1,5 +1,6 @@
-import { addItem, getCart } from "./cart.js?v58";
-import { API_BASE } from "./api.js?v58";
+import { addItem, getCart } from "./cart.js?v60";
+import { API_BASE } from "./api.js?v60";
+import { getReferralPromotionState } from "./referrals.js?v60";
 
 const CHAT_API = API_BASE;
 let productCache = null;
@@ -141,13 +142,13 @@ function connectSSE() {
 // ─── Burbuja proactiva ────────────────────────────────────────────────────────
 function showProactiveBubble() {
   // Quien ya tiene productos en el carrito está comprando: no interrumpir
-  if (proactiveAlreadyShown() || open || getCart().length) return;
+  if (proactiveAlreadyShown() || open || getCart().length || getReferralPromotionState()?.active) return;
 
   const bubble = document.createElement("div");
   bubble.id = "ren-proactive-bubble";
   bubble.innerHTML = `
     <button class="ren-bubble-close" id="ren-bubble-close" aria-label="Cerrar">×</button>
-    <p class="ren-bubble-text">Llevamos años enviando a Guantánamo 🇨🇺<br>¿Le mandas algo a tu familia hoy?</p>
+    <p class="ren-bubble-text">Llevamos años enviando a Guantánamo.<br>¿Le mandas algo a tu familia hoy?</p>
     <button class="ren-bubble-cta" id="ren-bubble-cta">Sí, quiero enviar algo</button>
     <label class="ren-bubble-nag">
       <input type="checkbox" id="ren-bubble-noshown"> No volver a mostrar

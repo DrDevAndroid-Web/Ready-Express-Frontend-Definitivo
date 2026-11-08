@@ -1,16 +1,16 @@
-import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v58";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v58";
-import { savePendingPayment } from "./payment.js?v58";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v58";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v58";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v58";
-import { getValidAccessToken } from "./session.js?v58";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v58";
-import { setupCountrySelect } from "./country-select.js?v58";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v58";
-import { fieldErrorMessage } from "./field-messages.js?v58";
-import { showNotice } from "./notice-modal.js?v58";
-import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v58";
+import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v60";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v60";
+import { savePendingPayment } from "./payment.js?v60";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v60";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v60";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v60";
+import { getValidAccessToken } from "./session.js?v60";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v60";
+import { setupCountrySelect } from "./country-select.js?v60";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v60";
+import { fieldErrorMessage } from "./field-messages.js?v60";
+import { showNotice } from "./notice-modal.js?v60";
+import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v60";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -588,7 +588,6 @@ export async function showCheckoutModal() {
 
   closeCart();
   referralQuote = null;
-  await captureReferralFromUrl();
   await loadReferralSummary();
   renderMiniSummary();
 
@@ -612,8 +611,8 @@ export async function showCheckoutModal() {
 
 // ── Inicialización ────────────────────────────────────────────
 export async function initCheckout() {
-  captureReferralFromUrl().catch(() => {});
   const isCheckoutPage = document.body?.dataset.checkoutPage === "true";
+  if (isCheckoutPage) await captureReferralFromUrl().catch(() => null);
   const form = document.getElementById("checkout-form");
   if (form) {
     setupBlurValidation(form);
@@ -645,7 +644,6 @@ export async function initCheckout() {
     button.textContent = "Preparando tu pago…";
     try {
       if (!await requireCheckoutSession()) return;
-      await captureReferralFromUrl();
       await loadReferralSummary();
       window.location.href = "./checkout.html";
     } finally {

@@ -1,6 +1,6 @@
-import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v58";
+import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v60";
 
-import { renderReferralCartNotice } from "./referrals.js?v58";
+import { renderReferralCartNotice } from "./referrals.js?v60";
 
 let cart = getCartSnapshot();
 
@@ -176,11 +176,11 @@ export function renderCart() {
         <p class="cart-item-price">$${(Number(item.precio || 0) * Number(item.qty || 0)).toFixed(2)}</p>
       </div>
       <div class="cart-item-qty">
-        <button class="qty-btn" data-index="${index}" data-delta="-1">−</button>
+        <button type="button" class="qty-btn" data-index="${index}" data-delta="-1" aria-label="Reducir cantidad de ${escapeHtml(item.nombre)}">−</button>
         <span>${item.qty}</span>
-        <button class="qty-btn" data-index="${index}" data-delta="1">+</button>
+        <button type="button" class="qty-btn" data-index="${index}" data-delta="1" aria-label="Aumentar cantidad de ${escapeHtml(item.nombre)}">+</button>
       </div>
-      <button class="cart-item-remove" data-index="${index}">✕</button>
+      <button type="button" class="cart-item-remove" data-index="${index}" aria-label="Quitar ${escapeHtml(item.nombre)} del carrito">✕</button>
     </div>
   `).join("");
 
