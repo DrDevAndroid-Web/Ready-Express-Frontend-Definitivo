@@ -1,6 +1,6 @@
-import { getCatalog, getInfo } from "./api.js?v60";
-import { addItem } from "./cart.js?v60";
-import { openProductModal } from "./product-modal.js?v60";
+import { getCatalog, getInfo } from "./api.js?v61";
+import { addItem } from "./cart.js?v61";
+import { openProductModal } from "./product-modal.js?v61";
 
 const CONTACT_WHATSAPP = "5356189395";
 

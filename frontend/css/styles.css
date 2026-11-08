@@ -775,6 +775,7 @@ footer ul li a:hover { color: var(--orange-light); }
 .referral-wallet-modal__secondary:hover { background: var(--gray-light); }
 @media (prefers-reduced-motion: reduce) { .referral-wallet-modal, .referral-wallet-modal__sheet { transition: none; } }
 .checkout-referral-notice { display: grid; gap: 4px; margin: 0 24px 14px; padding: 12px 14px; border: 1px solid rgba(31, 190, 106, .35); border-radius: 12px; background: rgba(31, 190, 106, .09); color: var(--navy); }
+.checkout-referral-notice[hidden] { display: none; }
 .checkout-referral-notice span { color: var(--gray-dark); font-size: .95rem; }
 .cart-referral-notice { display: grid; gap: 4px; margin-bottom: 14px; padding: 12px 14px; border: 1px solid rgba(31, 190, 106, .35); border-radius: 12px; background: rgba(31, 190, 106, .09); color: var(--navy); }
 .cart-referral-notice[hidden] { display: none; }

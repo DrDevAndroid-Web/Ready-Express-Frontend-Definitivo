@@ -1,6 +1,6 @@
-import { addItem, getCart } from "./cart.js?v60";
-import { API_BASE } from "./api.js?v60";
-import { getReferralPromotionState } from "./referrals.js?v60";
+import { addItem, getCart } from "./cart.js?v61";
+import { API_BASE } from "./api.js?v61";
+import { getReferralPromotionState } from "./referrals.js?v61";
 
 const CHAT_API = API_BASE;
 let productCache = null;

@@ -1,13 +1,13 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v60";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v60";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v60";
-import { billingComplete, renderBillingFields } from "./billing-fields.js?v60";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v60";
-import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v60";
-import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v60";
+} from "./auth.js?v61";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v61";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v61";
+import { billingComplete, renderBillingFields } from "./billing-fields.js?v61";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v61";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v61";
+import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v61";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

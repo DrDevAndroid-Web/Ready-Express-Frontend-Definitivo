@@ -1,6 +1,6 @@
-import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v60";
+import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v61";
 
-import { renderReferralCartNotice } from "./referrals.js?v60";
+import { renderReferralCartNotice } from "./referrals.js?v61";
 
 let cart = getCartSnapshot();
 

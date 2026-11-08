@@ -1,16 +1,16 @@
-import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v60";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v60";
-import { savePendingPayment } from "./payment.js?v60";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v60";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v60";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v60";
-import { getValidAccessToken } from "./session.js?v60";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v60";
-import { setupCountrySelect } from "./country-select.js?v60";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v60";
-import { fieldErrorMessage } from "./field-messages.js?v60";
-import { showNotice } from "./notice-modal.js?v60";
-import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v60";
+import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v61";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v61";
+import { savePendingPayment } from "./payment.js?v61";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v61";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v61";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v61";
+import { getValidAccessToken } from "./session.js?v61";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v61";
+import { setupCountrySelect } from "./country-select.js?v61";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v61";
+import { fieldErrorMessage } from "./field-messages.js?v61";
+import { showNotice } from "./notice-modal.js?v61";
+import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v61";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -387,7 +387,7 @@ function validatePaymentStep() {
     }
   });
   if (firstInvalid) {
-    firstInvalid.focus();
+    firstInvalid.focus({ preventScroll: true });
     firstInvalid.scrollIntoView?.({ block: "center", behavior: "smooth" });
   }
   return !firstInvalid;
@@ -534,7 +534,7 @@ function validateCheckoutStep(step) {
     }
   });
   if (firstInvalid) {
-    firstInvalid.focus();
+    firstInvalid.focus({ preventScroll: true });
     firstInvalid.scrollIntoView?.({ block: "center", behavior: "smooth" });
   }
   return !firstInvalid;
