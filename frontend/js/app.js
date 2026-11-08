@@ -1,10 +1,10 @@
-import { initCart, getCart } from "./cart.js?v55";
-import { initProducts } from "./products.js?v55";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v55";
-import { redirectToPendingPayment, restorePendingPaymentFromBackend } from "./payment.js?v55";
-import { inicializarMetodosPago } from "./payment-methods.js?v55";
-import { getLocalizaciones } from "./api.js?v55";
-import { captureReferralFromUrl, syncReferralWalletState } from "./referrals.js?v55";
+import { initCart, getCart } from "./cart.js?v56";
+import { initProducts } from "./products.js?v56";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v56";
+import { redirectToPendingPayment, restorePendingPaymentFromBackend } from "./payment.js?v56";
+import { inicializarMetodosPago } from "./payment-methods.js?v56";
+import { getLocalizaciones } from "./api.js?v56";
+import { bindReferralCtaTracking, captureReferralFromUrl, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v56";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
@@ -12,7 +12,8 @@ function displayMunicipalityName(name) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   const accountNavigation = new URLSearchParams(location.search);
-  captureReferralFromUrl().catch(() => {});
+  bindReferralCtaTracking();
+  const referralCapture = await captureReferralFromUrl().catch(() => null);
   syncReferralWalletState({ showModal: accountNavigation.get("cart") !== "1" && accountNavigation.get("menu") !== "1" }).catch(() => {});
   await restorePendingPaymentFromBackend();
   if (redirectToPendingPayment()) return;
@@ -27,6 +28,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   initProducts();
   initCheckout();
+  if (accountNavigation.has("ref") && referralCapture?.captured) showReferralWelcomeModal();
 
   // El progreso del checkout se conserva, pero solo se reabre si se pide explícitamente
   // (?checkout=1). Reabrirlo solo impedía volver a la tienda desde checkout.html.

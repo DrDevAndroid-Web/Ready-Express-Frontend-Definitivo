@@ -1,4 +1,4 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v55";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v56";
 import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v55";
 import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v55";
 import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v55";

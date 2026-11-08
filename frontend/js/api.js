@@ -1,4 +1,4 @@
-import { API_BASE } from "./config.js?v55";
+import { API_BASE } from "./config.js?v56";
 import { authorizedFetch } from "./session.js?v55";
 
 export { API_BASE };
@@ -164,16 +164,31 @@ export const getCatalog = () => request("/catalog");
 export const getInfo = () => request("/info");
 export const getLocalizaciones = () => request("/localizaciones");
 export const getReferralProgram = () => request("/referrals/program");
+export const trackReferralEvent = payload => request("/referrals/events", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload)
+});
+const referralRequestContext = () => {
+  try {
+    return {
+      device_id: localStorage.getItem("ren_device_id") || "",
+      session_id: localStorage.getItem("ren_referral_analytics_session_v1") || ""
+    };
+  } catch {
+    return {};
+  }
+};
 export const claimReferralCode = code => request("/referrals/claim", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ code })
+  body: JSON.stringify({ code, ...referralRequestContext() })
 });
 export const getMyReferralCode = () => request("/account/referral-code", { cache: "no-store" });
 export const attachReferralClaim = token => request("/account/referral-claim", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ token })
+  body: JSON.stringify({ token, ...referralRequestContext() })
 });
 export const getMyReferralSummary = () => request("/account/referrals", { cache: "no-store" });
 export const getPaymentPreferences = () => request("/account/payment-preferences", { cache: "no-store" });
@@ -192,7 +207,7 @@ export const createOrder = (data) =>
   request("/orders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, ...referralRequestContext() }),
   });
 export const quoteOrder = (data) =>
   request("/orders/quote", {

@@ -1,5 +1,5 @@
 const PROD_API_BASE = "https://readyexpressnowbackend.versabold.com/api";
-const LOCAL_API_BASE = "http://localhost:3000/api";
+const LOCAL_API_BASE = "http://127.0.0.1:3000/api";
 
 // El sitio publicado usa siempre el backend de producción. El backend local
 // solo se puede solicitar de forma explícita durante una prueba local.

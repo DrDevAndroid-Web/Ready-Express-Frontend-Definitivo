@@ -1,14 +1,54 @@
-import { claimReferralCode, getMyReferralSummary, getReferralProgram } from "./api.js?v55";
+import { claimReferralCode, getMyReferralSummary, getReferralProgram, trackReferralEvent as sendReferralEvent } from "./api.js?v56";
 import { getValidAccessToken } from "./session.js?v55";
+import { escapeHtml, showNotice } from "./notice-modal.js?v55";
 
 // Compatibilidad con módulos que aún importen esta función desde referrals.js.
-export { attachReferralClaim } from "./api.js?v55";
+export { attachReferralClaim } from "./api.js?v56";
 
 const REFERRAL_CLAIM_KEY = "ren_referral_claim";
 const REFERRAL_WALLET_STATE_KEY = "ren_referral_wallet_state_v1";
 const REFERRAL_PROMOTION_STATE_KEY = "ren_referral_promotion_state_v1";
 const REFERRAL_WALLET_MODAL_SESSION_KEY = "ren_referral_wallet_modal_shown_v1";
+const REFERRAL_WELCOME_MODAL_SESSION_KEY = "ren_referral_welcome_modal_shown_v1";
+const REFERRAL_ANALYTICS_SESSION_KEY = "ren_referral_analytics_session_v1";
 let capturePromise = null;
+
+function analyticsSessionId() {
+  try {
+    const current = localStorage.getItem(REFERRAL_ANALYTICS_SESSION_KEY);
+    if (current) return current;
+    const generated = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(REFERRAL_ANALYTICS_SESSION_KEY, generated);
+    return generated;
+  } catch {
+    return "";
+  }
+}
+
+export function trackReferralEvent(eventType, payload = {}) {
+  const claim = readClaim();
+  return sendReferralEvent({
+    event_type: eventType,
+    placement: payload.placement || null,
+    session_id: analyticsSessionId(),
+    code: payload.code || claim?.code || null,
+    metadata: payload.metadata || {}
+  }).catch(error => {
+    console.info("[referrals] no se pudo registrar la métrica", error?.message || error);
+    return null;
+  });
+}
+
+export function bindReferralCtaTracking(root = document) {
+  if (!root || root.__renReferralCtaTracking) return;
+  const listener = event => {
+    const cta = event.target?.closest?.("[data-referral-cta]");
+    if (!cta) return;
+    trackReferralEvent("cta_click", { placement: cta.dataset.referralPlacement || "unknown" });
+  };
+  root.addEventListener("click", listener);
+  root.__renReferralCtaTracking = listener;
+}
 
 function readClaim() {
   try {
@@ -150,6 +190,60 @@ function formatReferralBalance(state) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: state.currency || "USD" }).format(Number(state.balance || 0));
 }
 
+function referralPromotionText(state) {
+  const percent = Number(state?.discountPercent || 0);
+  const fixed = Number(state?.discountAmount || 0);
+  if (percent > 0) return `${percent}% de descuento en tu primera compra`;
+  if (fixed > 0) {
+    const amount = new Intl.NumberFormat("es-ES", { style: "currency", currency: state.currency || "USD" }).format(fixed);
+    return `${amount} de descuento en tu primera compra`;
+  }
+  return "un beneficio especial en tu primera compra";
+}
+
+export function showReferralWelcomeModal() {
+  const state = getReferralPromotionState();
+  const claim = readClaim();
+  if (!state?.active || !claim || document.querySelector("dialog.notice-modal[open]")) return;
+
+  const sessionKey = `${REFERRAL_WELCOME_MODAL_SESSION_KEY}:${claim.code || claim.token.slice(0, 16)}`;
+  try {
+    if (sessionStorage.getItem(sessionKey) === "true") return;
+    sessionStorage.setItem(sessionKey, "true");
+  } catch {
+    // El modal sigue siendo funcional aunque el navegador bloquee sessionStorage.
+  }
+
+  const minimum = Number(state.minimumPurchase || 0);
+  const maximum = Number(state.maximumDiscount || 0);
+  const limitText = minimum > 0
+    ? `Válido desde ${new Intl.NumberFormat("es-ES", { style: "currency", currency: state.currency || "USD" }).format(minimum)} de compra.`
+    : "Se aplicará desde el checkout al confirmar tu pedido.";
+  const maximumText = maximum > 0
+    ? ` Ahorro máximo: ${new Intl.NumberFormat("es-ES", { style: "currency", currency: state.currency || "USD" }).format(maximum)}.`
+    : "";
+
+  showNotice({
+    tone: "success",
+    icon: "check",
+    title: "Tu beneficio está activo",
+    body: `<p>Entraste a Ready Express Now con un enlace de referido.</p><p><strong>${escapeHtml(referralPromotionText(state))}</strong></p><p>El beneficio se aplicará automáticamente al crear tu primer pedido.</p>`,
+    note: escapeHtml(`${limitText}${maximumText}`),
+    actions: [
+      {
+        id: "shop",
+        label: "Ver productos",
+        variant: "primary",
+        onClick: control => {
+          control.close();
+          document.querySelector("#productos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      },
+      { id: "later", label: "Ahora no", variant: "link", onClick: control => control.close() }
+    ]
+  });
+}
+
 function showReferralWalletModal(state) {
   if (!state?.hasReferralBalance || document.getElementById("referral-wallet-modal")) return;
   try {
@@ -230,7 +324,7 @@ export function captureReferralFromUrl() {
         renderReferralCartNotice();
       }
       cleanReferralParam();
-      return result;
+      return { ...result, captured: true };
     } catch (error) {
       // No bloquear la compra por un código inválido o un fallo temporal.
       cleanReferralParam();

@@ -1,4 +1,4 @@
-import { getCatalog, getInfo } from "./api.js?v55";
+import { getCatalog, getInfo } from "./api.js?v56";
 import { addItem } from "./cart.js?v55";
 import { openProductModal } from "./product-modal.js?v55";
 
@@ -47,6 +47,8 @@ let visibleProductCount = CATALOG_PAGE_SIZE;
 let renderedProducts = [];
 let visibleElectroCount = CATALOG_PAGE_SIZE;
 let renderedElectro = [];
+let allCombos = [];
+let allElectro = [];
 
 function parseDetalles(val) {
   if (!val) return "";
@@ -231,12 +233,13 @@ async function loadCombos(source = null) {
         return product;
       });
 
+    allCombos = items;
+
     if (!items.length) {
       grid.innerHTML = `<div class="empty-state"><span>🍱</span><p>No hay combos disponibles en este momento</p></div>`;
       return;
     }
-    grid.innerHTML = items.map((item, index) => renderCard(item, { detail: true, eager: index < 4 })).join("");
-    bindDetailGrid(grid);
+    renderComboItems(items);
   } catch (err) {
     grid.innerHTML = "";
     if (errorEl) {
@@ -244,6 +247,17 @@ async function loadCombos(source = null) {
       errorEl.textContent = "⚠️ No pudimos cargar los combos. Verifica tu conexión a internet o intenta de nuevo en unos momentos.";
     }
   }
+}
+
+function renderComboItems(items) {
+  const grid = document.getElementById("combos-grid");
+  if (!grid) return;
+  if (!items.length) {
+    grid.innerHTML = `<div class="empty-state"><span>🍱</span><p>No se encontraron combos</p></div>`;
+    return;
+  }
+  grid.innerHTML = items.map((item, index) => renderCard(item, { detail: true, eager: index < 4 })).join("");
+  bindDetailGrid(grid);
 }
 
 /* ════════ Productos section (grouped by categoria) ════════ */
@@ -295,12 +309,18 @@ function initCatalogPagination() {
 
 function applySearch(query) {
   const q = query.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const results = allProducts.filter(p => {
-    const nombre = (p.nombre || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    const desc = (p.descripcion || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    return nombre.includes(q) || desc.includes(q);
-  });
-  renderProductGrid(results);
+  const matches = p => {
+    const haystack = [p.nombre, p.descripcion, p.category, ...(p.combo_items || []).map(item => item.nombre)]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "");
+    return haystack.includes(q);
+  };
+  renderComboItems(allCombos.filter(matches));
+  renderProductGrid(allProducts.filter(matches));
+  renderElectroItems(allElectro.filter(matches));
 }
 
 function resetToFirstTab() {
@@ -312,7 +332,9 @@ function resetToFirstTab() {
     firstTab.classList.add("active");
     activeCategory = firstTab.dataset.category;
   }
+  renderComboItems(allCombos);
   renderProductGrid(grouped[activeCategory] || []);
+  renderElectroItems(allElectro);
 }
 
 function handleSearchInput(query, clearBtn) {
@@ -488,14 +510,13 @@ async function loadElectro(source = null) {
         return product;
       });
 
+    allElectro = items;
+
     if (!items.length) {
       grid.innerHTML = `<div class="empty-state"><span>⚡</span><p>No hay productos varios disponibles en este momento</p></div>`;
       return;
     }
-    renderedElectro = items;
-    visibleElectroCount = CATALOG_PAGE_SIZE;
-    renderVisibleElectro();
-    bindDetailGrid(grid);
+    renderElectroItems(items);
   } catch (err) {
     grid.innerHTML = "";
     if (errorEl) {
@@ -518,6 +539,20 @@ function renderVisibleElectro() {
   grid.innerHTML = renderedElectro.slice(0, visibleElectroCount).map(item => renderCard(item, { detail: true })).join("");
   bindDetailGrid(grid);
   if (more) more.hidden = visibleElectroCount >= renderedElectro.length;
+}
+
+function renderElectroItems(items) {
+  const grid = document.getElementById("electro-grid");
+  if (!grid) return;
+  renderedElectro = items;
+  visibleElectroCount = CATALOG_PAGE_SIZE;
+  if (!items.length) {
+    grid.innerHTML = `<div class="empty-state"><span>⚡</span><p>No se encontraron productos varios</p></div>`;
+    const more = document.getElementById("electro-load-more");
+    if (more) more.hidden = true;
+    return;
+  }
+  renderVisibleElectro();
 }
 
 async function loadCatalog() {

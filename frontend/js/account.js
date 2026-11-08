@@ -5,9 +5,9 @@ import {
 import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v55";
 import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v55";
 import { billingComplete, renderBillingFields } from "./billing-fields.js?v55";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v55";
-import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v55";
-import { saveReferralWalletState } from "./referrals.js?v55";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v56";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v56";
+import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v56";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -555,8 +555,8 @@ function renderReferralSummary(code, summary) {
       <p class="account-muted">Tu código de invitación</p>
       <strong class="account-invite-code">${escapeHtml(code.code)}</strong>
       <div class="account-invite-actions">
-        <a class="auth-btn account-whatsapp-share" href="${escapeHtml(whatsappUrl)}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Compartir por WhatsApp</a>
-        <button type="button" class="account-action" id="copy-referral-link" data-link="${escapeHtml(link)}"><i class="fa-solid fa-copy" aria-hidden="true"></i> Copiar enlace</button>
+        <a class="auth-btn account-whatsapp-share" href="${escapeHtml(whatsappUrl)}" target="_blank" rel="noopener" data-referral-cta data-referral-placement="account_whatsapp"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Compartir por WhatsApp</a>
+        <button type="button" class="account-action" id="copy-referral-link" data-link="${escapeHtml(link)}" data-referral-cta data-referral-placement="account_copy"><i class="fa-solid fa-copy" aria-hidden="true"></i> Copiar enlace</button>
       </div>
     </div>
     <div class="account-card account-activity">
@@ -659,6 +659,7 @@ async function setupReferralPush() {
 
 // ── Inicio ──
 function init() {
+  bindReferralCtaTracking();
   if (!getCurrentUser() || !getAccessToken()) {
     showLoggedOut();
     return;
