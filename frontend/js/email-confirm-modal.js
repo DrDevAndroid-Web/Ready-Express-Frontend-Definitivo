@@ -1,12 +1,13 @@
 // Aviso de "confirma tu email" tras registrarse (o al intentar entrar sin confirmar).
-// El email trae un código de 6 dígitos y un enlace. Lo principal es el código: se escribe
-// aquí y el cliente sigue con su pedido sin salir de la página.
+// La plantilla puede traer un código y un enlace, o solo el enlace. El código
+// se comprueba aquí sin sacar al cliente de la página.
 // Si usa el enlace, se detecta solo: abierto en este navegador, la otra pestaña guarda la
 // sesión (evento storage); al volver a esta pestaña se reintenta el login.
 import { isEmailNotConfirmed, loginCustomer, resendConfirmationEmail, safeReturnPath, verifyEmailCode } from "./auth.js?v61";
 import { escapeHtml, showNotice } from "./notice-modal.js?v61";
 
-const CODE_LENGTH = 6;
+const MIN_CODE_LENGTH = 6;
+const MAX_CODE_LENGTH = 10;
 const RESEND_COOLDOWN_S = 60;
 const AUTO_CHECK_GAP_MS = 20_000;
 const AUTO_CHECK_MAX = 6;
@@ -38,15 +39,15 @@ export function showEmailConfirmModal({ email, password = "", reason = "sent", o
   const webmail = webmailFor(email);
   const goingToCheckout = safeReturnPath() === "./checkout.html";
   const intro = reason === "sent"
-    ? `Enviamos un código de ${CODE_LENGTH} dígitos a <strong>${escapeHtml(email)}</strong>.`
-    : `La cuenta <strong>${escapeHtml(email)}</strong> aún no está activa. Escribe el código que te enviamos o pide uno nuevo.`;
+    ? `Enviamos la confirmación a <strong>${escapeHtml(email)}</strong>. Abre el enlace del correo o escribe el código si aparece.`
+    : `La cuenta <strong>${escapeHtml(email)}</strong> aún no está activa. Abre el enlace del correo o escribe el código si aparece.`;
   const body = `
     <p>${intro}</p>
     <form class="notice-modal__code" id="email-code-form" novalidate>
       <label for="email-code">Código de confirmación</label>
       <input id="email-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
-        pattern="[0-9]*" maxlength="${CODE_LENGTH + 4}" placeholder="${"0".repeat(CODE_LENGTH)}" aria-describedby="email-code-hint" required>
-      <small id="email-code-hint">También puedes pulsar el enlace del mismo email.</small>
+        pattern="[0-9]*" minlength="${MIN_CODE_LENGTH}" maxlength="${MAX_CODE_LENGTH}" placeholder="Código del correo" aria-describedby="email-code-hint" required>
+      <small id="email-code-hint">Si el correo solo tiene un enlace, ábrelo para confirmar tu cuenta.</small>
     </form>`;
 
   let autoChecks = 0;
@@ -57,7 +58,7 @@ export function showEmailConfirmModal({ email, password = "", reason = "sent", o
 
   const actions = [{ id: "verify", label: goingToCheckout ? "Confirmar y volver al pedido" : "Confirmar email", variant: "primary", onClick: () => submitCode() }];
   if (webmail) actions.push({ id: "webmail", label: webmail.label, href: webmail.url, external: true, variant: "secondary" });
-  actions.push({ id: "resend", label: "Reenviar código", variant: "link", onClick: resend });
+  actions.push({ id: "resend", label: "Reenviar email", variant: "link", onClick: resend });
   if (onChangeEmail) actions.push({ id: "change", label: "Usar otro email", variant: "link", onClick: c => { c.close(); onChangeEmail(); } });
 
   const ctrl = showNotice({
@@ -79,7 +80,7 @@ export function showEmailConfirmModal({ email, password = "", reason = "sent", o
     const digits = input.value.replace(/\D/g, "");
     if (digits !== input.value) input.value = digits;
     input.removeAttribute("aria-invalid");
-    if (digits.length === CODE_LENGTH) submitCode();
+    // No verificar al llegar a seis cifras: algunas plantillas usan códigos más largos.
   });
   form.addEventListener("submit", event => { event.preventDefault(); submitCode(); });
 
@@ -93,10 +94,10 @@ export function showEmailConfirmModal({ email, password = "", reason = "sent", o
   async function submitCode() {
     if (checking || finished) return;
     const code = input.value.replace(/\D/g, "");
-    if (code.length < CODE_LENGTH) {
+    if (code.length < MIN_CODE_LENGTH || code.length > MAX_CODE_LENGTH) {
       input.setAttribute("aria-invalid", "true");
       input.focus();
-      return ctrl.setStatus(`Escribe los ${CODE_LENGTH} dígitos del código.`, "error");
+      return ctrl.setStatus(`Escribe el código de ${MIN_CODE_LENGTH} a ${MAX_CODE_LENGTH} dígitos del correo.`, "error");
     }
     checking = true;
     ctrl.setBusy("verify", true, "Comprobando…");
@@ -135,7 +136,7 @@ export function showEmailConfirmModal({ email, password = "", reason = "sent", o
     try {
       await resendConfirmationEmail(email);
       ctrl.setBusy("resend", false);
-      ctrl.setStatus(`Te enviamos un código nuevo a ${email}. Usa el más reciente.`, "success");
+      ctrl.setStatus(`Si tu cuenta está pendiente de confirmar, recibirás un email nuevo en ${email}.`, "success");
       input.value = "";
       input.focus();
       startCooldown();
@@ -149,7 +150,7 @@ export function showEmailConfirmModal({ email, password = "", reason = "sent", o
     let left = RESEND_COOLDOWN_S;
     clearInterval(cooldownTimer);
     const tick = () => {
-      if (left <= 0) { clearInterval(cooldownTimer); ctrl.setAction("resend", { label: "Reenviar código", disabled: false }); return; }
+      if (left <= 0) { clearInterval(cooldownTimer); ctrl.setAction("resend", { label: "Reenviar email", disabled: false }); return; }
       ctrl.setAction("resend", { label: `Reenviar en ${left} s`, disabled: true });
       left -= 1;
     };
