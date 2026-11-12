@@ -3,6 +3,7 @@ import { throwIfSupabaseError } from "../../utils/http-error.js";
 import { calculateReferralCredit, assertEligibleReferralOrder, buildReferralRewardIdempotencyKey } from "./referral.rules.js";
 import { getReferralProgram } from "./referral.service.js";
 import { notifyReferralPurchase } from "../notifications/referral-push.service.js";
+import { recordReferralEvent } from "./referral.analytics.service.js";
 
 const MISSING_RELATION_CODES = new Set(["PGRST205", "42P01"]);
 
@@ -13,6 +14,7 @@ export async function qualifyReferralForOrder(orderId) {
   const atomic = await supabase.rpc("qualify_referral_order", { p_order_id: orderId });
   if (!isMissingFunction(atomic.error)) {
     throwIfSupabaseError(atomic.error, "No se pudo calificar el referido");
+    await recordQualificationAnalytics(orderId, atomic.data);
     await notifyReferralPurchaseForOrder(orderId).catch(error => console.error("[referral-push]", error.message || error));
     return atomic.data;
   }
@@ -103,7 +105,18 @@ export async function qualifyReferralForOrder(orderId) {
 
   const { error: finalError } = await supabase.from("referrals").update({ status: "rewarded" }).eq("id", referral.id).in("status", ["qualified", "rewarded"]);
   throwIfSupabaseError(finalError, "No se pudo completar la recompensa de referido");
+  await recordQualificationAnalytics(orderId, { qualified: true, rewarded: true, referral_id: referral.id, credit });
   return { qualified: true, rewarded: true, referralId: referral.id, credit };
+}
+
+async function recordQualificationAnalytics(orderId, result = {}) {
+  if (!result?.qualified || (!result?.referral_id && !result?.referralId)) return;
+  const referralId = result.referral_id || result.referralId;
+  const metadata = { credit: Number(result.credit || 0) };
+  await recordReferralEvent({ event_type: "first_purchase", referral_id: referralId, order_id: orderId, idempotency_key: `referral:${referralId}:first_purchase:${orderId}`, metadata })
+    .catch(error => console.error("[referral-analytics] first_purchase", error.message || error));
+  await recordReferralEvent({ event_type: "reward_issued", referral_id: referralId, order_id: orderId, idempotency_key: `referral:${referralId}:reward_issued:${orderId}`, metadata })
+    .catch(error => console.error("[referral-analytics] reward_issued", error.message || error));
 }
 
 async function notifyReferralPurchaseForOrder(orderId) {

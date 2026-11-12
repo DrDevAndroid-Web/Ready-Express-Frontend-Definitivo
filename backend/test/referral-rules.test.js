@@ -7,6 +7,7 @@ import {
   calculateReferralBalance,
   calculateReferralCredit,
   calculateReferralDiscount,
+  canApplyReferredDiscount,
   normalizeReferralCode,
   validateReferralProgramPayload,
   validateReferralRulePayload
@@ -42,6 +43,13 @@ test("referidos — calcula descuento fijo/porcentual y mínimos", () => {
   assert.equal(calculateReferralDiscount({ active: true, reward_type: "discount_fixed", amount: 2, minimum_purchase: 25 }, 20), 0);
 });
 
+test("referidos — el descuento de primera compra solo se ofrece antes de reservarlo o consumirlo", () => {
+  assert.equal(canApplyReferredDiscount({ status: "registered", first_eligible_order_id: null, discount_used_at: null }), true);
+  assert.equal(canApplyReferredDiscount({ status: "purchase_pending", first_eligible_order_id: "order-1", discount_used_at: null }), false);
+  assert.equal(canApplyReferredDiscount({ status: "registered", first_eligible_order_id: null, discount_used_at: "2026-11-06T12:00:00Z" }), false);
+  assert.equal(canApplyReferredDiscount({ status: "rewarded", first_eligible_order_id: null, discount_used_at: null }), false);
+});
+
 test("referidos — calcula crédito y limita errores monetarios", () => {
   assert.equal(calculateReferralCredit({ active: true, reward_type: "credit_fixed", amount: 3, minimum_purchase: 25 }, 25), 3);
   assert.equal(calculateReferralCredit({ active: true, reward_type: "credit_percent", amount: 10, minimum_purchase: 25 }, 25), 2.5);
@@ -55,6 +63,11 @@ test("referidos — las reversiones reducen el saldo del ledger", () => {
     { entry_type: "debit", amount: 1 }
   ]), 5);
   assert.equal(calculateReferralBalance([{ entry_type: "reversal", amount: 4 }]), 0);
+  assert.equal(calculateReferralBalance([
+    { entry_type: "credit", amount: 2 },
+    { entry_type: "debit", amount: 2 },
+    { entry_type: "reversal", amount: 2, metadata: { source: "order_cancelled" } }
+  ]), 2);
 });
 
 test("referidos — solo califica una orden con pago exitoso", () => {

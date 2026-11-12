@@ -26,3 +26,5 @@ export const paymentStatusLimiter = limiter(120, 15, "Demasiadas consultas del p
 export const chatSessionLimiter = limiter(10, 15, "Demasiadas conversaciones nuevas. Espera unos minutos.");
 export const chatMessageLimiter = limiter(40, 15, "Estás enviando mensajes muy rápido. Espera un momento.");
 export const referralClaimLimiter = limiter(10, 60, "Demasiados intentos de referido. Espera unos minutos.");
+export const referralEventLimiter = limiter(60, 15, "Demasiados eventos de referido. Espera unos minutos.");
+export const adminEmailReplyLimiter = limiter(30, 15, "Demasiadas respuestas por email. Espera unos minutos.");

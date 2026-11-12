@@ -139,7 +139,7 @@ describe("POST /api/payments/upload — requiere ser dueño de la orden", () => 
 });
 
 describe("proofMethodNames — métodos que aceptan comprobante", async () => {
-  const { proofMethodNames } = await import("../modules/payments/payments.service.js");
+  const { proofMethodNames, isAutoResumableCustomerPayment } = await import("../modules/payments/payments.service.js");
 
   it("usa los métodos activos de la tabla, incluidos los nuevos", () => {
     assert.deepEqual(proofMethodNames([
@@ -159,5 +159,11 @@ describe("proofMethodNames — métodos que aceptan comprobante", async () => {
 
   it("sin datos usa los predeterminados", () => {
     assert.deepEqual(proofMethodNames([]), ["Zelle", "TocoPay"]);
+  });
+
+  it("no reabre automáticamente órdenes rechazadas ni con comprobantes enviados", () => {
+    assert.equal(isAutoResumableCustomerPayment({ status: "pending" }, []), true);
+    assert.equal(isAutoResumableCustomerPayment({ status: "payment_rejected" }, []), false);
+    assert.equal(isAutoResumableCustomerPayment({ status: "pending" }, [{ validation_status: "rejected" }]), false);
   });
 });

@@ -1,4 +1,4 @@
-import { processPayment, getPendingPayments, getApprovedPayments, getApprovedPaymentImageUrl, deleteApprovedPayment, verifyPayment } from "./payments.service.js";
+import { processPayment, getPendingPayments, getCustomerPendingPayment, getApprovedPayments, getApprovedPaymentImageUrl, deleteApprovedPayment, verifyPayment } from "./payments.service.js";
 import { sendError } from "../../utils/http-error.js";
 import { getOrderAccess } from "../orders/orders.controller.js";
 
@@ -38,6 +38,14 @@ export async function getPendingPaymentsController(req, res) {
     res.json(result);
   } catch (err) {
     console.error("[payments:pending] error cargando pagos pendientes", err);
+    sendError(res, err);
+  }
+}
+
+export async function getCustomerPendingPaymentController(req, res) {
+  try {
+    res.json(await getCustomerPendingPayment(req.user.id));
+  } catch (err) {
     sendError(res, err);
   }
 }

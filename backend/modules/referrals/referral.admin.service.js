@@ -1,6 +1,7 @@
 import { supabase } from "../../config/supabase.js";
 import { createBadRequest, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
 import { validateReferralProgramPayload, validateReferralRulePayload } from "./referral.rules.js";
+import { getAdminReferralAnalytics } from "./referral.analytics.service.js";
 
 function pagination(query = {}) {
   const limit = Math.min(100, Math.max(1, Number.parseInt(query.limit, 10) || 50));
@@ -62,16 +63,18 @@ export async function listAdminReferralRewards(query = {}) {
 }
 
 export async function getAdminReferralStats() {
-  const [referrals, rewards, available] = await Promise.all([
+  const [referrals, rewards, available, analytics] = await Promise.all([
     supabase.from("referrals").select("status", { count: "exact", head: false }),
     supabase.from("referral_rewards").select("status,amount", { count: "exact", head: false }),
-    supabase.from("referral_rewards").select("amount").eq("status", "available")
+    supabase.from("referral_rewards").select("amount").eq("status", "available"),
+    getAdminReferralAnalytics()
   ]);
   for (const result of [referrals, rewards, available]) throwIfSupabaseError(result.error, "No se pudieron cargar las métricas de referidos");
   const byStatus = (rows) => (rows || []).reduce((acc, row) => { acc[row.status] = (acc[row.status] || 0) + 1; return acc; }, {});
   return {
     referrals: { total: referrals.count || 0, by_status: byStatus(referrals.data) },
-    rewards: { total: rewards.count || 0, by_status: byStatus(rewards.data), available_amount: (available.data || []).reduce((sum, row) => sum + Number(row.amount || 0), 0) }
+    rewards: { total: rewards.count || 0, by_status: byStatus(rewards.data), available_amount: (available.data || []).reduce((sum, row) => sum + Number(row.amount || 0), 0) },
+    analytics
   };
 }
 

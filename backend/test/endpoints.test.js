@@ -63,6 +63,7 @@ describe("admin endpoint surface", () => {
       ["GET", "/api/payments/approved"],
       ["DELETE", "/api/payments/approved/test-payment-id"],
       ["PATCH", "/api/payments/test-payment-id/verify"],
+      ["GET", "/api/account/pending-payment"],
       ["GET", "/api/admin/payments/test-payment-id/evidence-url"],
       ["POST", "/api/orders/test-order-id/delivery-confirmation"],
       ["PATCH", "/api/orders/test-order-id/delivery-confirmation/status"],

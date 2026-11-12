@@ -1,7 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { supabase } from "../../config/supabase.js";
-import { createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
-import { assertNotSelfReferral, calculateReferralBalance, calculateReferralDiscount, normalizeReferralCode, roundMoney } from "./referral.rules.js";
+import { createBadRequest, createConflict, createNotFound, createServiceUnavailable, throwIfSupabaseError } from "../../utils/http-error.js";
+import { assertNotSelfReferral, calculateReferralBalance, calculateReferralDiscount, canApplyReferredDiscount, normalizeReferralCode, roundMoney } from "./referral.rules.js";
+import { recordReferralEvent } from "./referral.analytics.service.js";
+import { assessReferralRisk, buildReferralRiskContext, recordReferralRiskEvent } from "./referral.fraud.service.js";
 
 const DEFAULT_PROGRAM = Object.freeze({
   enabled: false,
@@ -49,6 +51,21 @@ async function customerProfileId(authUserId) {
   throwIfSupabaseError(error, "No se pudo cargar el perfil del cliente");
   if (!data?.id) throw createNotFound("Perfil de cliente no encontrado");
   return data.id;
+}
+
+// La promoción de referido es exclusivamente para clientes sin compras
+// confirmadas. Se consulta el estado de pago real del pedido y no el estado
+// local del navegador, por lo que la regla se mantiene entre dispositivos.
+async function hasSuccessfulCustomerOrder(authUserId) {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("customer_id", authUserId)
+    .eq("payment_status", "successful")
+    .limit(1)
+    .maybeSingle();
+  throwIfSupabaseError(error, "No se pudo comprobar el historial de compras del cliente");
+  return Boolean(data?.id);
 }
 
 export async function getReferralProgram() {
@@ -108,18 +125,29 @@ export async function getOrCreateReferralCode(authUserId) {
 export async function getReferralDiscountForOrder(authUserId, rawToken, eligibleSubtotal, currency = "USD") {
   if (!authUserId) return null;
   const profileId = await customerProfileId(authUserId);
+  // También cubre atribuciones antiguas creadas antes de esta validación.
+  // Aunque exista una fila en referrals, una compra confirmada previa deja
+  // al cliente fuera de la promoción de primera compra, pero no le impide
+  // comprar normalmente aunque conserve un token local antiguo.
+  if (await hasSuccessfulCustomerOrder(authUserId)) return null;
   if (rawToken) await attachReferralClaim(rawToken, authUserId);
 
   const program = await getReferralProgram();
   if (!program.enabled || String(program.currency).toUpperCase() !== String(currency).toUpperCase()) return null;
   const { data: referral, error: referralError } = await supabase
     .from("referrals")
-    .select("id,status,first_eligible_order_id,rule_snapshot")
+    .select("id,status,first_eligible_order_id,discount_used_at,rule_snapshot")
     .eq("referred_customer_id", profileId)
-    .in("status", ["registered", "purchase_pending"])
+    .eq("status", "registered")
     .maybeSingle();
+  if (["42703", "PGRST204"].includes(referralError?.code) && referralError?.message?.includes("discount_used_at")) {
+    const legacy = await supabase.from("referrals").select("id").eq("referred_customer_id", profileId).maybeSingle();
+    throwIfSupabaseError(legacy.error, "No se pudo cargar la atribución de referido");
+    if (!legacy.data) return null;
+    throw createServiceUnavailable("La promoción de referido no está disponible temporalmente; inténtalo más tarde");
+  }
   throwIfSupabaseError(referralError, "No se pudo cargar la atribución de referido");
-  if (!referral || referral.first_eligible_order_id) return null;
+  if (!canApplyReferredDiscount(referral)) return null;
 
   const rule = (program.rules || []).find(item => item.active && item.beneficiary_type === "referred_customer");
   const amount = calculateReferralDiscount(rule, eligibleSubtotal);
@@ -143,7 +171,7 @@ export async function getReferralCreditForOrder(authUserId, eligibleSubtotal, cu
 
   const { data: entries, error } = await supabase
     .from("referral_wallet_entries")
-    .select("entry_type,amount,currency")
+    .select("entry_type,amount,currency,metadata")
     .eq("customer_id", profileId)
     .eq("currency", program.currency);
   if (isMissingReferralRelation(error)) return null;
@@ -175,7 +203,7 @@ export async function redeemReferralWalletCredit({ authUserId, orderId, amount, 
 
   const { data: entries, error: balanceError } = await supabase
     .from("referral_wallet_entries")
-    .select("entry_type,amount,currency")
+    .select("entry_type,amount,currency,metadata")
     .eq("customer_id", profileId)
     .eq("currency", currency);
   if (isMissingReferralRelation(balanceError)) throwIfSupabaseError(balanceError, "El saldo de referidos no está disponible");
@@ -228,7 +256,7 @@ export async function reverseReferralWalletDebit(orderId) {
   }
 }
 
-export async function claimReferralCode(rawCode, authUserId = null) {
+export async function claimReferralCode(rawCode, authUserId = null, requestContext = {}) {
   const code = normalizeReferralCode(rawCode);
   const { data: codeRow, error: codeError } = await supabase
     .from("referral_codes")
@@ -245,10 +273,29 @@ export async function claimReferralCode(rawCode, authUserId = null) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashReferralToken(token);
   let referredCustomerId = null;
+  let existingCustomer = false;
 
   if (authUserId) {
     referredCustomerId = await customerProfileId(authUserId);
+    existingCustomer = await hasSuccessfulCustomerOrder(authUserId);
+  }
+  const assessment = await assessReferralRisk({
+    eventType: "claim_attempt",
+    referralCodeId: codeRow.id,
+    customerId: referredCustomerId,
+    referrerCustomerId: codeRow.customer_id,
+    existingCustomer,
+    context: buildReferralRiskContext(requestContext)
+  });
+  await recordReferralRiskEvent(assessment, { source: "claim", authenticated: Boolean(authUserId) });
+  if (assessment.blocked) {
+    throw createConflict("No pudimos activar este enlace de referido. Si crees que es un error, contacta soporte.");
+  }
+  if (authUserId) {
     assertNotSelfReferral(codeRow.customer_id, referredCustomerId);
+    if (existingCustomer) {
+      throw createConflict("Esta cuenta ya tiene una compra confirmada y no puede recibir la promoción de nuevo referido");
+    }
   }
 
   const { data, error } = await supabase
@@ -257,7 +304,7 @@ export async function claimReferralCode(rawCode, authUserId = null) {
       referral_code_id: codeRow.id,
       referrer_customer_id: codeRow.customer_id,
       token_hash: tokenHash,
-      expires_at,
+      expires_at: expiresAt,
       claimed_by_customer_id: referredCustomerId,
       claimed_at: referredCustomerId ? new Date().toISOString() : null
     })
@@ -265,11 +312,19 @@ export async function claimReferralCode(rawCode, authUserId = null) {
     .single();
   throwIfSupabaseError(error, "No se pudo guardar la atribución de referido");
 
+  await recordReferralEvent({
+    event_type: "attribution_captured",
+    referral_code_id: codeRow.id,
+    referral_claim_id: data.id,
+    customer_id: referredCustomerId,
+    idempotency_key: `claim:${data.id}:attribution_captured`
+  }).catch(eventError => console.error("[referral-analytics] attribution_captured", eventError.message || eventError));
+
   if (referredCustomerId) await attachClaimToReferral(data.id, referredCustomerId);
   return { token, expires_at: data.expires_at, code: codeRow.code };
 }
 
-export async function attachReferralClaim(rawToken, authUserId) {
+export async function attachReferralClaim(rawToken, authUserId, requestContext = {}) {
   const tokenHash = hashReferralToken(rawToken);
   const referredCustomerId = await customerProfileId(authUserId);
   const { data: claim, error } = await supabase
@@ -292,6 +347,24 @@ export async function attachReferralClaim(rawToken, authUserId) {
     .maybeSingle();
   throwIfSupabaseError(existingError, "No se pudo comprobar la atribución del cliente");
   if (existing) return { referral_id: existing.id, status: existing.status, reused: true };
+
+  const existingCustomer = await hasSuccessfulCustomerOrder(authUserId);
+  const assessment = await assessReferralRisk({
+    eventType: "registration_attempt",
+    referralCodeId: claim.referral_code_id,
+    referralClaimId: claim.id,
+    customerId: referredCustomerId,
+    referrerCustomerId: claim.referrer_customer_id,
+    existingCustomer,
+    context: buildReferralRiskContext(requestContext)
+  });
+  await recordReferralRiskEvent(assessment, { source: "registration" });
+  if (assessment.blocked) {
+    throw createConflict("No pudimos activar este enlace de referido. Si crees que es un error, contacta soporte.");
+  }
+  if (existingCustomer) {
+    throw createConflict("Esta cuenta ya tiene una compra confirmada y no puede recibir la promoción de nuevo referido");
+  }
 
   const { data: claimed, error: claimError } = await supabase
     .from("referral_claims")
@@ -331,6 +404,13 @@ async function attachClaimToReferral(claimId, referredCustomerId) {
     return { referral_id: existing.data.id, status: existing.data.status, created_at: existing.data.created_at, reused: true };
   }
   throwIfSupabaseError(error, "No se pudo crear la atribución de referido");
+  await recordReferralEvent({
+    event_type: "registration_completed",
+    referral_id: data.id,
+    referral_claim_id: claim.id,
+    customer_id: referredCustomerId,
+    idempotency_key: `referral:${data.id}:registration_completed`
+  }).catch(eventError => console.error("[referral-analytics] registration_completed", eventError.message || eventError));
   return { referral_id: data.id, status: data.status, created_at: data.created_at, reused: false };
 }
 
@@ -339,9 +419,9 @@ export async function getMyReferralSummary(authUserId) {
   const [codeResult, referralsResult, referredResult, rewardsResult, ledgerResult] = await Promise.all([
     supabase.from("referral_codes").select("id,code,active,created_at,revoked_at").eq("customer_id", profileId).maybeSingle(),
     supabase.from("referrals").select("id,status,created_at,qualified_at,first_eligible_order_id").eq("referrer_customer_id", profileId).order("created_at", { ascending: false }).limit(100),
-    supabase.from("referrals").select("id,status,created_at,qualified_at,first_eligible_order_id").eq("referred_customer_id", profileId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("referrals").select("id,status,created_at,qualified_at,first_eligible_order_id,discount_used_at").eq("referred_customer_id", profileId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("referral_rewards").select("id,referral_id,reward_type,amount,currency,status,expires_at,created_at").eq("recipient_customer_id", profileId).order("created_at", { ascending: false }).limit(100),
-    supabase.from("referral_wallet_entries").select("entry_type,amount,currency,created_at").eq("customer_id", profileId).order("created_at", { ascending: true }).limit(500)
+    supabase.from("referral_wallet_entries").select("entry_type,amount,currency,created_at,order_id,metadata").eq("customer_id", profileId).order("created_at", { ascending: true }).limit(500)
   ]);
   for (const result of [codeResult, referralsResult, referredResult, rewardsResult, ledgerResult]) throwIfSupabaseError(result.error, "No se pudo cargar el resumen de referidos");
   const program = await getReferralProgram();
@@ -359,6 +439,19 @@ export async function getMyReferralSummary(authUserId) {
     } : null,
     rewards: rewardsResult.data || [],
     balance: calculateReferralBalance(ledgerResult.data || []),
+    wallet_activity: {
+      earned: roundMoney((ledgerResult.data || []).filter(entry => entry.entry_type === "credit").reduce((sum, entry) => sum + Number(entry.amount || 0), 0)),
+      used: roundMoney((ledgerResult.data || []).filter(entry => entry.entry_type === "debit").reduce((sum, entry) => sum + Number(entry.amount || 0), 0)),
+      refunded: roundMoney((ledgerResult.data || []).filter(entry => entry.entry_type === "reversal" && entry.metadata?.source === "order_cancelled").reduce((sum, entry) => sum + Number(entry.amount || 0), 0)),
+      reversed: roundMoney((ledgerResult.data || []).filter(entry => entry.entry_type === "expiry" || (entry.entry_type === "reversal" && entry.metadata?.source !== "order_cancelled")).reduce((sum, entry) => sum + Number(entry.amount || 0), 0)),
+      entries: (ledgerResult.data || []).slice().reverse().map(entry => ({
+        type: entry.entry_type === "reversal" && entry.metadata?.source === "order_cancelled" ? "refund" : entry.entry_type,
+        amount: Number(entry.amount || 0),
+        currency: entry.currency,
+        created_at: entry.created_at,
+        order_id: entry.order_id
+      }))
+    },
     currency: rewardsResult.data?.[0]?.currency || program.currency || "USD"
   };
 }

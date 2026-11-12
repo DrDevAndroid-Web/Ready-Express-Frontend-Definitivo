@@ -9,7 +9,7 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= [
 ].join(".");
 process.env.SUPABASE_ANON_KEY ||= "anon-key";
 
-const { emailConfirmationRedirectUrl, normalizeDeliveryAddress, normalizeEmailCode, verifyEmailCode } = await import("../modules/customers/customer.service.js");
+const { emailConfirmationRedirectUrl, normalizeDeliveryAddress, normalizeEmailCode, registerCustomer, resendConfirmationEmail, verifyEmailCode } = await import("../modules/customers/customer.service.js");
 const { default: app } = await import("../app.js");
 
 describe("enlace de confirmación del email", () => {
@@ -56,9 +56,10 @@ describe("código de confirmación por email", () => {
     assert.equal(normalizeEmailCode("482-913"), "482913");
   });
 
-  it("rechaza códigos demasiado cortos", () => {
-    assert.throws(() => normalizeEmailCode("123"), /6 dígitos/);
-    assert.throws(() => normalizeEmailCode(""), /6 dígitos/);
+  it("acepta códigos de hasta diez cifras y rechaza los incompletos", () => {
+    assert.equal(normalizeEmailCode("12345678"), "12345678");
+    assert.throws(() => normalizeEmailCode("123"), /6 y 10 dígitos/);
+    assert.throws(() => normalizeEmailCode(""), /6 y 10 dígitos/);
   });
 
   it("código correcto: devuelve la sesión", async () => {
@@ -69,19 +70,91 @@ describe("código de confirmación por email", () => {
     assert.deepEqual(calls[0], { email: "a@b.com", token: "482913", type: "email" });
   });
 
-  it("si el tipo email falla prueba con signup", async () => {
+  it("un error de Supabase no provoca un segundo intento", async () => {
     const { auth, calls } = fakeAuth([
-      { data: {}, error: { message: "Token has expired or is invalid" } },
-      { data: { session, user: { id: "u", email: "a@b.com" } }, error: null }
+      { data: {}, error: { message: "Too many requests", status: 429 } }
     ]);
-    await verifyEmailCode("a@b.com", "482913", auth);
-    assert.equal(calls[1].type, "signup");
+    await assert.rejects(verifyEmailCode("a@b.com", "482913", auth), err => err.status === 429);
+    assert.equal(calls.length, 1);
   });
 
   it("código incorrecto: 400 con mensaje claro", async () => {
     const invalid = { data: {}, error: { message: "Token has expired or is invalid", status: 403 } };
-    const { auth } = fakeAuth([invalid, invalid]);
+    const { auth, calls } = fakeAuth([invalid]);
     await assert.rejects(verifyEmailCode("a@b.com", "000000", auth), err => err.status === 400 && /caducó/.test(err.message));
+    assert.equal(calls.length, 1);
+  });
+
+  it("un fallo del servicio se distingue de un código inválido", async () => {
+    const { auth } = fakeAuth([{ data: {}, error: { message: "Service unavailable", status: 503 } }]);
+    await assert.rejects(verifyEmailCode("a@b.com", "123456", auth), err => err.status === 503);
+  });
+});
+
+describe("reenvío de confirmación", () => {
+  const fakeAuth = error => ({ auth: { resend: async () => ({ error }) } });
+
+  it("no informa éxito cuando falla el proveedor", async () => {
+    await assert.rejects(resendConfirmationEmail("a@b.com", fakeAuth({ status: 500, message: "SMTP unavailable" })), err => err.status === 503);
+  });
+
+  it("conserva el límite de frecuencia y la respuesta neutra para cuentas inexistentes", async () => {
+    await assert.rejects(resendConfirmationEmail("a@b.com", fakeAuth({ status: 429, message: "rate limit" })), err => err.status === 429);
+    const result = await resendConfirmationEmail("a@b.com", fakeAuth({ status: 404, code: "user_not_found" }));
+    assert.match(result.message, /Si la cuenta/);
+  });
+});
+
+describe("registro completo o reversión", () => {
+  const input = {
+    email: "a@b.com", password: "password123", confirm_password: "password123",
+    nombre: "Ana", apellidos: "Pérez", preferred_payment_methods: ["zelle"]
+  };
+  function fakeClients(failingTable = null, rollbackError = null, existingUser = false) {
+    const calls = { deleted: [], tables: [] };
+    const auth = { auth: { signUp: async request => ({
+      data: { user: { id: "new-user", email: request.email, identities: [{}], user_metadata: existingUser ? {} : request.options.data }, session: null },
+      error: null
+    }) } };
+    const db = {
+      auth: { admin: { deleteUser: async id => { calls.deleted.push(id); return { error: rollbackError }; } } },
+      from(table) {
+        calls.tables.push(table);
+        if (table === "customer_profiles") return { insert: () => ({ select: () => ({ single: async () => ({ data: { id: "profile-1" }, error: failingTable === table ? { message: "DB failed", code: "TEST" } : null }) }) }) };
+        if (table === "customer_payment_preferences") return { upsert: async () => ({ error: failingTable === table ? { message: "DB failed", code: "TEST" } : null }) };
+        if (table === "user_roles") return { insert: async () => ({ error: failingTable === table ? { message: "DB failed", code: "TEST" } : null }) };
+        throw new Error(`Tabla inesperada: ${table}`);
+      }
+    };
+    return { auth, db, calls };
+  }
+
+  it("conserva la cuenta cuando perfil, preferencias y rol se crearon", async () => {
+    const clients = fakeClients();
+    const result = await registerCustomer(input, clients);
+    assert.equal(result.email_confirmation_required, true);
+    assert.deepEqual(clients.calls.deleted, []);
+  });
+
+  for (const table of ["customer_profiles", "customer_payment_preferences", "user_roles"]) {
+    it(`revierte la cuenta Auth si falla ${table}`, async () => {
+      const clients = fakeClients(table);
+      await assert.rejects(registerCustomer(input, clients), err => err.status === 503 && /ignora el correo anterior/.test(err.message));
+      assert.deepEqual(clients.calls.deleted, ["new-user"]);
+    });
+  }
+
+  it("nunca elimina una cuenta que no corresponde a este intento", async () => {
+    const clients = fakeClients(null, null, true);
+    await assert.rejects(registerCustomer(input, clients), err => err.status === 409);
+    assert.deepEqual(clients.calls.deleted, []);
+    assert.deepEqual(clients.calls.tables, []);
+  });
+
+  it("pide soporte si Supabase impide la reversión", async () => {
+    const clients = fakeClients("user_roles", { message: "FK restrict" });
+    await assert.rejects(registerCustomer(input, clients), err => err.status === 503 && /Contáctanos/.test(err.message));
+    assert.deepEqual(clients.calls.deleted, ["new-user"]);
   });
 });
 

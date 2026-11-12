@@ -23,9 +23,11 @@ app.use(cors({
   origin: corsOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Checkout-Token']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Checkout-Token', 'Idempotency-Key']
 }));
 
+// Svix firma los bytes originales; este parser debe preceder al JSON global.
+app.use("/api/webhooks/resend", express.raw({ type: "application/json", limit: "100kb" }));
 app.use(express.json({ limit: "100kb" }));
 // Express 5 deja req.body sin definir si la petición no trae cuerpo JSON: las rutas que lo
 // desestructuran fallaban con 500 en vez de responder 400 (multer lo reemplaza en las subidas)
@@ -39,7 +41,7 @@ app.use("/api", routes);
 
 app.use((err, _req, res, _next) => {
   if (err?.message === "Request aborted" || err?.code === "ECONNABORTED" || err?.code === "ECONNRESET") {
-    return sendError(res, clientClosedRequest("Cliente cerro la conexion durante la subida"));
+    return clientClosedRequest(res, "Cliente cerro la conexion durante la subida");
   }
 
   if (err?.type === "entity.parse.failed") {

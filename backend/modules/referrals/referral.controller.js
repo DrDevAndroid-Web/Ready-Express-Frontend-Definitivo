@@ -17,7 +17,12 @@ export async function getPublicReferralProgramController(_req, res) {
 
 export async function claimReferralCodeController(req, res) {
   try {
-    const result = await claimReferralCode(req.body?.code, req.user?.id || null);
+    const result = await claimReferralCode(req.body?.code, req.user?.id || null, {
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      deviceId: req.body?.device_id,
+      sessionId: req.body?.session_id
+    });
     res.status(201).json(result);
   } catch (error) {
     sendError(res, error);
@@ -34,7 +39,12 @@ export async function getMyReferralCodeController(req, res) {
 
 export async function attachReferralClaimController(req, res) {
   try {
-    res.json(await attachReferralClaim(req.body?.token, req.user.id));
+    res.json(await attachReferralClaim(req.body?.token, req.user.id, {
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      deviceId: req.body?.device_id,
+      sessionId: req.body?.session_id
+    }));
   } catch (error) {
     sendError(res, error);
   }

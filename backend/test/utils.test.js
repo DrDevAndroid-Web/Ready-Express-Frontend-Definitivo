@@ -5,6 +5,7 @@ import {
   badRequest,
   notFound,
   conflict,
+  clientClosedRequest,
   sendError,
   throwIfSupabaseError,
   createBadRequest,
@@ -100,6 +101,13 @@ describe("sendError", () => {
     const res = makeFakeRes();
     sendError(res, createBadRequest("error con detalles", { campo: "nombre" }));
     assert.deepEqual(res.jsonBody.details, { campo: "nombre" });
+  });
+
+  it("clientClosedRequest responde 499 usando el objeto res", () => {
+    const res = makeFakeRes();
+    clientClosedRequest(res, "Cliente cerro la conexion");
+    assert.equal(res.statusCode, 499);
+    assert.equal(res.jsonBody.error, "Cliente cerro la conexion");
   });
 
   it("no incluye la clave details cuando son null", () => {

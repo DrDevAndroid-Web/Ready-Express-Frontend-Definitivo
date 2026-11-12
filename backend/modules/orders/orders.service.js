@@ -59,6 +59,7 @@ export async function createOrder(data, customerId = null) {
       .eq("id", referralAdjustment.referralId)
       .eq("status", "registered")
       .is("first_eligible_order_id", null)
+      .is("discount_used_at", null)
       .select("id");
     if (reserveError || !reservedReferral?.length) {
       await supabase.from("order_adjustments").delete().eq("id", adjustment.id);
@@ -187,7 +188,7 @@ export async function cancelOrder(orderId, access = {}) {
   throwIfSupabaseError(fetchError, "No se pudo cargar la orden");
   assertOrderAccess(order, access);
 
-  if (order.status !== "pending") {
+  if (order.status !== "pending" || order.payment_status === "successful") {
     throw createConflict("Solo se pueden cancelar ordenes en estado pendiente");
   }
 
@@ -197,6 +198,7 @@ export async function cancelOrder(orderId, access = {}) {
     .update({ status: "cancelled" })
     .eq("id", orderId)
     .eq("status", "pending")
+    .neq("payment_status", "successful")
     .select("id");
 
   throwIfSupabaseError(updateError, "No se pudo cancelar la orden");

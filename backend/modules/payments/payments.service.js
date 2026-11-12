@@ -185,6 +185,66 @@ export async function getPendingPayments(limit = 100, offset = 0) {
   return withSignedPaymentImages(data);
 }
 
+// Solo una orden nueva, sin comprobantes enviados, puede abrirse automáticamente
+// en la pantalla de subida. Una orden rechazada debe quedar visible en la cuenta,
+// pero no debe secuestrar la entrada normal a la tienda.
+export function isAutoResumableCustomerPayment(order, payments = []) {
+  return String(order?.status || "").toLowerCase() === "pending" && payments.length === 0;
+}
+
+// Devuelve la orden manual más reciente que el cliente todavía puede completar.
+// El checkout_token nunca sale de este endpoint: un cliente autenticado puede subir
+// el comprobante usando su customer_id, incluso si cambió de dispositivo.
+export async function getCustomerPendingPayment(customerId) {
+  assertSupabaseServiceRole();
+  if (!customerId) return null;
+
+  const { data: orders, error: ordersError } = await supabase
+    .from("orders")
+    .select("id, order_reference, items, total, status, created_at")
+    .eq("customer_id", customerId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  throwIfSupabaseError(ordersError, "No se pudo consultar el comprobante pendiente");
+  if (!orders?.length) return null;
+
+  const orderIds = orders.map(order => order.id).filter(Boolean);
+  const { data: payments, error: paymentsError } = await supabase
+    .from("payments")
+    .select("order_id, method, validation_status, created_at")
+    .in("order_id", orderIds)
+    .order("created_at", { ascending: false });
+
+  throwIfSupabaseError(paymentsError, "No se pudo consultar el comprobante pendiente");
+
+  const paymentsByOrder = new Map();
+  for (const payment of payments ?? []) {
+    const list = paymentsByOrder.get(payment.order_id) ?? [];
+    list.push(payment);
+    paymentsByOrder.set(payment.order_id, list);
+  }
+
+  for (const order of orders) {
+    const orderPayments = paymentsByOrder.get(order.id) ?? [];
+    if (!isAutoResumableCustomerPayment(order, orderPayments)) continue;
+
+    const latestPayment = orderPayments[0];
+    return {
+      order_id: order.id,
+      order_reference: order.order_reference,
+      items: order.items ?? [],
+      total: order.total,
+      method: latestPayment?.method ?? "",
+      status: order.status,
+      created_at: order.created_at
+    };
+  }
+
+  return null;
+}
+
 export async function getApprovedPayments(limit = 100, offset = 0, { includeImage = true } = {}) {
   assertSupabaseServiceRole();
   const { data, error } = await supabase
@@ -246,35 +306,21 @@ export async function deleteApprovedPayment(paymentId, confirmation) {
     throw createBadRequest("Debes escribir ELIMINAR para confirmar");
   }
 
-  const { data: payment, error: fetchError } = await supabase
-    .from("payments")
-    .select("id, order_id, image_url, validation_status")
-    .eq("id", paymentId)
-    .maybeSingle();
+  const { data: result, error } = await supabase.rpc("delete_approved_payment_and_order", {
+    p_payment_id: paymentId,
+    p_confirmation: confirmation,
+  });
 
-  throwIfSupabaseError(fetchError, "No se pudo cargar el comprobante");
-  if (!payment || payment.validation_status !== "approved") {
-    throw createNotFound("Solo se pueden eliminar comprobantes aprobados");
-  }
+  throwIfSupabaseError(error, "No se pudo eliminar el comprobante y su pedido");
+  if (!result?.deleted) throw createConflict("El comprobante ya fue eliminado o dejo de estar aprobado");
 
-  const { data: deleted, error: deleteError } = await supabase
-    .from("payments")
-    .delete()
-    .eq("id", payment.id)
-    .eq("validation_status", "approved")
-    .select("id")
-    .maybeSingle();
-
-  throwIfSupabaseError(deleteError, "No se pudo eliminar el comprobante");
-  if (!deleted) throw createConflict("El comprobante ya fue eliminado o dejo de estar aprobado");
-
-  const path = paymentImagePath(payment.image_url);
+  const path = paymentImagePath(result.image_url);
   if (path) {
     const { error: storageError } = await supabase.storage.from(PAYMENTS_BUCKET).remove([path]);
     if (storageError) console.error("[payments:delete] no se pudo eliminar la imagen", storageError.message);
   }
 
-  return { deleted: true, id: payment.id, order_id: payment.order_id };
+  return { deleted: true, id: result.payment_id, order_id: result.order_id, order_deleted: true };
 }
 
 const PAYMENTS_BUCKET = "payments";
@@ -396,7 +442,7 @@ export async function verifyPayment(paymentId, action) {
   if (!payment.order_id) throw createNotFound("No se encontro la orden asociada al pago");
 
   // 2. Actualizar orden
-  const { error: orderError } = await supabase
+  const { data: updatedOrder, error: orderError } = await supabase
     .from("orders")
     .update({
       status: orderStatus,
@@ -404,9 +450,12 @@ export async function verifyPayment(paymentId, action) {
       // La calificación de referidos depende de este estado, no solo de status=paid.
       payment_status: action === "approve" ? "successful" : "failed"
     })
-    .eq("id", payment.order_id);
+    .eq("id", payment.order_id)
+    .select("id")
+    .maybeSingle();
 
   throwIfSupabaseError(orderError, "No se pudo actualizar el estado de la orden");
+  if (!updatedOrder) throw createNotFound("No se encontro la orden asociada al pago");
 
   if (action === "approve") {
     await qualifyReferralForOrder(payment.order_id).catch(error => {

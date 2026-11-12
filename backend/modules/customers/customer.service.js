@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { supabase, supabaseAuth } from "../../config/supabase.js";
 import { HttpError, createBadRequest, createConflict, createNotFound, throwIfSupabaseError } from "../../utils/http-error.js";
 import { parseBirthDate, parseCountryIso } from "../../utils/billing.js";
@@ -61,7 +62,7 @@ export function normalizeDeliveryAddress(input) {
   };
 }
 
-export async function registerCustomer({ email, password, confirm_password, nombre, apellidos, telefono = null, documento_identidad = null, direccion_entrega = null, preferred_payment_methods = [], device_id: _deviceId, ...billingInput }) {
+export async function registerCustomer({ email, password, confirm_password, nombre, apellidos, telefono = null, documento_identidad = null, direccion_entrega = null, preferred_payment_methods = [], device_id: _deviceId, ...billingInput }, { auth = supabaseAuth, db = supabase } = {}) {
   const normalizedEmail = requireText(email, "El email es requerido").toLowerCase();
   const normalizedPassword = requireText(password, "La contraseña es requerida");
   const firstName = requireText(nombre, "El nombre es requerido");
@@ -77,10 +78,11 @@ export async function registerCustomer({ email, password, confirm_password, nomb
   // La facturación solo es obligatoria cuando el método tarjeta está habilitado y seleccionado.
   const billing = preferredMethods.includes(CARD_PAYMENT_PREFERENCE) ? normalizeBilling(billingInput) : {};
 
-  const { data: authData, error: authError } = await supabaseAuth.auth.signUp({
+  const registrationAttemptId = randomUUID();
+  const { data: authData, error: authError } = await auth.auth.signUp({
     email: normalizedEmail,
     password: normalizedPassword,
-    options: { data: {}, emailRedirectTo: emailConfirmationRedirectUrl() }
+    options: { data: { registration_attempt_id: registrationAttemptId }, emailRedirectTo: emailConfirmationRedirectUrl() }
   });
 
   if (authError) {
@@ -97,6 +99,10 @@ export async function registerCustomer({ email, password, confirm_password, nomb
   if (Array.isArray(user.identities) && user.identities.length === 0) {
     throw createConflict("Ya existe una cuenta con ese email");
   }
+  // Solo se puede revertir una cuenta creada por esta solicitud; nunca una ya existente.
+  if (user.user_metadata?.registration_attempt_id !== registrationAttemptId) {
+    throw createConflict("Ya existe una cuenta con ese email");
+  }
 
   const profileRow = {
     auth_user_id: user.id,
@@ -107,42 +113,62 @@ export async function registerCustomer({ email, password, confirm_password, nomb
     documento_identidad: optionalText(documento_identidad),
     ...billing
   };
-  let { data: profile, error: profileError } = await supabase.from("customer_profiles").insert(profileRow).select().single();
+  let profile;
+  try {
+    let { data, error: profileError } = await db.from("customer_profiles").insert(profileRow).select().single();
 
-  // Red de seguridad si el backend se despliega antes que 20260930_customer_billing_profile.sql
-  if (profileError?.code === "PGRST204" && BILLING_COLUMNS.some(column => profileError.message?.includes(column))) {
-    console.error("[customers] Falta la migración de facturación; el perfil se guarda sin esos datos");
-    BILLING_COLUMNS.forEach(column => delete profileRow[column]);
-    ({ data: profile, error: profileError } = await supabase.from("customer_profiles").insert(profileRow).select().single());
+    // Red de seguridad si el backend se despliega antes que 20260930_customer_billing_profile.sql
+    if (profileError?.code === "PGRST204" && BILLING_COLUMNS.some(column => profileError.message?.includes(column))) {
+      console.error("[customers] Falta la migración de facturación; el perfil se guarda sin esos datos");
+      BILLING_COLUMNS.forEach(column => delete profileRow[column]);
+      ({ data, error: profileError } = await db.from("customer_profiles").insert(profileRow).select().single());
+    }
+
+    throwIfSupabaseError(profileError, "No se pudo crear el perfil del cliente");
+    profile = data;
+
+    const { error: preferencesError } = await db.from(PAYMENT_PREFERENCE_TABLE).upsert({
+      customer_id: profile.id,
+      preferred_methods: preferredMethods,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "customer_id" });
+    if (preferencesError?.code === "PGRST205" || preferencesError?.code === "42P01") {
+      console.warn("[customers] Falta la migración de preferencias de pago; se continúa con el registro");
+    } else {
+      throwIfSupabaseError(preferencesError, "No se pudieron guardar las preferencias de pago");
+    }
+
+    const { error: roleError } = await db
+      .from("user_roles")
+      .insert({ user_id: user.id, role: "cliente" });
+
+    throwIfSupabaseError(roleError, "No se pudo asignar el rol del cliente");
+  } catch (error) {
+    console.error("[customers:register] No se pudo completar el registro:", error);
+    // Las tablas de registro referencian auth.users con ON DELETE CASCADE.
+    // El correo pudo salir antes del fallo: invalidar esa cuenta permite reintentar.
+    try {
+      const { error: rollbackError } = await db.auth.admin.deleteUser(user.id);
+      if (rollbackError) throw rollbackError;
+    } catch (rollbackError) {
+      console.error("[customers:register] No se pudo revertir la cuenta Auth:", rollbackError);
+      throw new HttpError(503, "No pudimos completar tu cuenta. Contáctanos antes de volver a registrarte.");
+    }
+    throw new HttpError(503, "No pudimos crear tu cuenta. Inténtalo de nuevo e ignora el correo anterior.");
   }
-
-  throwIfSupabaseError(profileError, "No se pudo crear el perfil del cliente");
-
-  const { error: preferencesError } = await supabase.from(PAYMENT_PREFERENCE_TABLE).upsert({
-    customer_id: profile.id,
-    preferred_methods: preferredMethods,
-    updated_at: new Date().toISOString()
-  }, { onConflict: "customer_id" });
-  if (preferencesError?.code === "PGRST205" || preferencesError?.code === "42P01") {
-    console.warn("[customers] Falta la migración de preferencias de pago; se continúa con el registro");
-  } else {
-    throwIfSupabaseError(preferencesError, "No se pudieron guardar las preferencias de pago");
-  }
-
-  const { error: roleError } = await supabase
-    .from("user_roles")
-    .insert({ user_id: user.id, role: "cliente" });
-
-  throwIfSupabaseError(roleError, "No se pudo asignar el rol del cliente");
 
   // Sin sesión (falta confirmar el email) el frontend no puede guardarla: se guarda aquí.
   // Un fallo no impide el registro; el cliente puede añadirla en "Mi cuenta".
   const address = normalizeDeliveryAddress(direccion_entrega);
   let savedAddress = null;
   if (address) {
-    const { data, error } = await supabase.from("customer_addresses").insert({ ...address, customer_id: profile.id }).select().single();
-    if (error) console.warn("[customers:register] No se guardó la dirección de entrega:", error.message);
-    else savedAddress = data;
+    try {
+      const { data, error } = await db.from("customer_addresses").insert({ ...address, customer_id: profile.id }).select().single();
+      if (error) console.warn("[customers:register] No se guardó la dirección de entrega:", error.message);
+      else savedAddress = data;
+    } catch (error) {
+      console.warn("[customers:register] No se guardó la dirección de entrega:", error);
+    }
   }
 
   return {
@@ -156,9 +182,9 @@ export async function registerCustomer({ email, password, confirm_password, nomb
 }
 
 // Reenvía el email de confirmación. Responde igual exista o no la cuenta (no revela emails).
-export async function resendConfirmationEmail(email) {
+export async function resendConfirmationEmail(email, auth = supabaseAuth) {
   const normalizedEmail = requireText(email, "El email es requerido").toLowerCase();
-  const { error } = await supabaseAuth.auth.resend({
+  const { error } = await auth.auth.resend({
     type: "signup",
     email: normalizedEmail,
     options: { emailRedirectTo: emailConfirmationRedirectUrl() }
@@ -167,28 +193,34 @@ export async function resendConfirmationEmail(email) {
     if (error.status === 429 || /rate limit|security purposes/i.test(error.message || "")) {
       throw new HttpError(429, "Ya enviamos un email hace poco. Espera un minuto e inténtalo de nuevo.");
     }
+    // Supabase puede rechazar una cuenta inexistente; no revelamos si existe.
+    if (error.code === "user_not_found" || (error.status === 404 && /user not found|account not found/i.test(error.message || ""))) {
+      return { message: "Si la cuenta está pendiente de confirmar, recibirás un nuevo email." };
+    }
     console.warn("[customers:resend]", error.message);
+    throw new HttpError(503, "No pudimos reenviar el email ahora. Inténtalo en unos minutos.");
   }
-  return { message: "Si la cuenta está pendiente de confirmar, te enviamos un nuevo enlace." };
+  return { message: "Si la cuenta está pendiente de confirmar, recibirás un nuevo email." };
 }
 
 // Código de confirmación ({{ .Token }} en la plantilla "Confirm signup"): el cliente lo
 // escribe en la tienda y queda confirmado y con sesión, sin salir de la página.
 export function normalizeEmailCode(code) {
   const digits = String(code ?? "").replace(/\D/g, "");
-  if (digits.length < 6 || digits.length > 10) throw createBadRequest("Escribe el código de 6 dígitos que te enviamos por email");
+  if (digits.length < 6 || digits.length > 10) throw createBadRequest("Escribe el código de confirmación de entre 6 y 10 dígitos");
   return digits;
 }
 
 export async function verifyEmailCode(email, code, auth = supabaseAuth) {
   const normalizedEmail = requireText(email, "El email es requerido").toLowerCase();
   const token = normalizeEmailCode(code);
-  // "email" es el tipo actual; "signup" cubre servidores de Auth más antiguos
-  let { data, error } = await auth.auth.verifyOtp({ email: normalizedEmail, token, type: "email" });
-  if (error && !data?.session) ({ data, error } = await auth.auth.verifyOtp({ email: normalizedEmail, token, type: "signup" }));
+  const { data, error } = await auth.auth.verifyOtp({ email: normalizedEmail, token, type: "email" });
   if (error || !data?.session) {
     if (error?.status === 429 || /rate limit|security purposes/i.test(error?.message || "")) {
       throw new HttpError(429, "Demasiados intentos. Espera un minuto e inténtalo de nuevo.");
+    }
+    if (error && (!error.status || error.status >= 500)) {
+      throw new HttpError(503, "No pudimos comprobar el código ahora. Inténtalo de nuevo en unos minutos.");
     }
     throw createBadRequest("El código no es correcto o ya caducó. Revísalo o pide uno nuevo.");
   }

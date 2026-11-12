@@ -5,6 +5,7 @@ import { createOrderController, quoteOrderController, getOrdersController, getCu
 import {
   uploadPayment,
   getPendingPaymentsController,
+  getCustomerPendingPaymentController,
   getApprovedPaymentsController,
   getApprovedPaymentImageController,
   deleteApprovedPaymentController,
@@ -54,7 +55,7 @@ import {
 } from "../modules/chat/chat.controller.js";
 
 import { upload } from "../middlewares/upload.js";
-import { authLimiter, confirmationEmailLimiter, chatMessageLimiter, chatSessionLimiter, orderLimiter, passwordRecoveryLimiter, paymentLimiter, paymentStatusLimiter, referralClaimLimiter } from "../middlewares/rate-limits.js";
+import { authLimiter, confirmationEmailLimiter, chatMessageLimiter, chatSessionLimiter, orderLimiter, passwordRecoveryLimiter, paymentLimiter, paymentStatusLimiter, referralClaimLimiter, referralEventLimiter, adminEmailReplyLimiter } from "../middlewares/rate-limits.js";
 import { optionalSupabaseUser, requireAdmin, requireDeliveryOperator, requireRecoverySession, requireRoles, requireSupabaseUser, tokenFromQuery } from "../middlewares/auth.js";
 import { supabase, supabaseAuth } from "../config/supabase.js";
 import { createBadRequest, sendError } from "../utils/http-error.js";
@@ -74,10 +75,20 @@ import { listAdminTransactions, getAdminTransactionEvents, retryAdminPrint } fro
 import { getFeesReportController, getPricingSettingsController, updatePricingSettingsController } from "../modules/settings/settings.controller.js";
 import { uploadDeliveryConfirmationController, getDeliveryConfirmationController, getPaymentDeliveryConfirmationController, updateDeliveryConfirmationController } from "../modules/media/media.controller.js";
 import { getPublicReferralProgramController, claimReferralCodeController, getMyReferralCodeController, attachReferralClaimController, getMyReferralSummaryController } from "../modules/referrals/referral.controller.js";
+import { recordPublicReferralEventController } from "../modules/referrals/referral.analytics.controller.js";
 import { getAdminReferralProgramController, updateAdminReferralProgramController, createAdminReferralRuleController, updateAdminReferralRuleController, listAdminReferralsController, listAdminReferralRewardsController, getAdminReferralStatsController, reverseAdminReferralRewardController } from "../modules/referrals/referral.admin.controller.js";
+import { getAdminReferralRiskStatsController, listAdminReferralRiskEventsController } from "../modules/referrals/referral.fraud.controller.js";
 import { getReferralPushPreferences, getReferralPushPublicKey, updateReferralPushPreferences } from "../modules/notifications/referral-push.service.js";
+import { resendWebhookController, listInboundController, getInboundController, replyInboundController, listSentController, getSentController } from "../modules/resend-inbound/resend-inbound.controller.js";
 
 const router = express.Router();
+
+router.post("/webhooks/resend", resendWebhookController);
+router.get("/admin/emails", requireSupabaseUser, requireRoles("admin"), listInboundController);
+router.get("/admin/emails/sent", requireSupabaseUser, requireRoles("admin"), listSentController);
+router.get("/admin/emails/sent/:id", requireSupabaseUser, requireRoles("admin"), getSentController);
+router.get("/admin/emails/:id", requireSupabaseUser, requireRoles("admin"), getInboundController);
+router.post("/admin/emails/:id/reply", adminEmailReplyLimiter, requireSupabaseUser, requireRoles("admin"), replyInboundController);
 
 // Solo ?precios=base (APK/dashboard) necesita identificar al usuario; la tienda no paga esa consulta
 const basePriceViewer = (req, res, next) => (req.query.precios === "base" ? optionalSupabaseUser(req, res, next) : next());
@@ -268,6 +279,8 @@ router.get("/admin/referrals", requireSupabaseUser, requireRoles("admin"), listA
 router.get("/admin/referral-rewards", requireSupabaseUser, requireRoles("admin"), listAdminReferralRewardsController);
 router.post("/admin/referral-rewards/:id/reverse", requireSupabaseUser, requireRoles("admin"), reverseAdminReferralRewardController);
 router.get("/admin/referrals/stats", requireSupabaseUser, requireRoles("admin"), getAdminReferralStatsController);
+router.get("/admin/referral-fraud", requireSupabaseUser, requireRoles("admin"), listAdminReferralRiskEventsController);
+router.get("/admin/referral-fraud/stats", requireSupabaseUser, requireRoles("admin"), getAdminReferralRiskStatsController);
 router.get("/admin/payments/:id/events", requireSupabaseUser, requireAdmin, getAdminTransactionEvents);
 router.get("/admin/payments/:id/evidence-url", requireSupabaseUser, requireAdmin, getPaymentDeliveryConfirmationController);
 router.post("/admin/orders/:orderId/retry-print", requireSupabaseUser, requireAdmin, retryAdminPrint);
@@ -320,6 +333,7 @@ router.put("/electrodomesticos/:id", requireSupabaseUser, requireAdmin, upload.s
 router.get("/info", getInfo);
 router.get("/referrals/program", getPublicReferralProgramController);
 router.post("/referrals/claim", referralClaimLimiter, optionalSupabaseUser, claimReferralCodeController);
+router.post("/referrals/events", referralEventLimiter, recordPublicReferralEventController);
 router.get("/account/referral-code", requireSupabaseUser, getMyReferralCodeController);
 router.post("/account/referral-claim", referralClaimLimiter, requireSupabaseUser, attachReferralClaimController);
 router.get("/account/referrals", requireSupabaseUser, getMyReferralSummaryController);
@@ -336,6 +350,7 @@ router.post("/orders/:id/print", requireSupabaseUser, requireAdmin, printOrderCo
 
 // PAYMENTS
 router.post("/payments/upload", paymentLimiter, optionalSupabaseUser, upload.single("image"), uploadPayment);
+router.get("/account/pending-payment", requireSupabaseUser, getCustomerPendingPaymentController);
 router.get("/payments/pending", requireSupabaseUser, requireAdmin, getPendingPaymentsController);
 router.get("/payments/approved", requireSupabaseUser, requireAdmin, getApprovedPaymentsController);
 router.get("/payments/approved/:id/image-url", requireSupabaseUser, requireAdmin, getApprovedPaymentImageController);

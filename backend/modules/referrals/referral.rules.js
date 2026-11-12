@@ -92,6 +92,12 @@ export function assertNotSelfReferral(referrerCustomerId, referredCustomerId) {
   }
 }
 
+export function canApplyReferredDiscount(referral) {
+  return referral?.status === "registered"
+    && !referral.first_eligible_order_id
+    && !referral.discount_used_at;
+}
+
 export function roundMoney(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) throw createBadRequest("El importe no es válido");
@@ -132,7 +138,8 @@ export function calculateReferralCredit(rule, eligiblePurchaseAmount) {
 export function calculateReferralBalance(entries = []) {
   const balance = entries.reduce((total, entry) => {
     const amount = Number(entry?.amount || 0);
-    return total + (entry?.entry_type === "credit" ? amount : -amount);
+    const restoresDebit = entry?.entry_type === "reversal" && entry?.metadata?.source === "order_cancelled";
+    return total + (entry?.entry_type === "credit" || restoresDebit ? amount : -amount);
   }, 0);
   return Math.max(0, roundMoney(balance));
 }

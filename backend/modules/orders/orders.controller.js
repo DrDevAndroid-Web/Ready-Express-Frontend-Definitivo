@@ -5,9 +5,17 @@ import { sendError, throwIfSupabaseError } from "../../utils/http-error.js";
 import { getPaymentImageUrl } from "../payments/payments.service.js";
 import { getDeliveryPhotosForOrders } from "../media/media.service.js";
 import { publicFailure } from "../payments/tropipay.service.js";
+import { assessReferralPurchaseRisk } from "../referrals/referral.fraud.service.js";
+import { createConflict } from "../../utils/http-error.js";
 
 export async function createOrderController(req, res) {
   try {
+    if (req.body?.referral_claim_token) {
+      const risk = await assessReferralPurchaseRisk({
+        context: { ip: req.ip, userAgent: req.get("user-agent"), deviceId: req.body?.device_id, sessionId: req.body?.session_id }
+      });
+      if (risk.blocked) throw createConflict("No pudimos procesar este pedido de referido. Si crees que es un error, contacta soporte.");
+    }
     const order = await createOrder(req.body, req.user?.id || null);
     res.json(order);
   } catch (err) {
