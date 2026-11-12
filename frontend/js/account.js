@@ -1,7 +1,7 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v61";
+} from "./auth.js?v64";
 import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v61";
 import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v61";
 import { billingComplete, renderBillingFields } from "./billing-fields.js?v61";

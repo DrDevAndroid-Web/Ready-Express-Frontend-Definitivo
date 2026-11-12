@@ -1,16 +1,28 @@
 import { initCart, getCart } from "./cart.js?v61";
-import { initProducts } from "./products.js?v61";
+import { initProducts, initProductSearch } from "./products.js?v67";
 import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v61";
 import { restorePendingPaymentFromBackend, showPendingPaymentNotice } from "./payment.js?v61";
 import { inicializarMetodosPago } from "./payment-methods.js?v61";
 import { getLocalizaciones } from "./api.js?v61";
 import { bindReferralCtaTracking, captureReferralFromUrl, getReferralPromotionState, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v61";
+import { getAccessToken, getPendingEmailConfirmation } from "./auth.js?v64";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  initMobileNav();
+  initMobileSearchDialog();
+  initProductSearch();
+  const pendingEmailBanner = document.getElementById("pending-email-banner");
+  const updatePendingEmailBanner = () => {
+    if (pendingEmailBanner) pendingEmailBanner.hidden = Boolean(getAccessToken() || !getPendingEmailConfirmation());
+  };
+  updatePendingEmailBanner();
+  window.addEventListener("storage", event => {
+    if (["ren_access_token", "ren_pending_email_confirmation"].includes(event.key)) updatePendingEmailBanner();
+  });
   const accountNavigation = new URLSearchParams(location.search);
   bindReferralCtaTracking();
   const referralCapture = await captureReferralFromUrl().catch(() => null);
@@ -36,14 +48,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   initAccessibility();
-  initMobileNav();
   if (new URLSearchParams(location.search).get("menu") === "1") {
     document.getElementById("bottom-menu-btn")?.click();
     const url = new URL(location.href);
     url.searchParams.delete("menu");
     history.replaceState(history.state, "", url);
   }
-  initWhatsAppModal();
   initDeliveryLocationsFaq();
 
   // Smooth scroll for nav links
@@ -105,7 +115,6 @@ function initAccessibility() {
 // Mobile nav improvements
 function initMobileNav() {
   const menuBtn = document.getElementById("menu-btn");
-  const searchBtn = document.getElementById("header-search-btn");
   const mobileNav = document.getElementById("mobile-nav");
 
   // Toggle mobile nav
@@ -114,24 +123,42 @@ function initMobileNav() {
     menuBtn.setAttribute("aria-expanded", isOpen);
   });
 
-  searchBtn?.addEventListener("click", () => {
-    mobileNav?.classList.add("active");
-    searchBtn.setAttribute("aria-expanded", "true");
-    requestAnimationFrame(() => document.getElementById("mobile-nav-search")?.focus());
-  });
-
   // Close mobile nav when link is clicked
   mobileNav?.querySelectorAll("a").forEach(link => {
     link.addEventListener("click", () => {
       mobileNav.classList.remove("active");
       menuBtn?.setAttribute("aria-expanded", "false");
-      searchBtn?.setAttribute("aria-expanded", "false");
+      document.getElementById("bottom-menu-btn")?.setAttribute("aria-expanded", "false");
       highlightActiveMobileNav();
     });
   });
 
   // Highlight active nav link on page load
   highlightActiveMobileNav();
+}
+
+function initMobileSearchDialog() {
+  const triggers = [...document.querySelectorAll("[data-search-trigger]")];
+  const dialog = document.getElementById("mobile-search-dialog");
+  const input = document.getElementById("mobile-search");
+  if (!triggers.length || !dialog || !input) return;
+  let activeTrigger = null;
+  triggers.forEach(trigger => {
+    trigger.addEventListener("click", () => {
+      activeTrigger = trigger;
+      document.getElementById("mobile-nav")?.classList.remove("active");
+      document.getElementById("bottom-menu-btn")?.setAttribute("aria-expanded", "false");
+      dialog.showModal();
+      trigger.setAttribute("aria-expanded", "true");
+      requestAnimationFrame(() => input.focus());
+    });
+  });
+  document.getElementById("mobile-search-close")?.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener("close", () => {
+    triggers.forEach(trigger => trigger.setAttribute("aria-expanded", "false"));
+    if (activeTrigger?.getClientRects().length) activeTrigger.focus({ preventScroll: true });
+  });
 }
 
 // Highlight active mobile nav link
@@ -151,42 +178,5 @@ function highlightActiveMobileNav() {
     } else {
       link.classList.remove("active");
     }
-  });
-}
-
-
-// WhatsApp modal initialization
-function initWhatsAppModal() {
-  const modal = document.getElementById('whatsapp-modal');
-  const closeBtn = document.getElementById('close-modal');
-
-  if (!modal || !closeBtn) return;
-
-  let modalShown = false;
-  try {
-    modalShown = localStorage.getItem('whatsappModalShown') === 'true';
-  } catch {
-    modalShown = false;
-  }
-
-  window.addEventListener('scroll', () => {
-    const cartOpen = document.getElementById('cart-panel')?.classList.contains('open');
-    const checkoutOpen = document.querySelector('.modal.open');
-    if (cartOpen || checkoutOpen || getReferralPromotionState()?.active) return;
-
-    const scrollTop = window.scrollY;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.body.scrollHeight;
-    const scrollPercent = (scrollTop + windowHeight) / documentHeight;
-
-    if (scrollPercent > 0.55 && !modalShown) {
-      modal.classList.add('show');
-      modalShown = true;
-      try { localStorage.setItem('whatsappModalShown', 'true'); } catch {}
-    }
-  }, { passive: true });
-
-  closeBtn.addEventListener('click', () => {
-    modal.classList.remove('show');
   });
 }

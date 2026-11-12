@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v61">
+  <link rel="stylesheet" href="./css/styles.css?v64">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -44,14 +44,15 @@
         <button type="submit" class="auth-btn">Entrar</button>
       </form>
       <nav class="auth-links" aria-label="Opciones de cuenta">
+        <a href="./confirmar-email.html">¿Ya tienes un código de confirmación?</a>
         <a href="./recuperar-password.html">¿Olvidaste tu contraseña?</a>
         <a href="./registro-v25.html">¿No tienes cuenta? Regístrate</a>
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, isEmailNotConfirmed, loginCustomer, safeReturnPath } from './js/auth.js?v61';
+    import { applyReturnContext, isEmailNotConfirmed, loginCustomer, rememberPendingEmailConfirmation, safeReturnPath } from './js/auth.js?v64';
     import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v61';
-    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v62';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v64';
     bindPasswordToggles();
     applyReturnContext();
     const form = document.querySelector('#form');
@@ -75,7 +76,7 @@
         if (!safeReturnPath()) location.href = './cuenta.html';
       } catch (err) {
         setLoading(button, false);
-        if (isEmailNotConfirmed(err)) return showEmailConfirmModal({ email: data.email, password: data.password, reason: 'pending' });
+        if (isEmailNotConfirmed(err)) { rememberPendingEmailConfirmation(data.email); return showEmailConfirmModal({ email: data.email, password: data.password, reason: 'pending' }); }
         showMessage(error, err.message, 'error');
       }
     });

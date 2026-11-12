@@ -2,9 +2,13 @@ import { API_BASE, attachReferralClaim } from "./api.js?v61";
 import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v61";
 import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v61";
 const ACCESS_KEY = "ren_access_token";
+const PENDING_EMAIL_KEY = "ren_pending_email_confirmation";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
 export function getCurrentUser() { try { return JSON.parse(localStorage.getItem("ren_user") || "null"); } catch { return null; } }
-export function saveSession(data) { storeSession(data); }
+export function getPendingEmailConfirmation() { try { return localStorage.getItem(PENDING_EMAIL_KEY) || ""; } catch { return ""; } }
+export function rememberPendingEmailConfirmation(email) { try { localStorage.setItem(PENDING_EMAIL_KEY, String(email || "").trim().toLowerCase()); } catch {} }
+export function clearPendingEmailConfirmation() { try { localStorage.removeItem(PENDING_EMAIL_KEY); } catch {} }
+export function saveSession(data) { storeSession(data); if (data?.access_token) clearPendingEmailConfirmation(); }
 export function clearSession() { clearStoredSession(); clearReferralWalletState(); clearReferralPromotionState(); try { localStorage.removeItem("ren_pending_payment"); localStorage.removeItem("ren_checkout_form_data"); } catch {} }
 // Identificador aleatorio de este navegador: el backend avisa por email al entrar desde uno nuevo
 function getDeviceId() {
@@ -36,7 +40,7 @@ async function attachPendingReferral() {
     }
   }
 }
-export async function registerCustomer(data) { const result = await authRequest("/auth/register", { method: "POST", body: JSON.stringify({ ...data, device_id: getDeviceId() }) }); if (result.access_token) { saveSession(result); await attachPendingReferral(); } return result; }
+export async function registerCustomer(data) { const result = await authRequest("/auth/register", { method: "POST", body: JSON.stringify({ ...data, device_id: getDeviceId() }) }); if (result.access_token) { saveSession(result); await attachPendingReferral(); } else if (result.email_confirmation_required) rememberPendingEmailConfirmation(data.email); return result; }
 // Confirma la cuenta con el código del email y deja la sesión iniciada
 export async function verifyEmailCode(email, code) { const result = await authRequest("/auth/verify-email-code", { method: "POST", body: JSON.stringify({ email, code, device_id: getDeviceId() }) }); saveSession(result); await attachPendingReferral(); return result; }
 export async function resendConfirmationEmail(email) { return authRequest("/auth/resend-confirmation", { method: "POST", body: JSON.stringify({ email }) }); }
@@ -59,7 +63,7 @@ export function safeReturnPath() {
 export function applyReturnContext() {
   const target = new URLSearchParams(location.search).get("return");
   if (!target || !safeReturnPath()) return;
-  document.querySelectorAll('a[href^="./login-v25.html"], a[href^="./registro-v25.html"]').forEach(link => {
+  document.querySelectorAll('a[href^="./login-v25.html"], a[href^="./registro-v25.html"], a[href^="./confirmar-email.html"]').forEach(link => {
     const url = new URL(link.getAttribute("href"), location.href);
     url.searchParams.set("return", target);
     link.setAttribute("href", `./${url.pathname.split("/").pop()}${url.search}`);

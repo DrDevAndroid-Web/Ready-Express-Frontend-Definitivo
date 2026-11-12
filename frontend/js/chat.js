@@ -1,14 +1,11 @@
-import { addItem, getCart } from "./cart.js?v61";
+import { addItem } from "./cart.js?v61";
 import { API_BASE } from "./api.js?v61";
-import { getReferralPromotionState } from "./referrals.js?v61";
 
 const CHAT_API = API_BASE;
 let productCache = null;
-const PROACTIVE_DELAY = 25000;
 const CLIENT_KEY = "ren_chat_client";
 const SESSION_KEY = "ren_chat_session";
 const TRANSCRIPT_KEY = "ren_chat_messages";
-const PROACTIVE_KEY = "ren_chat_proactive_shown";
 const MAX_STORED_MESSAGES = 80;
 
 let sessionId = null;
@@ -53,8 +50,6 @@ function saveTranscriptMessage(message) {
     localStorage.setItem(TRANSCRIPT_KEY, JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)));
   } catch { }
 }
-function proactiveAlreadyShown() { try { return !!localStorage.getItem(PROACTIVE_KEY); } catch { return false; } }
-function markProactiveShown() { try { localStorage.setItem(PROACTIVE_KEY, "1"); } catch { } }
 
 // ─── Catálogo (caché liviano para match de productos) ─────────────────────────
 async function getProductCatalog() {
@@ -139,47 +134,11 @@ function connectSSE() {
   });
 }
 
-// ─── Burbuja proactiva ────────────────────────────────────────────────────────
-function showProactiveBubble() {
-  // Quien ya tiene productos en el carrito está comprando: no interrumpir
-  if (proactiveAlreadyShown() || open || getCart().length || getReferralPromotionState()?.active) return;
-
-  const bubble = document.createElement("div");
-  bubble.id = "ren-proactive-bubble";
-  bubble.innerHTML = `
-    <button class="ren-bubble-close" id="ren-bubble-close" aria-label="Cerrar">×</button>
-    <p class="ren-bubble-text">Llevamos años enviando a Guantánamo.<br>¿Le mandas algo a tu familia hoy?</p>
-    <button class="ren-bubble-cta" id="ren-bubble-cta">Sí, quiero enviar algo</button>
-    <label class="ren-bubble-nag">
-      <input type="checkbox" id="ren-bubble-noshown"> No volver a mostrar
-    </label>
-  `;
-  document.body.appendChild(bubble);
-  requestAnimationFrame(() => bubble.classList.add("visible"));
-
-  document.getElementById("ren-bubble-cta").addEventListener("click", () => {
-    markProactiveShown();
-    removeBubble();
-    openChat();
-  });
-  document.getElementById("ren-bubble-close").addEventListener("click", () => {
-    if (document.getElementById("ren-bubble-noshown")?.checked) markProactiveShown();
-    removeBubble();
-  });
-}
-
-function removeBubble() {
-  const b = document.getElementById("ren-proactive-bubble");
-  if (!b) return;
-  b.classList.remove("visible");
-  setTimeout(() => b.remove(), 300);
-}
-
 // ─── Abrir / cerrar chat ──────────────────────────────────────────────────────
 function openChat() {
   open = true;
+  document.body.classList.add("ren-chat-open");
   document.getElementById("ren-chat-box").classList.add("open");
-  removeBubble();
   clearBadge();
   if (!sessionId) initSession();
   else document.getElementById("ren-chat-input")?.focus();
@@ -187,6 +146,7 @@ function openChat() {
 
 function closeChat() {
   open = false;
+  document.body.classList.remove("ren-chat-open");
   document.getElementById("ren-chat-box").classList.remove("open");
 }
 
@@ -313,33 +273,6 @@ function autoResize(el) {
 function createWidget() {
   const style = document.createElement("style");
   style.textContent = `
-#ren-proactive-bubble {
-      position: fixed; top: 70px; right: 16px; z-index: 9997;
-      width: 260px; background: #fff; border-radius: 14px;
-      box-shadow: 0 6px 24px rgba(13,71,161,.18);
-      padding: 14px 14px 12px; font-family: 'Source Sans 3','Segoe UI',sans-serif;
-      opacity: 0; transform: translateY(10px) scale(.97);
-      transition: opacity .3s ease, transform .3s ease; pointer-events: none;
-    }
-    #ren-proactive-bubble.visible { opacity: 1; transform: none; pointer-events: auto; }
-    .ren-bubble-close {
-      position: absolute; top: 8px; right: 10px;
-      background: none; border: none; color: #94a3b8;
-      font-size: 18px; cursor: pointer; line-height: 1; padding: 0;
-    }
-    .ren-bubble-text { font-size: 13px; color: #1e293b; margin: 0 0 10px; line-height: 1.5; padding-right: 16px; }
-    .ren-bubble-cta {
-      width: 100%; padding: 9px; border-radius: 8px; border: none; cursor: pointer;
-      background: var(--navy, #0D47A1); color: #fff;
-      font-size: 13px; font-weight: 700; font-family: inherit; transition: opacity .2s;
-    }
-    .ren-bubble-cta:hover { opacity: .88; }
-    .ren-bubble-nag {
-      display: flex; align-items: center; gap: 6px; margin-top: 8px;
-      font-size: 11px; color: #94a3b8; cursor: pointer; user-select: none;
-    }
-    .ren-bubble-nag input { cursor: pointer; accent-color: var(--navy, #0D47A1); }
-
     #ren-chat-box {
       position: fixed; top: 68px; right: 16px; z-index: 9999;
       width: 340px; max-width: calc(100vw - 32px);
@@ -366,6 +299,17 @@ function createWidget() {
       background: none; border: none; color: #fff;
       font-size: 20px; cursor: pointer; padding: 4px; line-height: 1;
     }
+
+    .ren-chat-invite {
+      position: relative; margin: 10px 12px 0; padding: 12px 38px 12px 12px;
+      border: 1px solid #c7ead5; border-radius: 12px;
+      background: #f1fbf4; color: #123b2a; font-size: 12px; line-height: 1.45;
+    }
+    .ren-chat-invite[hidden] { display: none; }
+    .ren-chat-invite strong { display: block; margin-bottom: 3px; font-size: 13px; }
+    .ren-chat-invite p { margin: 0 0 7px; }
+    .ren-chat-invite a { color: #12532d; font-weight: 800; text-decoration: underline; }
+    .ren-chat-invite button { position: absolute; top: 5px; right: 5px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: #12532d; font-size: 18px; cursor: pointer; }
 
     .ren-chat-messages {
       flex: 1; overflow-y: auto; padding: 14px 12px;
@@ -425,7 +369,6 @@ function createWidget() {
 
     @media (max-width: 480px) {
       #ren-chat-box { right: 8px; left: 8px; width: auto; top: 64px; }
-      #ren-proactive-bubble { right: 8px; width: calc(100vw - 16px); top: 64px; }
     }
 
     /* ── Botón flotante de chat ── */
@@ -454,8 +397,7 @@ function createWidget() {
       box-shadow: 0 4px 20px rgba(13,71,161,.40);
       animation: ren-fab-pulse-blue 2.6s ease-in-out infinite;
     }
-    body.modal-open #ren-chat-fab,
-    body.modal-open #ren-proactive-bubble {
+    body.modal-open #ren-chat-fab {
       display: none !important;
     }
     #ren-chat-fab .ren-fab-badge {
@@ -474,16 +416,16 @@ function createWidget() {
       justify-content: center;
     }
     @keyframes ren-fab-pulse {
-      0%, 100% { box-shadow: 0 4px 20px rgba(34,197,94,.45); transform: scale(1); }
-      50%       { box-shadow: 0 6px 30px rgba(34,197,94,.70); transform: scale(1.08); }
+      0%, 100% { box-shadow: 0 4px 20px rgba(34,197,94,.45); }
+      50%       { box-shadow: 0 6px 30px rgba(34,197,94,.70); }
     }
     @keyframes ren-fab-pulse-blue {
-      0%, 100% { box-shadow: 0 4px 20px rgba(13,71,161,.40); transform: scale(1); }
-      50%       { box-shadow: 0 6px 30px rgba(13,71,161,.65); transform: scale(1.08); }
+      0%, 100% { box-shadow: 0 4px 20px rgba(13,71,161,.40); }
+      50%       { box-shadow: 0 6px 30px rgba(13,71,161,.65); }
     }
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
       #ren-chat-fab {
-        bottom: 80px;
+        bottom: calc(80px + env(safe-area-inset-bottom));
         right: 20px;
       }
     }
@@ -502,6 +444,12 @@ function createWidget() {
         <div class="ren-chat-header-status">En línea</div>
       </div>
       <button class="ren-chat-close" id="ren-chat-close" aria-label="Cerrar">×</button>
+    </div>
+    <div class="ren-chat-invite" id="ren-chat-invite">
+      <button type="button" id="ren-chat-invite-close" aria-label="Cerrar invitación al grupo">×</button>
+      <strong>Únete a nuestro grupo de WhatsApp</strong>
+      <p>Recibe ofertas, nuevos combos y seguimiento de pedidos directamente por WhatsApp.</p>
+      <a href="https://chat.whatsapp.com/LNjqfO8oiToLM5N1e2Ox51?mode=gi_t" target="_blank" rel="noopener noreferrer">Unirme al grupo</a>
     </div>
     <div class="ren-chat-messages" id="ren-chat-messages">
       <div class="ren-typing" id="ren-typing">
@@ -534,6 +482,9 @@ function createWidget() {
   window.addEventListener("scroll", updateFabColor, { passive: true });
   updateFabColor();
   document.getElementById("ren-chat-close").addEventListener("click", closeChat);
+  document.getElementById("ren-chat-invite-close").addEventListener("click", () => {
+    document.getElementById("ren-chat-invite").hidden = true;
+  });
   document.getElementById("ren-chat-send").addEventListener("click", handleSend);
   document.getElementById("ren-chat-input").addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
@@ -542,10 +493,6 @@ function createWidget() {
     document.getElementById("ren-chat-send").disabled = !e.target.value.trim() || sending;
     autoResize(e.target);
   });
-
-  if (!proactiveAlreadyShown()) {
-    setTimeout(showProactiveBubble, PROACTIVE_DELAY);
-  }
 }
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
