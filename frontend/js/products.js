@@ -1,6 +1,6 @@
-import { getCatalog, getInfo } from "./api.js?v61";
-import { addItem } from "./cart.js?v61";
-import { openProductModal } from "./product-modal.js?v61";
+import { getCatalog, getInfo } from "./api.js?v68";
+import { addItem } from "./cart.js?v68";
+import { openProductModal } from "./product-modal.js?v68";
 
 const CONTACT_WHATSAPP = "5356189395";
 
@@ -42,13 +42,10 @@ function getIcon(cat = "") {
   return `<i class="fa-solid ${ICON_MAP[k] || "fa-box"}" aria-hidden="true"></i>`;
 }
 
-const CATALOG_PAGE_SIZE = 8;
-let visibleProductCount = CATALOG_PAGE_SIZE;
-let renderedProducts = [];
-let visibleElectroCount = CATALOG_PAGE_SIZE;
-let renderedElectro = [];
 let allCombos = [];
 let allElectro = [];
+let catalogReady = false;
+let catalogFailed = false;
 
 function parseDetalles(val) {
   if (!val) return "";
@@ -285,28 +282,7 @@ function renderProductGrid(products) {
     grid.innerHTML = `<div class="empty-state"><span>🛒</span><p>No se encontraron productos</p></div>`;
     return;
   }
-  renderedProducts = products;
-  visibleProductCount = CATALOG_PAGE_SIZE;
-  renderVisibleProducts();
-}
-
-function renderVisibleProducts() {
-  const grid = document.getElementById("products-grid");
-  const more = document.getElementById("products-load-more");
-  if (!grid) return;
-  grid.innerHTML = renderedProducts.slice(0, visibleProductCount).map(renderCard).join("");
-  if (more) more.hidden = visibleProductCount >= renderedProducts.length;
-}
-
-function initCatalogPagination() {
-  document.getElementById("products-load-more")?.addEventListener("click", () => {
-    visibleProductCount += CATALOG_PAGE_SIZE;
-    renderVisibleProducts();
-  });
-  document.getElementById("electro-load-more")?.addEventListener("click", () => {
-    visibleElectroCount += CATALOG_PAGE_SIZE;
-    renderVisibleElectro();
-  });
+  grid.innerHTML = products.map((product, index) => renderCard(product, { eager: index < 4 })).join("");
 }
 
 function applySearch(query) {
@@ -320,9 +296,48 @@ function applySearch(query) {
       .replace(/[̀-ͯ]/g, "");
     return haystack.includes(q);
   };
-  renderComboItems(allCombos.filter(matches));
-  renderProductGrid(allProducts.filter(matches));
-  renderElectroItems(allElectro.filter(matches));
+  const combos = allCombos.filter(matches);
+  const products = allProducts.filter(matches);
+  const varios = allElectro.filter(matches);
+  renderComboItems(combos);
+  renderProductGrid(products);
+  renderElectroItems(varios);
+  const counts = { combos: combos.length, products: products.length, varios: varios.length };
+  renderMobileSearchResults({ combos, products, varios });
+  return counts;
+}
+
+function renderMobileSearchResults(matches) {
+  const results = document.getElementById("mobile-search-results");
+  if (!results) return;
+  if (!matches) {
+    results.innerHTML = "<p>Escribe el nombre de un producto para ver las coincidencias aquí.</p>";
+    return;
+  }
+  if (!catalogReady || catalogFailed) {
+    results.innerHTML = `<p>${catalogFailed ? "No pudimos cargar el catálogo. Recarga la página para intentarlo de nuevo." : "Cargando el catálogo…"}</p>`;
+    return;
+  }
+  const groups = [
+    ["Combos", matches.combos],
+    ["Alimentos", matches.products],
+    ["Productos variados", matches.varios]
+  ].filter(([, items]) => items.length);
+  if (!groups.length) {
+    results.innerHTML = "<p>No encontramos resultados. Prueba otra palabra.</p>";
+    return;
+  }
+  results.innerHTML = groups.map(([heading, items]) => `
+    <section class="mobile-search-group" aria-label="${heading}">
+      <h3>${heading} <span>(${items.length})</span></h3>
+      ${items.map(product => `
+        <button type="button" class="mobile-search-result" data-search-result="${escapeHtml(detailKey(product))}" aria-label="Ver ${escapeHtml(product.nombre)}">
+          ${product.imagen ? `<img src="${escapeHtml(product.imagen)}" alt="" loading="lazy">` : `<span class="mobile-search-result__placeholder" aria-hidden="true">📦</span>`}
+          <span class="mobile-search-result__name">${escapeHtml(product.nombre)}</span>
+          <strong>${product.precio > 0 ? `$${product.precio.toFixed(2)}` : "Consultar"}</strong>
+          <span class="mobile-search-result__action">Ver</span>
+        </button>`).join("")}
+    </section>`).join("");
 }
 
 function resetToFirstTab() {
@@ -337,23 +352,29 @@ function resetToFirstTab() {
   renderComboItems(allCombos);
   renderProductGrid(grouped[activeCategory] || []);
   renderElectroItems(allElectro);
+  renderMobileSearchResults(null);
 }
 
 function handleSearchInput(query, clearBtn) {
   const tabsEl = document.querySelector(".tabs");
+  let counts = null;
   if (query) {
     tabsEl?.classList.add("search-active");
-    applySearch(query);
+    counts = applySearch(query);
   } else {
     resetToFirstTab();
   }
   if (clearBtn) clearBtn.style.display = query ? "block" : "none";
+  const mobileClear = document.getElementById("mobile-search-clear");
+  if (mobileClear) mobileClear.hidden = !query;
+  return counts;
 }
 
-function initProductSearch() {
+export function initProductSearch() {
   const input = document.getElementById("products-search");
   const clearBtn = document.getElementById("products-search-clear");
-  const mobileInput = document.getElementById("mobile-nav-search");
+  const mobileInput = document.getElementById("mobile-search");
+  const mobileClear = document.getElementById("mobile-search-clear");
 
   if (input) {
     input.addEventListener("input", () => {
@@ -365,25 +386,53 @@ function initProductSearch() {
     clearBtn?.addEventListener("click", () => {
       input.value = "";
       if (mobileInput) mobileInput.value = "";
-      resetToFirstTab();
-      clearBtn.style.display = "none";
+      handleSearchInput("", clearBtn);
       input.focus();
     });
   }
 
-  const mobileForm = document.getElementById("mobile-nav-search-form");
+  mobileInput?.addEventListener("input", () => {
+    if (input) input.value = mobileInput.value;
+    handleSearchInput(mobileInput.value.trim(), clearBtn);
+  });
+  mobileClear?.addEventListener("click", () => {
+    mobileInput.value = "";
+    if (input) input.value = "";
+    handleSearchInput("", clearBtn);
+    mobileInput.focus();
+  });
+
+  document.getElementById("mobile-search-results")?.addEventListener("click", event => {
+    const button = event.target.closest("[data-search-result]");
+    if (!button) return;
+    const product = [...allCombos, ...allProducts, ...allElectro]
+      .find(item => detailKey(item) === button.dataset.searchResult);
+    if (!product) return;
+    const dialog = document.getElementById("mobile-search-dialog");
+    if (dialog?.open) dialog.close();
+    setTimeout(() => {
+      if (product.source === "producto") {
+        openProductModal({
+          product,
+          onAdd: (item, qty) => addItem(item, qty),
+          whatsappUrl: `https://wa.me/${CONTACT_WHATSAPP}?text=${encodeURIComponent(`Hola, quiero consultar el precio de: ${product.nombre}`)}`
+        });
+      } else {
+        openDetail(detailKey(product));
+      }
+    }, 0);
+  });
+
+  const mobileForm = document.getElementById("mobile-search-form");
   if (mobileForm && mobileInput) {
     mobileForm.addEventListener("submit", (e) => {
       e.preventDefault();
       const query = mobileInput.value.trim();
-      if (!query) return;
+      if (!query) return mobileInput.focus();
       if (input) input.value = mobileInput.value;
       handleSearchInput(query, clearBtn);
-      // cerrar menú y saltar a la sección
-      document.getElementById("mobile-nav")?.classList.remove("active");
-      document.getElementById("menu-btn")?.setAttribute("aria-expanded", "false");
-      document.getElementById("bottom-menu-btn") && document.getElementById("menu-btn")?.setAttribute("aria-expanded", "false");
-      document.getElementById("alimentos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const first = document.querySelector("#mobile-search-results .mobile-search-result");
+      if (first) { mobileInput.blur(); first.focus(); }
     });
   }
 }
@@ -401,11 +450,13 @@ function buildTabs(cats) {
   tabsEl.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const searchInput = document.getElementById("products-search");
-      const mobileInput = document.getElementById("mobile-nav-search");
+      const mobileInput = document.getElementById("mobile-search");
       const clearBtn = document.getElementById("products-search-clear");
       if (searchInput) searchInput.value = "";
       if (mobileInput) mobileInput.value = "";
       if (clearBtn) clearBtn.style.display = "none";
+      document.getElementById("mobile-search-clear")?.setAttribute("hidden", "");
+      renderMobileSearchResults(null);
       tabsEl.classList.remove("search-active");
       tabsEl.querySelectorAll(".tab-btn").forEach((t) => t.classList.remove("active"));
       btn.classList.add("active");
@@ -441,7 +492,6 @@ async function loadProducts(source = null) {
     const cats = Object.keys(grouped);
     buildTabs(cats);
     showCategory(cats[0]);
-    initProductSearch();
   } catch (err) {
     grid.innerHTML = "";
     if (errorEl) {
@@ -529,32 +579,19 @@ async function loadElectro(source = null) {
 }
 
 export function initProducts() {
-  initCatalogPagination();
   loadInfoBanner();
   loadCatalog();
-}
-
-function renderVisibleElectro() {
-  const grid = document.getElementById("electro-grid");
-  const more = document.getElementById("electro-load-more");
-  if (!grid) return;
-  grid.innerHTML = renderedElectro.slice(0, visibleElectroCount).map(item => renderCard(item, { detail: true })).join("");
-  bindDetailGrid(grid);
-  if (more) more.hidden = visibleElectroCount >= renderedElectro.length;
 }
 
 function renderElectroItems(items) {
   const grid = document.getElementById("electro-grid");
   if (!grid) return;
-  renderedElectro = items;
-  visibleElectroCount = CATALOG_PAGE_SIZE;
   if (!items.length) {
     grid.innerHTML = `<div class="empty-state"><span>⚡</span><p>No se encontraron productos varios</p></div>`;
-    const more = document.getElementById("electro-load-more");
-    if (more) more.hidden = true;
     return;
   }
-  renderVisibleElectro();
+  grid.innerHTML = items.map(item => renderCard(item, { detail: true })).join("");
+  bindDetailGrid(grid);
 }
 
 async function loadCatalog() {
@@ -566,7 +603,13 @@ async function loadCatalog() {
       loadProducts(catalog.productos),
       loadElectro(catalog.electrodomesticos)
     ]);
+    catalogReady = true;
+    const query = document.getElementById("mobile-search")?.value.trim() || document.getElementById("products-search")?.value.trim();
+    if (query) handleSearchInput(query, document.getElementById("products-search-clear"));
   } catch {
+    catalogReady = true;
+    catalogFailed = true;
+    if (document.getElementById("mobile-search")?.value.trim()) renderMobileSearchResults({ combos: [], products: [], varios: [] });
     ["combos-error", "products-error", "electro-error"].forEach(id => {
       const node = document.getElementById(id);
       if (node) {

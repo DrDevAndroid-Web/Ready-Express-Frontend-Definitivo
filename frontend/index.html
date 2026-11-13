@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="preload" as="image" href="./images/hero-home-desktop.webp" media="(min-width: 901px)" fetchpriority="high">
   <link rel="preload" as="image" href="./images/hero-home-mobile.webp" media="(max-width: 900px)" fetchpriority="high">
-  <link rel="stylesheet" href="./css/styles.css?v61" />
+  <link rel="stylesheet" href="./css/styles.css?v68" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -60,7 +60,7 @@
       <a href="#contacto">Contacto</a>
     </div>
     <div class="navbar-actions">
-      <button type="button" class="header-search-btn" id="header-search-btn" aria-label="Buscar productos" aria-controls="mobile-nav" aria-expanded="false">
+      <button type="button" class="navbar-search-btn" id="nav-search-btn" data-search-trigger aria-label="Buscar productos" aria-controls="mobile-search-dialog" aria-expanded="false">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
       </button>
       <a href="./cuenta.html" class="payment-help-btn">Mi cuenta</a>
@@ -78,21 +78,13 @@
     </div>
   </nav>
 
+  <aside class="pending-email-banner" id="pending-email-banner" aria-label="Confirmación pendiente" hidden>
+    <span><strong>Tu cuenta espera confirmación.</strong> Usa el código que enviamos a tu email para continuar.</span>
+    <a href="./confirmar-email.html" class="pending-email-banner__action">Confirmar mi email</a>
+  </aside>
+
   <!-- Mobile Nav -->
   <nav class="mobile-nav" id="mobile-nav">
-    <form class="mobile-nav-search" id="mobile-nav-search-form" role="search">
-      <input
-        type="text"
-        id="mobile-nav-search"
-        class="mobile-nav-search-input"
-        placeholder="Buscar producto…"
-        autocomplete="off"
-        aria-label="Buscar productos"
-      >
-      <button type="submit" class="mobile-nav-search-btn" aria-label="Buscar">
-        <i class="fa fa-search"></i>
-      </button>
-    </form>
     <a href="#combos">Combos</a>
     <a href="#alimentos">Arma tu pedido</a>
     <a href="#productos-varios">Productos Varios</a>
@@ -104,6 +96,24 @@
     <a href="./terminos.html" style="font-size:0.9rem;">Términos y Condiciones</a>
     <a href="./politica-privacidad.html" style="font-size:0.9rem;">Política de Privacidad</a>
   </nav>
+
+  <dialog class="mobile-search-dialog" id="mobile-search-dialog" aria-labelledby="mobile-search-title">
+    <div class="mobile-search-dialog__header">
+      <h2 id="mobile-search-title">Buscar en la tienda</h2>
+      <button type="button" id="mobile-search-close" aria-label="Cerrar búsqueda">✕</button>
+    </div>
+    <form id="mobile-search-form" role="search">
+      <label for="mobile-search">¿Qué necesitas encontrar?</label>
+      <div class="mobile-search-controls">
+        <input type="search" id="mobile-search" placeholder="Pollo, arroz, televisor…" autocomplete="off" enterkeyhint="search" aria-describedby="mobile-search-hint">
+        <button type="button" id="mobile-search-clear" class="mobile-search-clear" aria-label="Borrar búsqueda" hidden>✕</button>
+      </div>
+      <p id="mobile-search-hint">Busca en combos, alimentos y productos varios.</p>
+    </form>
+    <div class="mobile-search-results" id="mobile-search-results" aria-live="polite">
+      <p>Escribe el nombre de un producto para ver las coincidencias aquí.</p>
+    </div>
+  </dialog>
 
   <!-- Hero -->
   <section class="hero" id="inicio">
@@ -217,9 +227,6 @@
       <div class="tabs"></div>
       <p id="products-error"></p>
       <div class="products-grid" id="products-grid"></div>
-      <div class="catalog-more-row">
-        <button type="button" class="catalog-more-btn" id="products-load-more" hidden>Ver más productos</button>
-      </div>
     </section>
 
     <hr class="section-divider">
@@ -233,9 +240,6 @@
       </div>
       <p id="electro-error"></p>
       <div class="products-grid" id="electro-grid"></div>
-      <div class="catalog-more-row">
-        <button type="button" class="catalog-more-btn" id="electro-load-more" hidden>Ver más productos</button>
-      </div>
     </section>
 
   </main>
@@ -454,9 +458,46 @@
         <strong id="cart-total">$0.00</strong>
       </div>
       <p class="cart-assurance"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Revisamos cada pedido antes de procesarlo</p>
+      <button id="cart-share-btn" class="cart-share-btn" type="button" disabled><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Compartir</button>
       <button id="cart-checkout-btn" disabled>Continuar al pago seguro →</button>
     </div>
   </aside>
+
+  <div class="share-cart-overlay" id="share-cart-modal" hidden>
+    <div class="share-cart-dialog" role="dialog" aria-modal="true" aria-labelledby="share-cart-title">
+      <div class="share-cart-header">
+      <div>
+          <span class="share-cart-kicker">Lista de compra</span>
+          <h2 id="share-cart-title">Comparte para que te compren</h2>
+        </div>
+        <button type="button" class="share-cart-close" id="share-cart-close" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="share-cart-copy">Envía este enlace a la persona que hará la compra por ti. Podrá ver tus productos, abrirlos en su carrito y completar el pedido desde su cuenta.</p>
+      <div class="share-cart-link-box">
+        <input id="share-cart-url" type="text" readonly aria-label="Enlace para compartir el carrito">
+        <button type="button" id="share-cart-copy-btn"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar enlace</button>
+      </div>
+      <p class="share-cart-expiry"><i class="fa-regular fa-clock" aria-hidden="true"></i> Este enlace caduca en 24 horas.</p>
+      <p class="share-cart-status" id="share-cart-status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="share-cart-overlay" id="shared-cart-merge-modal" hidden>
+    <div class="share-cart-dialog shared-cart-merge-dialog" role="dialog" aria-modal="true" aria-labelledby="shared-cart-merge-title">
+      <div class="share-cart-header">
+        <div>
+          <span class="share-cart-kicker">Carrito compartido</span>
+          <h2 id="shared-cart-merge-title">Ya tienes productos en tu carrito</h2>
+        </div>
+        <button type="button" class="share-cart-close" id="shared-cart-merge-close" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="share-cart-copy" id="shared-cart-merge-copy">Si aceptas, los productos del enlace se sumarán a los que ya tienes.</p>
+      <div class="shared-cart-merge-actions">
+        <button type="button" class="shared-cart-accept-btn" id="shared-cart-merge-accept">Aceptar y sumar</button>
+        <button type="button" class="shared-cart-decline-btn" id="shared-cart-merge-decline">No, conservar mi carrito</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Checkout Modal -->
   <template id="checkout-modal-legacy">
@@ -711,6 +752,10 @@
       <i class="fa-solid fa-basket-shopping"></i>
       <span>Productos</span>
     </a>
+    <button type="button" class="bottom-nav-item bottom-search-btn" id="bottom-search-btn" data-search-trigger aria-label="Buscar productos" aria-controls="mobile-search-dialog" aria-expanded="false">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <span>Buscar</span>
+    </button>
     <button class="bottom-nav-item" id="bottom-cart-btn" aria-label="Carrito">
       <span class="bottom-nav-badge-wrap">
         <i class="fa-solid fa-cart-shopping"></i>
@@ -727,25 +772,6 @@
       <span>Menú</span>
     </button>
   </nav>
-
-  <!-- WhatsApp Modal -->
-  <div class="whatsapp-modal" id="whatsapp-modal">
-    <div class="whatsapp-modal-content">
-      <button type="button" class="close-modal" id="close-modal" aria-label="Cerrar invitación de WhatsApp">✕</button>
-      <h2>Únete a nuestro grupo de WhatsApp</h2>
-      <p>
-        Recibe ofertas, nuevos combos y seguimiento de pedidos directamente por WhatsApp.
-      </p>
-      <a
-        href="https://chat.whatsapp.com/LNjqfO8oiToLM5N1e2Ox51?mode=gi_t"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="whatsapp-btn"
-      >
-        Unirme al grupo
-      </a>
-    </div>
-  </div>
 
   <!-- Schema.org: ItemList de combos disponibles -->
   <script type="application/ld+json">
@@ -906,7 +932,7 @@
   }
   </script>
 
-  <script type="module" src="./js/app.js?v61"></script>
+  <script type="module" src="./js/app.js?v68"></script>
   <script>
     document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
       document.getElementById('cart-btn')?.click();
@@ -919,6 +945,6 @@
     });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  <script type="module" src="./js/chat.js?v61"></script>
+  <script type="module" src="./js/chat.js?v68"></script>
 </body>
 </html>

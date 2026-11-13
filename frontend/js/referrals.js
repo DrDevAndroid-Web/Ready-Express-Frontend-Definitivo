@@ -1,9 +1,9 @@
-import { claimReferralCode, getMyReferralSummary, getReferralProgram, trackReferralEvent as sendReferralEvent } from "./api.js?v61";
-import { getValidAccessToken } from "./session.js?v61";
-import { escapeHtml, showNotice } from "./notice-modal.js?v61";
+import { claimReferralCode, getMyReferralSummary, getReferralProgram, trackReferralEvent as sendReferralEvent } from "./api.js?v68";
+import { getValidAccessToken } from "./session.js?v68";
+import { escapeHtml, showNotice } from "./notice-modal.js?v68";
 
 // Compatibilidad con módulos que aún importen esta función desde referrals.js.
-export { attachReferralClaim } from "./api.js?v61";
+export { attachReferralClaim } from "./api.js?v68";
 
 const REFERRAL_CLAIM_KEY = "ren_referral_claim";
 const REFERRAL_WALLET_STATE_KEY = "ren_referral_wallet_state_v1";

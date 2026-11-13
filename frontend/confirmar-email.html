@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <title>Confirmar email | Ready Express Now</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/styles.css?v68">
+  <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
+</head>
+<body class="auth-page">
+  <header class="auth-header">
+    <div class="auth-header-inner">
+      <a class="auth-brand" href="./index.html"><img src="./images/logo-100.webp" alt="" width="36" height="36">Ready Express Now</a>
+      <a class="auth-back" href="./index.html">Volver a la tienda</a>
+    </div>
+  </header>
+  <main class="auth-main" id="main">
+    <section class="auth-card" aria-labelledby="page-title">
+      <h1 id="page-title">Confirma tu email</h1>
+      <p class="auth-lead">Escribe el código que te enviamos. Si recibiste solo un enlace, ábrelo desde tu correo para activar la cuenta.</p>
+      <form id="confirm-form" class="auth-form" novalidate>
+        <div class="auth-field">
+          <label for="email">Email de tu cuenta</label>
+          <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required>
+        </div>
+        <div class="auth-field">
+          <label for="code">Código de confirmación</label>
+          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" minlength="6" maxlength="10" placeholder="Código del correo" required>
+          <small class="auth-hint">De 6 a 10 dígitos. Si no tienes código, usa el enlace del correo.</small>
+        </div>
+        <p id="confirm-message" class="auth-msg" role="status" aria-live="polite"></p>
+        <button type="submit" class="auth-btn">Confirmar email</button>
+      </form>
+      <div class="auth-links">
+        <button id="resend" type="button" class="auth-confirm-link">Reenviar email de confirmación</button>
+        <a href="./login-v25.html">Ya confirmé mi email: iniciar sesión</a>
+      </div>
+      <p id="resend-message" class="auth-msg" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+  <script type="module">
+    import { getPendingEmailConfirmation, rememberPendingEmailConfirmation, resendConfirmationEmail, safeReturnPath, verifyEmailCode } from './js/auth.js?v68';
+    import { focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v68';
+
+    const form = document.getElementById('confirm-form');
+    const email = form.elements.email;
+    const code = form.elements.code;
+    const message = document.getElementById('confirm-message');
+    const resendMessage = document.getElementById('resend-message');
+    const resendButton = document.getElementById('resend');
+    email.value = getPendingEmailConfirmation();
+    if (email.value) code.focus();
+    code.addEventListener('input', () => { code.value = code.value.replace(/\D/g, ''); });
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (!focusFirstInvalid(form)) return showMessage(message, 'Revisa el email y el código.', 'error');
+      const button = form.querySelector('[type="submit"]');
+      showMessage(message, '');
+      setLoading(button, true, 'Confirmando…');
+      try {
+        await verifyEmailCode(email.value.trim(), code.value);
+        showMessage(message, 'Email confirmado. Ya puedes entrar a tu cuenta.', 'success');
+        location.href = safeReturnPath() || './cuenta.html';
+      } catch (error) {
+        showMessage(message, error.message || 'No pudimos confirmar el código. Revisa el correo e inténtalo de nuevo.', 'error');
+        setLoading(button, false);
+      }
+    });
+    resendButton.addEventListener('click', async () => {
+      if (!email.checkValidity()) { email.reportValidity(); email.focus(); return; }
+      setLoading(resendButton, true, 'Enviando…');
+      showMessage(resendMessage, '');
+      try {
+        await resendConfirmationEmail(email.value.trim());
+        rememberPendingEmailConfirmation(email.value);
+        showMessage(resendMessage, 'Si tu cuenta aún está pendiente, recibirás un email nuevo. Revisa también Spam.', 'success');
+      } catch (error) {
+        showMessage(resendMessage, error.message || 'No pudimos reenviar el email. Inténtalo más tarde.', 'error');
+      } finally {
+        setLoading(resendButton, false);
+      }
+    });
+  </script>
+</body>
+</html>
