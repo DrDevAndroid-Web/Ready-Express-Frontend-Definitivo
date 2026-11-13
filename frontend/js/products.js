@@ -42,9 +42,6 @@ function getIcon(cat = "") {
   return `<i class="fa-solid ${ICON_MAP[k] || "fa-box"}" aria-hidden="true"></i>`;
 }
 
-const CATALOG_PAGE_SIZE = 8;
-let visibleProductCount = CATALOG_PAGE_SIZE;
-let renderedProducts = [];
 let allCombos = [];
 let allElectro = [];
 let catalogReady = false;
@@ -285,24 +282,7 @@ function renderProductGrid(products) {
     grid.innerHTML = `<div class="empty-state"><span>🛒</span><p>No se encontraron productos</p></div>`;
     return;
   }
-  renderedProducts = products;
-  visibleProductCount = CATALOG_PAGE_SIZE;
-  renderVisibleProducts();
-}
-
-function renderVisibleProducts() {
-  const grid = document.getElementById("products-grid");
-  const more = document.getElementById("products-load-more");
-  if (!grid) return;
-  grid.innerHTML = renderedProducts.slice(0, visibleProductCount).map(renderCard).join("");
-  if (more) more.hidden = visibleProductCount >= renderedProducts.length;
-}
-
-function initCatalogPagination() {
-  document.getElementById("products-load-more")?.addEventListener("click", () => {
-    visibleProductCount += CATALOG_PAGE_SIZE;
-    renderVisibleProducts();
-  });
+  grid.innerHTML = products.map((product, index) => renderCard(product, { eager: index < 4 })).join("");
 }
 
 function applySearch(query) {
@@ -599,7 +579,6 @@ async function loadElectro(source = null) {
 }
 
 export function initProducts() {
-  initCatalogPagination();
   loadInfoBanner();
   loadCatalog();
 }

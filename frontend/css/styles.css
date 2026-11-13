@@ -4378,9 +4378,6 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading) !important; letter-spa
 .card-actions .add-btn { width: auto; min-width: 0; flex: 1 1 auto; min-height: 46px; border-radius: 13px; background: var(--brand-navy); font-size: .88rem; }
 .add-btn:hover { background: var(--brand-blue); transform: translateY(-1px); }
 .catalog-more-row { display: flex; justify-content: center; margin-top: 34px; }
-.catalog-more-btn { min-height: 48px; padding: 12px 26px; border: 1px solid rgba(8,47,95,.22); border-radius: 50px; background: var(--white); color: var(--brand-navy); font-weight: 800; box-shadow: 0 8px 24px rgba(8,47,95,.07); }
-.catalog-more-btn:hover { border-color: var(--brand-navy); background: #f5f8fb; }
-.catalog-more-btn[hidden] { display: none; }
 
 .cart-panel { background: #fbfcfd; }
 .cart-header { min-height: 78px; padding: 20px 28px; background: var(--brand-navy); border-bottom: 0; }
