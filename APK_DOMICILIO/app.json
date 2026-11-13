@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Ready Express Domicilio",
+    "slug": "readyexpress-domicilio",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Usamos tu ubicación únicamente durante una entrega activa."
+      }
+    },
+    "android": {
+      "package": "com.readyexpressnow.domicilio",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Permite tomar la foto de entrega."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Usamos tu ubicación únicamente durante una entrega activa."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "readyexpress-delivery"
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "owner": "versaboldinnovationss-team",
+    "extra": {
+      "eas": {
+        "projectId": "dacd455b-e701-4f38-ab11-a4e9644f773a"
+      }
+    }
+  }
+}

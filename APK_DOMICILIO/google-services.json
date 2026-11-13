@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "416146511025",
+    "project_id": "readyexpressnow-domicilio",
+    "storage_bucket": "readyexpressnow-domicilio.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:416146511025:android:4da1afd1a8bdca32263e90",
+        "android_client_info": {
+          "package_name": "com.readyexpressnow.domicilio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcRB88eA7oVyvLJtjHgDDiG8Taks3CCHE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

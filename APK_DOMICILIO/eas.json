@@ -1,0 +1,20 @@
+{
+  "cli": {
+    "version": ">= 21.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "channel": "preview",
+      "env": { "EXPO_PUBLIC_API_BASE": "https://readyexpressnowbackend.versabold.com/api", "EXPO_PUBLIC_ADMIN_WHATSAPP": "5356189395" }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": { "buildType": "apk" },
+      "channel": "production",
+      "env": { "EXPO_PUBLIC_API_BASE": "https://readyexpressnowbackend.versabold.com/api", "EXPO_PUBLIC_ADMIN_WHATSAPP": "5356189395" }
+    }
+  }
+}
