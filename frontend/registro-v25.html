@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v64">
+  <link rel="stylesheet" href="./css/styles.css?v68">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -22,12 +22,19 @@
   <main class="auth-main" id="main">
     <section class="auth-card auth-card--wide" aria-labelledby="page-title">
       <h1 id="page-title">Crear cuenta</h1>
-      <p class="auth-lead">Crea tu cuenta y elige cómo prefieres pagar. Los campos con <span class="auth-required" aria-hidden="true">*</span> son obligatorios.</p>
-      <ol class="auth-wizard-steps auth-wizard-steps--two" aria-label="Progreso del registro">
+      <p class="auth-lead" id="registration-lead">Elige cómo quieres crear tu cuenta para continuar tu compra.</p>
+      <section class="registration-methods" id="registration-methods" aria-labelledby="registration-methods-title">
+        <h2 id="registration-methods-title">Elige una opción</h2>
+        <p class="auth-hint">Puedes crear tu cuenta con el método que te resulte más cómodo.</p>
+        <button type="button" class="registration-method registration-method--google" id="register-google"><i class="fa-brands fa-google" aria-hidden="true"></i><span><strong>Continuar con Google</strong><small>Rápido y seguro</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+        <button type="button" class="registration-method" id="register-email"><i class="fa-solid fa-envelope" aria-hidden="true"></i><span><strong>Crear con email y contraseña</strong><small>Recibirás un código de confirmación</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+        <button type="button" class="registration-method" id="register-phone"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span><strong>Crear con teléfono cubano</strong><small>Confirmarás tu número por SMS</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+      </section>
+      <ol class="auth-wizard-steps auth-wizard-steps--two" id="registration-wizard" aria-label="Progreso del registro" hidden>
         <li class="is-active" data-reg-indicator="1" aria-current="step"><span>1</span>Tu cuenta</li>
         <li data-reg-indicator="2"><span>2</span>Preferencias de pago</li>
       </ol>
-      <form id="form" class="auth-form" novalidate>
+      <form id="form" class="auth-form" novalidate hidden>
         <section class="auth-wizard-panel" data-reg-step="1" aria-labelledby="reg-step-1-title">
           <h2 id="reg-step-1-title" tabindex="-1">Crea tu cuenta</h2>
           <p class="auth-hint">Te enviaremos la confirmación del pedido a este email.</p>
@@ -55,6 +62,7 @@
             </div>
             <small id="confirm-password-hint" class="auth-hint">Repite la contraseña exactamente.</small>
           </div>
+          <label class="account-check" for="marketing_opt_in"><input type="checkbox" id="marketing_opt_in" name="marketing_opt_in" value="true"><span>Acepto recibir por email novedades, ofertas y promociones. Podré cancelarlo desde Mi cuenta.</span></label>
           <button type="button" class="auth-btn" data-reg-next="2">Continuar →</button>
         </section>
 
@@ -77,23 +85,44 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v64';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v61';
-    import { renderBillingFields } from './js/billing-fields.js?v61';
-    import { cargarMetodosPago, PAYMENT_FLOW_TROPIPAY } from './js/payment-methods.js?v61';
-    import { CARD_PAYMENTS_ENABLED } from './js/config.js?v61';
-    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v64';
-    import { setupPhoneCountrySelect } from './js/phone-country.js?v61';
-    import { escapeHtml, showNotice } from './js/notice-modal.js?v61';
+    import { applyReturnContext, registerCustomer, createMyAddress, safeReturnPath, isExistingAccount } from './js/auth.js?v68';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v68';
+    import { renderBillingFields } from './js/billing-fields.js?v68';
+    import { cargarMetodosPago, PAYMENT_FLOW_TROPIPAY } from './js/payment-methods.js?v68';
+    import { CARD_PAYMENTS_ENABLED } from './js/config.js?v68';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v68';
+    import { startGoogleLogin } from './js/google-auth.js?v68';
+    import { setupPhoneCountrySelect } from './js/phone-country.js?v68';
+    import { escapeHtml, showNotice } from './js/notice-modal.js?v68';
     bindPasswordToggles();
     const phoneSelect = setupPhoneCountrySelect({ select: document.querySelector('#telefono-pais'), input: document.querySelector('#telefono') });
     applyReturnContext();
     const billing = renderBillingFields(document.querySelector('#billing-fields'));
     const form = document.querySelector('#form');
+    const registrationMethods = document.querySelector('#registration-methods');
+    const registrationWizard = document.querySelector('#registration-wizard');
+    const registrationLead = document.querySelector('#registration-lead');
     const message = document.querySelector('#error');
     const preferencesContainer = document.querySelector('#payment-preferences');
     const cardBillingSection = document.querySelector('#card-billing-section');
     let currentStep = 1;
+    function showEmailRegistration() {
+      registrationMethods.hidden = true;
+      registrationWizard.hidden = false;
+      form.hidden = false;
+      registrationLead.textContent = 'Completa tus datos para crear tu cuenta. Los campos con * son obligatorios.';
+      document.querySelector('#nombre')?.focus();
+    }
+    document.querySelector('#register-email')?.addEventListener('click', showEmailRegistration);
+    document.querySelector('#register-google')?.addEventListener('click', async event => {
+      try { event.currentTarget.disabled = true; await startGoogleLogin(); }
+      catch (error) { event.currentTarget.disabled = false; showMessage(message, error.message, 'error'); }
+    });
+    document.querySelector('#register-phone')?.addEventListener('click', () => {
+      const params = new URLSearchParams(location.search);
+      params.set('method', 'phone');
+      location.href = `./login-v25.html?${params.toString()}`;
+    });
     const password = document.querySelector('#password');
     const confirmPassword = document.querySelector('#confirm_password');
     function syncPasswordConfirmation() {
@@ -260,6 +289,6 @@
     });
   </script>
   </main>
-  <script type="module" src="./js/referral-entry.js?v61"></script>
+  <script type="module" src="./js/referral-entry.js?v68"></script>
 </body>
 </html>

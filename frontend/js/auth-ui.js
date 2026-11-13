@@ -1,5 +1,5 @@
 // Utilidades de UI compartidas por las páginas de cuenta (login, registro, recuperación).
-import { fieldErrorMessage } from "./field-messages.js?v61";
+import { fieldErrorMessage } from "./field-messages.js?v68";
 
 export function showMessage(el, text, type = "info") {
   if (!el) return;

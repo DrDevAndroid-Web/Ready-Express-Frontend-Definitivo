@@ -1,6 +1,6 @@
-import { API_BASE, attachReferralClaim } from "./api.js?v61";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v61";
-import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v61";
+import { API_BASE, attachReferralClaim } from "./api.js?v68";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v68";
+import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v68";
 const ACCESS_KEY = "ren_access_token";
 const PENDING_EMAIL_KEY = "ren_pending_email_confirmation";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
@@ -11,7 +11,7 @@ export function clearPendingEmailConfirmation() { try { localStorage.removeItem(
 export function saveSession(data) { storeSession(data); if (data?.access_token) clearPendingEmailConfirmation(); }
 export function clearSession() { clearStoredSession(); clearReferralWalletState(); clearReferralPromotionState(); try { localStorage.removeItem("ren_pending_payment"); localStorage.removeItem("ren_checkout_form_data"); } catch {} }
 // Identificador aleatorio de este navegador: el backend avisa por email al entrar desde uno nuevo
-function getDeviceId() {
+export function getDeviceId() {
   try {
     let id = localStorage.getItem("ren_device_id");
     if (!id) {
@@ -24,7 +24,7 @@ function getDeviceId() {
   }
 }
 async function authRequest(path, options = {}) { const response = await authorizedFetch(`${API_BASE}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } }); const body = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(body.error || "No se pudo completar la operación"); error.status = response.status; error.code = body.code || ""; throw error; } return body; }
-async function attachPendingReferral() {
+export async function attachPendingReferral() {
   const token = getReferralClaimToken();
   if (!token) return;
   try {

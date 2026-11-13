@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="preload" as="image" href="./images/hero-home-desktop.webp" media="(min-width: 901px)" fetchpriority="high">
   <link rel="preload" as="image" href="./images/hero-home-mobile.webp" media="(max-width: 900px)" fetchpriority="high">
-  <link rel="stylesheet" href="./css/styles.css?v67" />
+  <link rel="stylesheet" href="./css/styles.css?v68" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -458,9 +458,46 @@
         <strong id="cart-total">$0.00</strong>
       </div>
       <p class="cart-assurance"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Revisamos cada pedido antes de procesarlo</p>
+      <button id="cart-share-btn" class="cart-share-btn" type="button" disabled><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> Compartir</button>
       <button id="cart-checkout-btn" disabled>Continuar al pago seguro →</button>
     </div>
   </aside>
+
+  <div class="share-cart-overlay" id="share-cart-modal" hidden>
+    <div class="share-cart-dialog" role="dialog" aria-modal="true" aria-labelledby="share-cart-title">
+      <div class="share-cart-header">
+      <div>
+          <span class="share-cart-kicker">Lista de compra</span>
+          <h2 id="share-cart-title">Comparte para que te compren</h2>
+        </div>
+        <button type="button" class="share-cart-close" id="share-cart-close" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="share-cart-copy">Envía este enlace a la persona que hará la compra por ti. Podrá ver tus productos, abrirlos en su carrito y completar el pedido desde su cuenta.</p>
+      <div class="share-cart-link-box">
+        <input id="share-cart-url" type="text" readonly aria-label="Enlace para compartir el carrito">
+        <button type="button" id="share-cart-copy-btn"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copiar enlace</button>
+      </div>
+      <p class="share-cart-expiry"><i class="fa-regular fa-clock" aria-hidden="true"></i> Este enlace caduca en 24 horas.</p>
+      <p class="share-cart-status" id="share-cart-status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="share-cart-overlay" id="shared-cart-merge-modal" hidden>
+    <div class="share-cart-dialog shared-cart-merge-dialog" role="dialog" aria-modal="true" aria-labelledby="shared-cart-merge-title">
+      <div class="share-cart-header">
+        <div>
+          <span class="share-cart-kicker">Carrito compartido</span>
+          <h2 id="shared-cart-merge-title">Ya tienes productos en tu carrito</h2>
+        </div>
+        <button type="button" class="share-cart-close" id="shared-cart-merge-close" aria-label="Cerrar">✕</button>
+      </div>
+      <p class="share-cart-copy" id="shared-cart-merge-copy">Si aceptas, los productos del enlace se sumarán a los que ya tienes.</p>
+      <div class="shared-cart-merge-actions">
+        <button type="button" class="shared-cart-accept-btn" id="shared-cart-merge-accept">Aceptar y sumar</button>
+        <button type="button" class="shared-cart-decline-btn" id="shared-cart-merge-decline">No, conservar mi carrito</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Checkout Modal -->
   <template id="checkout-modal-legacy">
@@ -895,7 +932,7 @@
   }
   </script>
 
-  <script type="module" src="./js/app.js?v67"></script>
+  <script type="module" src="./js/app.js?v68"></script>
   <script>
     document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
       document.getElementById('cart-btn')?.click();
@@ -908,6 +945,6 @@
     });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  <script type="module" src="./js/chat.js?v67"></script>
+  <script type="module" src="./js/chat.js?v68"></script>
 </body>
 </html>

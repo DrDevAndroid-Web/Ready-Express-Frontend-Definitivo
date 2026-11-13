@@ -3,8 +3,8 @@
 // se comprueba aquí sin sacar al cliente de la página.
 // Si usa el enlace, se detecta solo: abierto en este navegador, la otra pestaña guarda la
 // sesión (evento storage); al volver a esta pestaña se reintenta el login.
-import { isEmailNotConfirmed, loginCustomer, resendConfirmationEmail, safeReturnPath, verifyEmailCode } from "./auth.js?v64";
-import { escapeHtml, showNotice } from "./notice-modal.js?v61";
+import { isEmailNotConfirmed, loginCustomer, resendConfirmationEmail, safeReturnPath, verifyEmailCode } from "./auth.js?v68";
+import { escapeHtml, showNotice } from "./notice-modal.js?v68";
 
 const MIN_CODE_LENGTH = 6;
 const MAX_CODE_LENGTH = 10;

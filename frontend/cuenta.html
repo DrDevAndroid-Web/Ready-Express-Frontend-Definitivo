@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v64">
+  <link rel="stylesheet" href="./css/styles.css?v68">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -57,6 +57,7 @@
             <a href="#perfil" data-section="perfil"><i class="fa-solid fa-user" aria-hidden="true"></i><span>Datos personales</span><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
             <a href="#facturacion" data-section="facturacion" id="hub-billing-link" hidden><i class="fa-solid fa-credit-card" aria-hidden="true"></i><span>Facturación</span><small id="hub-billing-status">—</small><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
             <a href="#referidos" data-section="referidos"><i class="fa-solid fa-users" aria-hidden="true"></i><span>Invita y gana</span><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
+            <a href="#privacidad" data-section="privacidad"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Privacidad y emails</span><i class="fa-solid fa-chevron-right account-chevron" aria-hidden="true"></i></a>
           </nav>
           <div class="account-hub-footer">
             <a href="https://wa.me/5356189395?text=Hola%20Ready%20Express%20Now.%20Necesito%20ayuda%20con%20mi%20cuenta." target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i> Ayuda por WhatsApp</a>
@@ -144,6 +145,23 @@
         </form>
       </section>
 
+      <section class="account-panel" id="panel-privacidad" aria-labelledby="privacidad-title" tabindex="-1" hidden>
+        <div class="account-panel-head"><h2 id="privacidad-title" tabindex="-1">Privacidad y comunicaciones</h2><p>Elige cómo quieres que nos comuniquemos contigo.</p></div>
+        <div class="account-card account-notification-setting">
+          <label class="account-switch-row" for="marketing-email-enabled"><span><strong>Recibir novedades y promociones</strong><small>Solo enviaremos ofertas y noticias de Ready Express Now a tu correo.</small></span><input type="checkbox" role="switch" id="marketing-email-enabled"></label>
+          <p class="account-muted" id="marketing-email-message" role="status"></p>
+        </div>
+        <div class="account-card account-danger-zone">
+          <h3>Eliminar mi cuenta</h3>
+          <p class="account-muted">Se eliminará tu acceso y los datos asociados a tu cuenta. Esta acción no se puede deshacer.</p>
+          <form id="delete-account-form" class="auth-form" novalidate>
+            <div class="auth-field"><label for="delete-confirmation">Escribe ELIMINAR para confirmar</label><input id="delete-confirmation" name="confirmation" autocomplete="off" required></div>
+            <p id="delete-account-message" class="auth-msg" role="alert"></p>
+            <button type="submit" class="auth-btn auth-btn--danger">Eliminar cuenta</button>
+          </form>
+        </div>
+      </section>
+
       <!-- Referidos -->
       <section class="account-panel" id="panel-referidos" aria-labelledby="referidos-title" tabindex="-1" hidden>
         <div class="account-panel-head">
@@ -172,7 +190,7 @@
 
   <div class="account-toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-  <script type="module" src="./js/account.js?v64"></script>
-  <script type="module" src="./js/referral-entry.js?v61"></script>
+  <script type="module" src="./js/account.js?v68"></script>
+  <script type="module" src="./js/referral-entry.js?v68"></script>
 </body>
 </html>

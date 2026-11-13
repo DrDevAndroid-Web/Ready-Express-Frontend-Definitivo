@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="./css/styles.css?v64">
+  <link rel="stylesheet" href="./css/styles.css?v68">
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -28,6 +28,8 @@
         <span>Crea tu cuenta gratuita y vuelve al pago sin perder el carrito.</span>
         <a href="./registro-v25.html">Crear cuenta y continuar</a>
       </aside>
+      <button type="button" id="google-login" class="auth-btn auth-btn--google"><i class="fa-brands fa-google" aria-hidden="true"></i><span>Continuar con Google</span></button>
+      <div class="auth-divider" aria-hidden="true"><span>o entra con email</span></div>
       <form id="form" class="auth-form" novalidate>
         <div class="auth-field">
           <label for="email">Email<span class="auth-required" aria-hidden="true">*</span></label>
@@ -43,6 +45,25 @@
         <p id="error" class="auth-msg" role="alert"></p>
         <button type="submit" class="auth-btn">Entrar</button>
       </form>
+      <div class="auth-divider" aria-hidden="true"><span>o usa un teléfono cubano</span></div>
+      <button type="button" id="phone-login" class="auth-btn auth-btn--phone"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span>Entrar con teléfono cubano</span></button>
+      <section id="phone-auth" class="phone-auth-panel" hidden aria-labelledby="phone-auth-title">
+        <h2 id="phone-auth-title">Acceso con teléfono cubano</h2>
+        <p id="phone-auth-copy">Usaremos tu número solo para confirmar tu acceso.</p>
+        <div id="phone-request-step">
+          <label class="auth-field"><span>Número móvil cubano</span><input id="phone-number" type="tel" inputmode="tel" autocomplete="tel" placeholder="5XXX XXXX"></label>
+          <button type="button" id="phone-send" class="auth-btn">Enviar código</button>
+        </div>
+        <div id="phone-code-step" hidden>
+          <p id="phone-sent-copy" class="auth-hint"></p>
+          <label class="auth-field"><span>Código SMS</span><input id="phone-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456"></label>
+          <p class="auth-hint">El SMS puede tardar unos minutos si estás en una zona con poca cobertura. No cierres esta pantalla.</p>
+          <button type="button" id="phone-verify" class="auth-btn">Confirmar código</button>
+          <button type="button" id="phone-resend" class="auth-confirm-link">Reenviar código</button>
+          <button type="button" id="phone-change" class="auth-confirm-link">Cambiar número</button>
+        </div>
+        <p id="phone-message" class="auth-msg" role="status" aria-live="polite"></p>
+      </section>
       <nav class="auth-links" aria-label="Opciones de cuenta">
         <a href="./confirmar-email.html">¿Ya tienes un código de confirmación?</a>
         <a href="./recuperar-password.html">¿Olvidaste tu contraseña?</a>
@@ -50,13 +71,51 @@
       </nav>
     </section>
   <script type="module">
-    import { applyReturnContext, isEmailNotConfirmed, loginCustomer, rememberPendingEmailConfirmation, safeReturnPath } from './js/auth.js?v64';
-    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v61';
-    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v64';
+    import { applyReturnContext, isEmailNotConfirmed, loginCustomer, rememberPendingEmailConfirmation, safeReturnPath } from './js/auth.js?v68';
+    import { bindPasswordToggles, focusFirstInvalid, setLoading, showMessage } from './js/auth-ui.js?v68';
+    import { showEmailConfirmModal } from './js/email-confirm-modal.js?v68';
+    import { completeGoogleLogin, startGoogleLogin } from './js/google-auth.js?v68';
+    import { clearPendingPhoneAuth, getPendingPhoneAuth, maskPhone, requestPhoneCode, verifyPhoneCode } from './js/phone-auth.js?v68';
     bindPasswordToggles();
     applyReturnContext();
     const form = document.querySelector('#form');
     const error = document.querySelector('#error');
+    const googleButton = document.querySelector('#google-login');
+    const phoneButton = document.querySelector('#phone-login');
+    const phonePanel = document.querySelector('#phone-auth');
+    const phoneNumber = document.querySelector('#phone-number');
+    const phoneCode = document.querySelector('#phone-code');
+    const phoneRequestStep = document.querySelector('#phone-request-step');
+    const phoneCodeStep = document.querySelector('#phone-code-step');
+    const phoneSentCopy = document.querySelector('#phone-sent-copy');
+    const phoneMessage = document.querySelector('#phone-message');
+    const pendingPhone = getPendingPhoneAuth();
+    const showPhoneCodeStep = state => { phonePanel.hidden = false; phoneRequestStep.hidden = true; phoneCodeStep.hidden = false; phoneSentCopy.textContent = `Enviamos un código a ${maskPhone(state.phone)}.`; phoneCode.focus(); };
+    if (pendingPhone?.phone) { phoneNumber.value = pendingPhone.phone; showPhoneCodeStep(pendingPhone); }
+    phoneButton.addEventListener('click', () => { phonePanel.hidden = false; phoneNumber.focus(); });
+    if (new URLSearchParams(location.search).get('method') === 'phone') phoneButton.click();
+    document.querySelector('#phone-send').addEventListener('click', async () => {
+      try { const state = await requestPhoneCode(phoneNumber.value, new URLSearchParams(location.search).get('return') || ''); showPhoneCodeStep(state); showMessage(phoneMessage, 'Código enviado. Revisa tus mensajes.', 'success'); }
+      catch (err) { showMessage(phoneMessage, err.message, 'error'); }
+    });
+    document.querySelector('#phone-verify').addEventListener('click', async () => {
+      const button = document.querySelector('#phone-verify'); setLoading(button, true, 'Comprobando…');
+      try { await verifyPhoneCode(phoneCode.value); } catch (err) { setLoading(button, false); showMessage(phoneMessage, err.message, 'error'); }
+    });
+    document.querySelector('#phone-resend').addEventListener('click', async event => {
+      const button = event.currentTarget; setLoading(button, true, 'Enviando…');
+      try { const state = await requestPhoneCode(phoneNumber.value, new URLSearchParams(location.search).get('return') || ''); showPhoneCodeStep(state); showMessage(phoneMessage, 'Enviamos otro código. Revisa tus mensajes.', 'success'); }
+      catch (err) { showMessage(phoneMessage, err.message, 'error'); } finally { setLoading(button, false); }
+    });
+    document.querySelector('#phone-change').addEventListener('click', () => { clearPendingPhoneAuth(); phoneRequestStep.hidden = false; phoneCodeStep.hidden = true; phoneNumber.focus(); });
+    phoneCode.addEventListener('input', () => { phoneCode.value = phoneCode.value.replace(/\D/g, ''); });
+    completeGoogleLogin().catch(err => showMessage(error, err.message, 'error'));
+    googleButton?.addEventListener('click', async () => {
+      showMessage(error, '');
+      setLoading(googleButton, true, 'Abriendo Google...');
+      try { await startGoogleLogin(); }
+      catch (err) { setLoading(googleButton, false); showMessage(error, err.message, 'error'); }
+    });
     // Viene de "Ya tienes una cuenta": email escrito y sin la invitación a registrarse
     const emailParam = new URLSearchParams(location.search).get('email');
     if (emailParam) {
@@ -82,6 +141,6 @@
     });
   </script>
   </main>
-  <script type="module" src="./js/referral-entry.js?v61"></script>
+  <script type="module" src="./js/referral-entry.js?v68"></script>
 </body>
 </html>

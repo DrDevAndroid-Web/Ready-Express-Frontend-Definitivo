@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v61";
-import { authorizedFetch } from "./session.js?v61";
+import { API_BASE } from "./config.js?v68";
+import { authorizedFetch } from "./session.js?v68";
 
 export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
@@ -163,6 +163,12 @@ async function request(path, options = {}) {
 export const getCatalog = () => request("/catalog");
 export const getInfo = () => request("/info");
 export const getLocalizaciones = () => request("/localizaciones");
+export const createCartShare = items => request("/account/cart-shares", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ items })
+});
+export const getCartShare = token => request(`/cart-shares/${encodeURIComponent(token)}`, { cache: "no-store" });
 export const getReferralProgram = () => request("/referrals/program");
 export const trackReferralEvent = payload => request("/referrals/events", {
   method: "POST",
@@ -202,6 +208,17 @@ export const updateReferralPushPreferences = payload => request("/account/referr
   method: "PATCH",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(payload)
+});
+export const getEmailPreferences = () => request("/account/email-preferences", { cache: "no-store" });
+export const updateEmailPreferences = marketing_opt_in => request("/account/email-preferences", {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ marketing_opt_in })
+});
+export const deleteMyAccount = confirmation => request("/account", {
+  method: "DELETE",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ confirmation })
 });
 export const createOrder = (data) =>
   request("/orders", {

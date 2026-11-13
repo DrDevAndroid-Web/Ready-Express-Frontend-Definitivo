@@ -1,13 +1,13 @@
 import {
   getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v64";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v61";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v61";
-import { billingComplete, renderBillingFields } from "./billing-fields.js?v61";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v61";
-import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences } from "./api.js?v61";
-import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v61";
+} from "./auth.js?v68";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v68";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v68";
+import { billingComplete, renderBillingFields } from "./billing-fields.js?v68";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v68";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences, getEmailPreferences, updateEmailPreferences, deleteMyAccount } from "./api.js?v68";
+import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v68";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -19,6 +19,13 @@ const dateText = value => {
 
 // ── Estados legibles: texto + icono + tono (el color nunca va solo) ──
 const ORDER_STATUS = {
+  created: ["Pedido creado", "fa-file-circle-check", "info"],
+  payment_pending: ["Pago pendiente", "fa-clock", "warning"],
+  payment_approved: ["Pago aprobado", "fa-circle-check", "success"],
+  preparing: ["En preparación", "fa-box-open", "info"],
+  ready_for_delivery: ["Listo para entregar", "fa-box", "info"],
+  in_transit: ["En camino", "fa-truck", "info"],
+  delivered: ["Entregado", "fa-house-circle-check", "success"],
   pending: ["Pendiente de pago", "fa-clock", "warning"],
   awaiting_manual_payment: ["Te contactaremos para el pago", "fa-headset", "info"],
   processing: ["Procesando pago", "fa-spinner", "info"],
@@ -80,7 +87,7 @@ function handleError(error, messageEl) {
 }
 
 // Las rutas antiguas por hash siguen abriendo la misma sección.
-const SECTIONS = ["pedidos", "direcciones", "perfil", "facturacion", "referidos"];
+const SECTIONS = ["pedidos", "direcciones", "perfil", "facturacion", "referidos", "privacidad"];
 function currentView() {
   const hash = decodeURIComponent(location.hash.slice(1));
   if (hash === "facturacion" && !CARD_PAYMENTS_ENABLED) return "perfil";
@@ -670,6 +677,57 @@ async function setupReferralPush() {
   }
 }
 
+async function setupPrivacySettings() {
+  const emailToggle = $("#marketing-email-enabled");
+  const emailMessage = $("#marketing-email-message");
+  const deleteForm = $("#delete-account-form");
+  if (!emailToggle || !deleteForm) return;
+
+  try {
+    const preferences = await getEmailPreferences();
+    emailToggle.checked = Boolean(preferences.marketing_opt_in);
+  } catch (error) {
+    emailToggle.disabled = true;
+    emailMessage.textContent = error.message || "No se pudo cargar la preferencia.";
+  }
+
+  emailToggle.addEventListener("change", async () => {
+    emailToggle.disabled = true;
+    try {
+      await updateEmailPreferences(emailToggle.checked);
+      emailMessage.textContent = emailToggle.checked
+        ? "Recibirás avisos de novedades y promociones."
+        : "Dejaste de recibir emails de marketing.";
+    } catch (error) {
+      emailToggle.checked = !emailToggle.checked;
+      emailMessage.textContent = error.message || "No se pudo guardar la preferencia.";
+    } finally {
+      emailToggle.disabled = false;
+    }
+  });
+
+  deleteForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = deleteForm.elements.confirmation;
+    if (String(input.value).trim().toUpperCase() !== "ELIMINAR") {
+      showMessage($("#delete-account-message"), "Escribe ELIMINAR exactamente para confirmar.", "error");
+      input.focus();
+      return;
+    }
+    if (!window.confirm("Esta acción elimina tu cuenta y no se puede deshacer. ¿Continuar?")) return;
+    const button = deleteForm.querySelector("[type=submit]");
+    setLoading(button, true, "Eliminando...");
+    try {
+      await deleteMyAccount(input.value);
+      clearSession();
+      location.href = "./index.html";
+    } catch (error) {
+      showMessage($("#delete-account-message"), error.message || "No se pudo eliminar la cuenta.", "error");
+      setLoading(button, false);
+    }
+  });
+}
+
 // ── Inicio ──
 function init() {
   bindReferralCtaTracking();
@@ -711,6 +769,7 @@ function init() {
   });
   loadReferrals().catch(error => handleError(error));
   setupReferralPush().catch(error => console.warn("[referral-push]", error));
+  setupPrivacySettings().catch(error => console.warn("[privacy]", error));
 }
 
 init();
