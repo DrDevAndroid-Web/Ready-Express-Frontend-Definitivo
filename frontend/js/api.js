@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v68";
-import { authorizedFetch } from "./session.js?v68";
+import { API_BASE } from "./config.js?v69";
+import { authorizedFetch } from "./session.js?v69";
 
 export { API_BASE };
 const SUPPORT_PHONE = "+53 56189395";
@@ -162,6 +162,11 @@ async function request(path, options = {}) {
 
 export const getCatalog = () => request("/catalog");
 export const getInfo = () => request("/info");
+export const checkAccountEmail = email => request("/auth/account-status", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email })
+});
 export const getLocalizaciones = () => request("/localizaciones");
 export const createCartShare = items => request("/account/cart-shares", {
   method: "POST",

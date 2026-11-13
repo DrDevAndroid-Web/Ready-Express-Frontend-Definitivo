@@ -22,6 +22,18 @@
     .checkout-page-shell .checkout-actions button { min-height:48px; }
     .checkout-empty { text-align:center; padding:64px 24px; }
     .checkout-empty a { color:var(--navy); font-weight:700; }
+    .checkout-auth-gate { margin:0 0 20px; padding:18px; border:1px solid #dbe7f3; border-radius:16px; background:#f5f9fd; }
+    .checkout-auth-gate[hidden] { display:none; }
+    .checkout-auth-gate h3 { margin:0 0 6px; color:var(--navy); }
+    .checkout-auth-gate p { margin:0 0 14px; color:var(--gray); line-height:1.45; }
+    .checkout-google-auth { width:100%; min-height:46px; border:1px solid #1d4f91; border-radius:10px; background:#fff; color:#142f52; font-weight:800; cursor:pointer; }
+    .checkout-auth-divider { display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--gray); font-size:.85rem; }
+    .checkout-auth-divider::before,.checkout-auth-divider::after { content:""; height:1px; flex:1; background:#dbe3ec; }
+    .checkout-auth-email-row { display:flex; gap:8px; }
+    .checkout-auth-email-row input { flex:1; min-width:0; }
+    .checkout-auth-email-row button { min-height:44px; border:0; border-radius:10px; padding:0 14px; background:var(--navy); color:#fff; font-weight:800; cursor:pointer; }
+    .checkout-auth-result { min-height:22px; margin:10px 0 0; color:var(--navy); font-weight:700; }
+    .checkout-auth-result a { color:var(--navy); text-decoration:underline; }
     @media (max-width:640px) { .checkout-page-shell { padding:16px 12px 40px; } .checkout-page-header h1 { font-size:1.35rem; } .checkout-page-card .modal-body { padding:16px; } }
   </style>
 </head>
@@ -46,6 +58,14 @@
       <div class="modal-body">
         <form id="checkout-form" novalidate>
           <div data-checkout-step="1">
+            <section class="checkout-auth-gate" id="checkout-auth-gate" aria-labelledby="checkout-auth-title" hidden>
+              <h3 id="checkout-auth-title">Primero identifica tu cuenta</h3>
+              <p>Necesitamos una cuenta para guardar el pedido y completar el pago. Si ya tienes una, la reconoceremos y te llevaremos a iniciar sesión.</p>
+              <button type="button" id="checkout-google-auth" class="checkout-google-auth"><i class="fa-brands fa-google" aria-hidden="true"></i> Continuar con Google</button>
+              <div class="checkout-auth-divider">o usa tu email</div>
+              <div class="checkout-auth-email-row"><input type="email" id="checkout-auth-email" placeholder="tu@email.com" autocomplete="email"><button type="button" id="checkout-email-check">Continuar con email</button></div>
+              <p class="checkout-auth-result" id="checkout-auth-result" role="status" aria-live="polite"></p>
+            </section>
             <div class="checkout-section-title"><span class="checkout-section-icon">1</span><div><h4>Quién recibe</h4><p>Dinos a quién le entregamos el pedido en Guantánamo.</p></div></div>
             <div class="checkout-form-section">
               <div class="form-group"><label for="receiver_name">Nombre del familiar o persona que recibe <span class="required">*</span></label><input type="text" id="receiver_name" name="receiver_name" placeholder="Nombre de quien recibe" required><p class="field-error" id="error-receiver_name"></p></div>
@@ -116,7 +136,7 @@
     </section>
   </main>
   <script type="module">
-    import { initCheckout } from "./js/checkout.js?v68";
+    import { initCheckout } from "./js/checkout.js?v69";
     initCheckout();
   </script>
 </body>

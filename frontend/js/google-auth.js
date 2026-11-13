@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v68";
-import { attachPendingReferral, getDeviceId, safeReturnPath, saveSession } from "./auth.js?v68";
+import { API_BASE } from "./config.js?v69";
+import { attachPendingReferral, getDeviceId, safeReturnPath, saveSession } from "./auth.js?v69";
 
 const SUPABASE_JS_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/+esm";
 let clientPromise;
@@ -21,11 +21,11 @@ async function getSupabaseClient() {
   return clientPromise;
 }
 
-export async function startGoogleLogin() {
+export async function startGoogleLogin({ returnTarget = null } = {}) {
   const client = await getSupabaseClient();
   const redirect = new URL("./login-v25.html", location.href);
-  const returnTarget = new URLSearchParams(location.search).get("return");
-  if (returnTarget) redirect.searchParams.set("return", returnTarget);
+  const requestedReturn = returnTarget || new URLSearchParams(location.search).get("return");
+  if (requestedReturn) redirect.searchParams.set("return", requestedReturn);
   if (new URLSearchParams(location.search).get("backend") === "local") redirect.searchParams.set("backend", "local");
   const { error } = await client.auth.signInWithOAuth({
     provider: "google",

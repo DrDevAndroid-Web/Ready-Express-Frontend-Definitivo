@@ -1,16 +1,17 @@
-import { API_BASE, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v68";
-import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v68";
-import { savePendingPayment } from "./payment.js?v68";
-import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v68";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v68";
-import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v68";
-import { getValidAccessToken } from "./session.js?v68";
-import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v68";
-import { setupCountrySelect } from "./country-select.js?v68";
-import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v68";
-import { fieldErrorMessage } from "./field-messages.js?v68";
-import { showNotice } from "./notice-modal.js?v68";
-import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v68";
+import { API_BASE, checkAccountEmail, createOrder, quoteOrder, createTropipayPayment, getLocalizaciones, getPaymentPreferences, getMyReferralSummary } from "./api.js?v69";
+import { getCart, getTotal, clearCart, closeCart } from "./cart.js?v69";
+import { savePendingPayment } from "./payment.js?v69";
+import { cargarMetodosPago, CARD_METHOD_LABEL, getTropipayMinAmount, PAYMENT_FLOW_ASSISTED, PAYMENT_FLOW_TROPIPAY } from "./payment-methods.js?v69";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v69";
+import { getAccessToken, getCurrentUser, getMyProfile, updateMyProfile } from "./auth.js?v69";
+import { getValidAccessToken } from "./session.js?v69";
+import { billingComplete, billingSummary, maxBirthDate } from "./billing-fields.js?v69";
+import { setupCountrySelect } from "./country-select.js?v69";
+import { bindMethodLogoFallback, methodLogoHtml, svgIcon } from "./method-icons.js?v69";
+import { fieldErrorMessage } from "./field-messages.js?v69";
+import { showNotice } from "./notice-modal.js?v69";
+import { captureReferralFromUrl, getReferralClaimToken, renderReferralCartNotice, saveReferralPromotionState } from "./referrals.js?v69";
+import { startGoogleLogin } from "./google-auth.js?v69";
 
 const CHECKOUT_CHAT_CLIENT_KEY = "ren_checkout_chat_client";
 const CHECKOUT_CHAT_SESSION_KEY = "ren_checkout_chat_session";
@@ -43,6 +44,38 @@ async function requireCheckoutSession() {
   if (token) return true;
   window.location.href = "./registro-v25.html?return=checkout";
   return false;
+}
+
+function setupCheckoutAuthGate() {
+  const gate = document.getElementById("checkout-auth-gate");
+  if (!gate) return;
+  if (getAccessToken()) { gate.hidden = true; return; }
+  gate.hidden = false;
+  if (gate.dataset.bound === "true") return;
+  gate.dataset.bound = "true";
+  const google = document.getElementById("checkout-google-auth");
+  const emailInput = document.getElementById("checkout-auth-email");
+  const emailButton = document.getElementById("checkout-email-check");
+  const result = document.getElementById("checkout-auth-result");
+  google?.addEventListener("click", async () => {
+    google.disabled = true;
+    google.textContent = "Abriendo Google…";
+    try { await startGoogleLogin({ returnTarget: "checkout" }); }
+    catch (error) { google.disabled = false; google.textContent = "Continuar con Google"; if (result) result.textContent = error.message || "No se pudo abrir Google"; }
+  }, { once: true });
+  emailButton?.addEventListener("click", async () => {
+    const email = String(emailInput?.value || "").trim().toLowerCase();
+    if (!email) { if (result) result.textContent = "Escribe tu email para continuar."; emailInput?.focus(); return; }
+    emailButton.disabled = true; emailButton.textContent = "Comprobando…";
+    try {
+      const state = await checkAccountEmail(email);
+      const encoded = encodeURIComponent(email);
+      if (result) result.innerHTML = state.exists
+        ? `Esta cuenta ya existe. <a href="./login-v25.html?return=checkout&email=${encoded}">Iniciar sesión y continuar</a>`
+        : `No encontramos una cuenta. <a href="./registro-v25.html?return=checkout&email=${encoded}">Crear cuenta y continuar</a>`;
+    } catch (error) { if (result) result.textContent = error.message || "No se pudo comprobar el email."; }
+    finally { emailButton.disabled = false; emailButton.textContent = "Continuar con email"; }
+  });
 }
 
 function storageGet(key) {
@@ -546,6 +579,11 @@ async function goToCheckoutStep(step, validate = true) {
   if (!form) return false;
 
   if (step === 2 && validate && !validateCheckoutStep(1)) return false;
+  if (step === 2 && !getAccessToken()) {
+    setupCheckoutAuthGate();
+    document.getElementById("checkout-auth-gate")?.scrollIntoView({ block: "center", behavior: "smooth" });
+    return false;
+  }
 
   checkoutStep = step;
   saveCheckoutStep(step);
@@ -584,6 +622,7 @@ export async function showCheckoutModal() {
   const cart = getCart();
   if (cart.length === 0) return;
 
+  if (!getAccessToken()) { window.location.href = "./checkout.html"; return; }
   if (!await requireCheckoutSession()) return;
 
   closeCart();
@@ -613,6 +652,7 @@ export async function showCheckoutModal() {
 export async function initCheckout() {
   const isCheckoutPage = document.body?.dataset.checkoutPage === "true";
   if (isCheckoutPage) await captureReferralFromUrl().catch(() => null);
+  if (isCheckoutPage) setupCheckoutAuthGate();
   const form = document.getElementById("checkout-form");
   if (form) {
     setupBlurValidation(form);
@@ -643,6 +683,7 @@ export async function initCheckout() {
     button.disabled = true;
     button.textContent = "Preparando tu pago…";
     try {
+      if (!getAccessToken()) { window.location.href = "./checkout.html"; return; }
       if (!await requireCheckoutSession()) return;
       await loadReferralSummary();
       window.location.href = "./checkout.html";
@@ -658,7 +699,7 @@ export async function initCheckout() {
       window.location.href = "./index.html";
       return;
     }
-    if (!await requireCheckoutSession()) return;
+    setupCheckoutAuthGate();
     if (form) restoreFormData(form);
     currentTotal = calculateCheckoutTotal(form);
     loadDeliveryLocations(form);

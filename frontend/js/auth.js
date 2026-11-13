@@ -1,6 +1,6 @@
-import { API_BASE, attachReferralClaim } from "./api.js?v68";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v68";
-import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v68";
+import { API_BASE, attachReferralClaim } from "./api.js?v69";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v69";
+import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v69";
 const ACCESS_KEY = "ren_access_token";
 const PENDING_EMAIL_KEY = "ren_pending_email_confirmation";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
