@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v69";
-import { attachPendingReferral, getDeviceId, safeReturnPath, saveSession } from "./auth.js?v69";
+import { API_BASE } from "./config.js?v73";
+import { attachPendingReferral, getDeviceId, safeReturnPath, saveSession } from "./auth.js?v73";
 
 const SUPABASE_JS_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/+esm";
 let clientPromise;

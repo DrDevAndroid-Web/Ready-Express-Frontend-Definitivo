@@ -323,6 +323,17 @@ a:focus,
   font-size: clamp(0.8rem, 1.5vw, 0.92rem);
   margin: 0;
 }
+.trust-carousel .carousel-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 12px;
+  min-height: 40px;
+  padding: 9px 20px;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+}
 .trust-item {
   display: flex; align-items: center; gap: 10px;
   font-size: 0.92rem; font-weight: 600; color: var(--green);
@@ -1498,6 +1509,13 @@ button:disabled {
   .hero-stats { justify-content: flex-start; }
   .trust-inner { flex-direction: column; align-items: flex-start; gap: 10px; }
   .trust-carousel .carousel-item img { height: 360px; }
+  .trust-carousel .carousel-caption {
+    left: 5%; right: 5%; bottom: 14px; max-width: none;
+    padding: 12px 16px;
+  }
+  .trust-carousel .carousel-caption h5 { font-size: 1rem; }
+  .trust-carousel .carousel-caption p { font-size: 0.78rem; }
+  .trust-carousel .carousel-cta { margin-top: 9px; min-height: 36px; padding: 8px 16px; font-size: 0.8rem; }
   .faq-section { padding: 48px 24px; }
   .emotional-block { padding: 48px 24px; }
   .help-hero { padding: 56px 20px 48px; }
@@ -4478,8 +4496,11 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading) !important; letter-spa
   .navbar-logo img { width: 45px; height: 45px; object-fit: contain; }
   .navbar-logo-text { display: block; max-width: 138px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; letter-spacing: -.01em; }
   .navbar-actions { margin-left: auto; gap: 8px; }
-  .navbar-actions .payment-help-btn:nth-of-type(2), .navbar-wa-btn { display: none; }
-  .navbar-actions .payment-help-btn:first-of-type { min-height: 40px; padding: 9px 13px; border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.96); font-size: .76rem; }
+  .navbar-actions .payment-help-btn:nth-of-type(2) { display: none; }
+  /* El ícono de WhatsApp sí se mantiene visible en móvil (ver regla .navbar-wa-btn
+     más arriba, @media max-width:900px) — ya no hay botón "Hablar por WhatsApp" en el hero. */
+  /* "Mi cuenta" (primer payment-help-btn) se oculta en móvil: ya está en el bottom-nav inferior. */
+  .navbar-actions .payment-help-btn:first-of-type { display: none; }
   .navbar-search-btn { display: none; }
   .mobile-nav { top: 72px; max-height: calc(100dvh - 136px); overflow-y: auto; padding: 18px 20px 28px; background: rgba(8,47,95,.985); }
   .hero { height: 720px; min-height: 720px; background-position: center top; }
@@ -4488,7 +4509,14 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading) !important; letter-spa
   .hero-desc { max-width: 340px; font-size: .96rem; }
   .hero-proof { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 22px; }
   .hero-proof span { font-size: .72rem; }
-  .hero-actions { bottom: 86px; }
+  /* hero-actions se ancla por "bottom" dentro de un hero de alto fijo (720px):
+     con 2 botones (1 fila, antes eran 3 en 2 filas) la fila queda más abajo que
+     antes si no se sube el offset. En iPhone con la barra de Safari visible
+     (viewport real ~664px) el bottom-nav fijo (66px, opaco, z-index:110) tapaba
+     la mitad inferior del botón con solo 152px. Verificado con Playwright/WebKit
+     iPhone 14: con 210px queda ~16px libres sobre el bottom-nav y ~70px bajo
+     hero-proof. */
+  .hero-actions { bottom: 276px; }
   .bottom-nav { height: calc(66px + env(safe-area-inset-bottom)); background: rgba(8,47,95,.98); box-shadow: 0 -8px 28px rgba(8,47,95,.17); }
   .bottom-nav-item { color: rgba(255,255,255,.74); font-size: .7rem; }
   .bottom-nav-item i { font-size: 1.15rem; }

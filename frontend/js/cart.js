@@ -1,7 +1,7 @@
-import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v68";
-import { createCartShare, getCartShare } from "./api.js?v68";
+import { getCartSnapshot, persistCart, subscribeCart, getCartStorageStatus } from "./cart-store.js?v73";
+import { createCartShare, getCartShare } from "./api.js?v73";
 
-import { renderReferralCartNotice } from "./referrals.js?v68";
+import { renderReferralCartNotice } from "./referrals.js?v73";
 
 let cart = getCartSnapshot();
 let pendingSharedCart = null;

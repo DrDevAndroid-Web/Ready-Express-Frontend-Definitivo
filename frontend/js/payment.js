@@ -1,8 +1,9 @@
-import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v68";
-import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v68";
-import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v68";
-import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v68";
-import { authorizedFetch } from "./session.js?v68";
+import { uploadPayment, cancelOrder, API_BASE } from "./api.js?v73";
+import { cargarMetodosPago, obtenerMetodoPago } from "./payment-methods.js?v73";
+import { bindMethodLogoFallback, methodLogoHtml } from "./method-icons.js?v73";
+import { generarPDFRecibo, cargarLibreriasPDF } from "./receipt-pdf.js?v73";
+import { authorizedFetch } from "./session.js?v73";
+import { getAccessToken } from "./auth.js?v73";
 
 export const PENDING_PAYMENT_KEY = "ren_pending_payment";
 
@@ -75,26 +76,30 @@ function clearStoredPendingPayment() {
   storageRemove("ren_selected_payment_method_id");
 }
 
+// Mismo tratamiento que un 401 del backend: sin sesión válida, un pedido local
+// no se ofrece (podría pertenecer a la cuenta que cerró sesión en este navegador),
+// salvo que ya sepamos por el checkout_token que sigue pendiente de verdad.
+async function dropPendingPaymentWithoutSession(localPending) {
+  const localOrderStatus = await getLocalPendingOrderStatus(localPending);
+  if (localOrderStatus && localOrderStatus !== "pending") {
+    clearStoredPendingPayment();
+    return false;
+  }
+  clearStoredPendingPayment();
+  return false;
+}
+
 // El servidor es la fuente de verdad para recuperar un comprobante pendiente
 // cuando el cliente continúa la compra en otro dispositivo. Si no hay sesión o
 // hay un fallo transitorio de red, se conserva el estado local como respaldo.
 export async function restorePendingPaymentFromBackend() {
   const localPending = getPendingPayment();
+  // Sin token no tiene sentido ni llamar al backend: evita un 401 innecesario
+  // en la consola para cualquier visitante sin sesión (la mayoría en la portada).
+  if (!getAccessToken()) return dropPendingPaymentWithoutSession(localPending);
   try {
     const response = await authorizedFetch(`${API_BASE}/account/pending-payment`, { cache: "no-store" });
-    if (response.status === 401) {
-      // Si este navegador conserva el checkout_token, validar el estado sin
-      // sesión para no reabrir un comprobante ya rechazado o enviado.
-      const localOrderStatus = await getLocalPendingOrderStatus(localPending);
-      if (localOrderStatus && localOrderStatus !== "pending") {
-        clearStoredPendingPayment();
-        return false;
-      }
-      // Un pedido local no se ofrece a un visitante sin sesión: podría
-      // pertenecer a la cuenta que cerró sesión en este navegador.
-      clearStoredPendingPayment();
-      return false;
-    }
+    if (response.status === 401) return dropPendingPaymentWithoutSession(localPending);
     if (!response.ok) return hasPendingPayment();
 
     const remotePending = await response.json().catch(() => null);

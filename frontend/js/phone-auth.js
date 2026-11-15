@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js?v68";
-import { attachPendingReferral, getDeviceId, safeReturnPath, saveSession } from "./auth.js?v68";
+import { API_BASE } from "./config.js?v73";
+import { attachPendingReferral, getDeviceId, safeReturnPath, saveSession } from "./auth.js?v73";
 
 const PENDING_PHONE_KEY = "ren_pending_phone_auth";
 const SUPABASE_JS_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/+esm";

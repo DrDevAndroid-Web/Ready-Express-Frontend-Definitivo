@@ -1,6 +1,6 @@
-import { API_BASE, attachReferralClaim } from "./api.js?v69";
-import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v69";
-import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v69";
+import { API_BASE, attachReferralClaim } from "./api.js?v73";
+import { authorizedFetch, clearStoredSession, storeSession } from "./session.js?v73";
+import { clearReferralClaim, clearReferralPromotionState, clearReferralWalletState, getReferralClaimToken } from "./referrals.js?v73";
 const ACCESS_KEY = "ren_access_token";
 const PENDING_EMAIL_KEY = "ren_pending_email_confirmation";
 export function getAccessToken() { try { return localStorage.getItem(ACCESS_KEY) || ""; } catch { return ""; } }
@@ -54,6 +54,7 @@ const RETURN_PAGES = ["pago-confirmado.html", "pago-rechazado.html"];
 export function safeReturnPath() {
   const target = new URLSearchParams(location.search).get("return") || "";
   if (target === "checkout") return "./checkout.html";
+  if (target === "account") return "./cuenta.html";
   const [page, query = ""] = target.split("?");
   if (!RETURN_PAGES.includes(page)) return null;
   return `./${page}${query ? `?${new URLSearchParams(query)}` : ""}`;
@@ -79,6 +80,9 @@ export function applyReturnContext() {
 }
 export async function loginCustomer(email, password) { const result = await authRequest("/auth/login", { method: "POST", body: JSON.stringify({ email, password, device_id: getDeviceId() }) }); saveSession(result); await attachPendingReferral(); const target = safeReturnPath(); if (target) location.href = target; return result; }
 export async function getMyProfile() { return authRequest("/auth/profile"); }
+// Confirma la sesión contra el backend (no solo contra lo guardado en localStorage) y
+// expone si el perfil sigue existiendo: perfil null = cuenta eliminada, no sesión expirada.
+export async function getMyAccountStatus() { return authRequest("/auth/me"); }
 export async function getMyOrders() { return authRequest("/account/orders"); }
 export async function updateMyProfile(data) { return authRequest("/auth/profile", { method: "PATCH", body: JSON.stringify(data) }); }
 export async function getMyAddresses() { return authRequest("/account/addresses"); }

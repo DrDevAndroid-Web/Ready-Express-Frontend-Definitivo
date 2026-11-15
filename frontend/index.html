@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="preload" as="image" href="./images/hero-home-desktop.webp" media="(min-width: 901px)" fetchpriority="high">
   <link rel="preload" as="image" href="./images/hero-home-mobile.webp" media="(max-width: 900px)" fetchpriority="high">
-  <link rel="stylesheet" href="./css/styles.css?v68" />
+  <link rel="stylesheet" href="./css/styles.css?v73" />
   <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32.png">
   <link rel="apple-touch-icon" href="./images/apple-touch-icon.png">
 </head>
@@ -126,9 +126,6 @@
         <div class="hero-actions">
           <a href="#combos" class="btn-primary">Ver combos</a>
           <a href="./cuenta.html#referidos" class="btn-secondary" data-referral-cta data-referral-placement="home_hero">Invita y gana crédito</a>
-          <a href="https://wa.me/5356189395?text=Hola%20ReadyExpressNow.%20Me%20interesa%20conocer%20los%20combos%20y%20productos%20disponibles.%20%C2%BFPodr%C3%ADan%20ayudarme%3F" class="btn-secondary" target="_blank" rel="noopener">
-            Hablar por WhatsApp
-          </a>
         </div>
         <div class="hero-proof" aria-label="Beneficios del servicio">
           <span><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Compra protegida</span>
@@ -147,31 +144,34 @@
           <div class="carousel-item active">
             <picture>
               <source media="(min-width: 768px)" srcset="./images/carrusel-1-wide.webp">
-              <img src="./images/carrusel-1-mobile.webp" class="d-block w-100" alt="Combos de alimentos esenciales listos para enviar a Guantánamo">
+              <img src="./images/carrusel-1-mobile.webp" class="d-block w-100" alt="Programa de referidos de Ready Express Now: comparte tu enlace con tu familia y amigos">
             </picture>
-            <div class="carousel-caption d-none d-md-block">
-              <h5>Combos listos para enviar</h5>
-              <p>Alimentos esenciales seleccionados para tu familia en Guantánamo</p>
+            <div class="carousel-caption">
+              <h5>Invita y gana crédito</h5>
+              <p>Comparte tu enlace con tu familia y amigos. Cuando hagan su primer pedido, tú ganas crédito para el próximo.</p>
+              <a href="./cuenta.html#referidos" class="btn-primary carousel-cta" data-referral-cta data-referral-placement="home_carousel">Invitar ahora</a>
             </div>
           </div>
           <div class="carousel-item">
             <picture>
               <source media="(min-width: 768px)" srcset="./images/carrusel-2-wide.webp">
-              <img src="./images/carrusel-2-mobile.webp" class="d-block w-100" alt="Pago 100% seguro con Zelle y TocoPay desde cualquier parte del mundo" loading="lazy">
+              <img src="./images/carrusel-2-mobile.webp" class="d-block w-100" alt="Grupo de WhatsApp de Ready Express Now con ofertas, combos nuevos y seguimiento de pedidos" loading="lazy">
             </picture>
-            <div class="carousel-caption d-none d-md-block">
-              <h5>Pago 100% seguro</h5>
-          <p>Paga con Zelle o TocoPay desde cualquier parte del mundo</p>
+            <div class="carousel-caption">
+              <h5>Únete a nuestro grupo de WhatsApp</h5>
+              <p>Recibe ofertas, nuevos combos y seguimiento de pedidos directamente por WhatsApp.</p>
+              <a href="https://chat.whatsapp.com/LNjqfO8oiToLM5N1e2Ox51?mode=gi_t" class="btn-primary carousel-cta" target="_blank" rel="noopener">Unirme al grupo</a>
             </div>
           </div>
           <div class="carousel-item">
             <picture>
               <source media="(min-width: 768px)" srcset="./images/carrusel-3-wide.webp">
-              <img src="./images/carrusel-3-mobile.webp" class="d-block w-100" alt="Entrega garantizada en Guantánamo — confirmación por WhatsApp cuando llega el pedido" loading="lazy">
+              <img src="./images/carrusel-3-mobile.webp" class="d-block w-100" alt="Asistente de compra con inteligencia artificial de Ready Express Now respondiendo preguntas sobre combos y pedidos" loading="lazy">
             </picture>
-            <div class="carousel-caption d-none d-md-block">
-              <h5>Entrega garantizada en Guantánamo</h5>
-              <p>Confirmación por WhatsApp cuando tu pedido llegue a su destino</p>
+            <div class="carousel-caption">
+              <h5>Compra con ayuda de nuestro asistente de IA</h5>
+              <p>Pregúntale lo que necesites —combos, precios, métodos de pago— y arma tu pedido al instante.</p>
+              <button type="button" class="btn-primary carousel-cta" id="carousel-open-chat">Hablar con el asistente</button>
             </div>
           </div>
         </div>
@@ -932,7 +932,7 @@
   }
   </script>
 
-  <script type="module" src="./js/app.js?v68"></script>
+  <script type="module" src="./js/app.js?v73"></script>
   <script>
     document.getElementById('bottom-cart-btn')?.addEventListener('click', () => {
       document.getElementById('cart-btn')?.click();
@@ -943,8 +943,13 @@
       const isOpen = mobileNav.classList.toggle('active');
       document.getElementById('bottom-menu-btn')?.setAttribute('aria-expanded', isOpen);
     });
+    // El slide del carrusel que invita a hablar con el asistente de IA abre el
+    // mismo widget de chat.js (su botón flotante #ren-chat-fab) en vez de duplicar lógica.
+    document.getElementById('carousel-open-chat')?.addEventListener('click', () => {
+      document.getElementById('ren-chat-fab')?.click();
+    });
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  <script type="module" src="./js/chat.js?v68"></script>
+  <script type="module" src="./js/chat.js?v73"></script>
 </body>
 </html>

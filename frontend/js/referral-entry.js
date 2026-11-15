@@ -1,4 +1,4 @@
-import { captureReferralFromUrl } from "./referrals.js?v68";
+import { captureReferralFromUrl } from "./referrals.js?v73";
 
 // Las páginas secundarias también aceptan enlaces compartidos de referidos.
 if (new URLSearchParams(location.search).has("ref")) {

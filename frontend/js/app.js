@@ -1,11 +1,11 @@
-import { initCart, getCart } from "./cart.js?v68";
-import { initProducts, initProductSearch } from "./products.js?v68";
-import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v68";
-import { restorePendingPaymentFromBackend, showPendingPaymentNotice } from "./payment.js?v68";
-import { inicializarMetodosPago } from "./payment-methods.js?v68";
-import { getLocalizaciones } from "./api.js?v68";
-import { bindReferralCtaTracking, captureReferralFromUrl, getReferralPromotionState, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v68";
-import { getAccessToken, getPendingEmailConfirmation } from "./auth.js?v68";
+import { initCart, getCart } from "./cart.js?v73";
+import { initProducts, initProductSearch } from "./products.js?v73";
+import { initCheckout, openCheckoutAtSavedStep } from "./checkout.js?v73";
+import { restorePendingPaymentFromBackend, showPendingPaymentNotice } from "./payment.js?v73";
+import { inicializarMetodosPago } from "./payment-methods.js?v73";
+import { getLocalizaciones } from "./api.js?v73";
+import { bindReferralCtaTracking, captureReferralFromUrl, getReferralPromotionState, showReferralWelcomeModal, syncReferralWalletState } from "./referrals.js?v73";
+import { getAccessToken, getPendingEmailConfirmation } from "./auth.js?v73";
 
 function displayMunicipalityName(name) {
   return String(name || "Municipio").replace(/^El Savador$/i, "El Salvador");

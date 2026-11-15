@@ -1,13 +1,14 @@
 import {
-  getAccessToken, getCurrentUser, getMyProfile, updateMyProfile, getMyOrders,
+  getAccessToken, getCurrentUser, getMyAccountStatus, getMyProfile, updateMyProfile, getMyOrders,
   getMyAddresses, createMyAddress, updateMyAddress, deleteMyAddress, clearSession
-} from "./auth.js?v68";
-import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v68";
-import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v68";
-import { billingComplete, renderBillingFields } from "./billing-fields.js?v68";
-import { CARD_PAYMENTS_ENABLED } from "./config.js?v68";
-import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences, getEmailPreferences, updateEmailPreferences, deleteMyAccount } from "./api.js?v68";
-import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v68";
+} from "./auth.js?v73";
+import { focusFirstInvalid, setLoading, showMessage } from "./auth-ui.js?v73";
+import { alternativeMethods, payWithMethod, retryTropipayPayment } from "./payment-return.js?v73";
+import { billingComplete, renderBillingFields } from "./billing-fields.js?v73";
+import { CARD_PAYMENTS_ENABLED } from "./config.js?v73";
+import { getMyReferralCode, getMyReferralSummary, getReferralPushPreferences, updateReferralPushPreferences, getEmailPreferences, updateEmailPreferences, deleteMyAccount } from "./api.js?v73";
+import { bindReferralCtaTracking, saveReferralWalletState } from "./referrals.js?v73";
+import { showNotice } from "./notice-modal.js?v73";
 
 const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -73,15 +74,42 @@ function toast(text) {
 function isAuthError(error) {
   return error?.status === 401;
 }
-function showLoggedOut(reason = "") {
+// `deleted: true` distingue una cuenta eliminada (perfil ya no existe) de una
+// sesión simplemente caducada: el texto y el modal cambian según el caso.
+function showLoggedOut(reason = "", { deleted = false } = {}) {
   clearSession();
   $("#account-content").hidden = true;
   $("#account-bottom-nav").hidden = true;
   $("#auth-required").hidden = false;
-  if (reason) $("#auth-required-text").textContent = reason;
+  const title = deleted ? "Esta cuenta ya no existe" : "Accede a tu cuenta";
+  const text = deleted
+    ? "Esta cuenta fue eliminada. Crea una cuenta nueva para seguir tus pedidos y guardar tus direcciones."
+    : (reason || "Inicia sesión para ver tus pedidos, pagos y comprobantes, y guardar las direcciones de tu familia.");
+  $("#auth-required-title").textContent = title;
+  $("#auth-required-text").textContent = text;
+  // El modal salta siempre que no hay sesión válida: no basta con la tarjeta de
+  // fondo, hay que forzar a elegir "Iniciar sesión" o "Crear cuenta".
+  showNotice({
+    icon: "user",
+    tone: deleted ? "warning" : "info",
+    title,
+    body: `<p>${escapeHtml(text)}</p>`,
+    dismissible: false,
+    actions: [
+      { label: "Iniciar sesión", href: "./login-v25.html?return=account" },
+      { label: "Crear cuenta gratis", href: "./registro-v25.html?return=account", variant: "secondary" },
+      { label: "Ya tengo un código de confirmación", href: "./confirmar-email.html", variant: "link" }
+    ]
+  });
+}
+// 401 con code "account_deleted" (ver backend/middlewares/auth.js) = cuenta eliminada;
+// cualquier otro 401 = sesión caducada normal.
+function logoutFromAuthError(error) {
+  const deleted = error?.code === "account_deleted";
+  showLoggedOut(deleted ? "" : "Tu sesión expiró. Inicia sesión de nuevo para continuar.", { deleted });
 }
 function handleError(error, messageEl) {
-  if (isAuthError(error)) return showLoggedOut("Tu sesión expiró. Inicia sesión de nuevo para continuar.");
+  if (isAuthError(error)) return logoutFromAuthError(error);
   if (messageEl) showMessage(messageEl, error.message || "No se pudo completar la operación", "error");
   else toast(error.message || "No se pudo completar la operación");
 }
@@ -607,7 +635,7 @@ async function loadReferrals() {
     if (code?.code && code.code !== summary?.code?.code) renderReferralSummary(code, summary);
   } catch (error) {
     $("#hub-balance").textContent = "No disponible";
-    if (isAuthError(error)) showLoggedOut("Tu sesión expiró. Inicia sesión de nuevo para continuar.");
+    if (isAuthError(error)) logoutFromAuthError(error);
     else {
       container.innerHTML = '<div class="account-card account-retry"><p>Tu saldo no se pudo cargar ahora.</p><button type="button" class="account-action" id="retry-referrals">Reintentar</button></div>';
       $("#retry-referrals").addEventListener("click", () => loadReferrals());
@@ -729,12 +757,27 @@ async function setupPrivacySettings() {
 }
 
 // ── Inicio ──
-function init() {
+async function init() {
   bindReferralCtaTracking();
   if (!getCurrentUser() || !getAccessToken()) {
     showLoggedOut();
     return;
   }
+
+  // Lo guardado en localStorage no basta: hay que confirmar contra el backend que
+  // la cuenta sigue existiendo antes de pintar el panel con pedidos/saldo/direcciones.
+  // perfil null (o 401 "account_deleted") = cuenta eliminada, no sesión expirada.
+  try {
+    const status = await getMyAccountStatus();
+    if (!status?.profile) return showLoggedOut("", { deleted: true });
+  } catch (error) {
+    if (isAuthError(error)) return logoutFromAuthError(error);
+    // Error de red/servidor: no se puede confirmar la sesión, pero tampoco hay
+    // certeza de que esté mal. Se sigue con la sesión guardada en vez de forzar
+    // un logout por un problema de conexión (igual que session.js al renovar).
+    console.warn("[account:init] No se pudo verificar la sesión contra el backend", error);
+  }
+
   $("#auth-required").hidden = true;
   $("#account-content").hidden = false;
   $("#account-bottom-nav").hidden = false;
@@ -772,4 +815,4 @@ function init() {
   setupPrivacySettings().catch(error => console.warn("[privacy]", error));
 }
 
-init();
+init().catch(error => console.error("[account:init]", error));
